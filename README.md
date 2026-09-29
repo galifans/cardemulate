@@ -159,7 +159,9 @@ curl -X POST https://cardemulate.wikiandroid.com/api/catalog/sync \
 
 - **只支持一种注册方式：邮箱 + 密码**。不采集昵称、手机号等任何其他信息，
   **不提供**第三方登录，也不做邮箱验证流程。
-- 密码长度 **6 ～ 200 位**；展示名由服务端取邮箱前缀自动生成。
+- 账号密码只按**常见站点约束**校验：邮箱格式合法且不超过 100 字符；
+  密码 **6～32 位**且不能包含空格。展示名由服务端取邮箱前缀自动生成。
+- 认证页默认进**登录**；没有账号时点底部的「立即注册」即可切换。
 - 密码以 **PBKDF2-SHA256（150,000 次迭代 + 每用户随机盐）** 哈希存储，不保存明文。
 - 登录态用一个 `ce_session` Cookie（`HttpOnly` + `Secure` + `SameSite=Lax`，30 天），
   数据库只存其 SHA-256；登录失败不区分「邮箱不存在 / 密码错误」，避免账号枚举。
@@ -170,7 +172,7 @@ curl -X POST https://cardemulate.wikiandroid.com/api/catalog/sync \
 | 方法 | 路径 | 说明 |
 | --- | --- | --- |
 | GET | `/api/config` | 站点元信息与功能开关 |
-| POST | `/api/auth/register` | 注册（仅需 `email` + `password`，密码至少 6 位） |
+| POST | `/api/auth/register` | 注册（仅需 `email` + `password`，密码 6～32 位且不含空格） |
 | POST | `/api/auth/login` | 登录 |
 | POST | `/api/auth/logout` | 退出 |
 | GET | `/api/me` | 当前用户 |

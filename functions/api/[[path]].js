@@ -8,7 +8,7 @@
  *     GET  /api/catalog             从 D1 读回目录镜像（用于对账 / 外部工具）
  *
  *   账号
- *     POST /api/auth/register       注册（仅「邮箱 + 密码」，密码至少 6 位）
+ *     POST /api/auth/register       注册（仅「邮箱 + 密码」，密码 6～32 位且不含空格）
  *     POST /api/auth/login          登录
  *     POST /api/auth/logout         退出
  *     GET  /api/me                  当前登录用户
@@ -30,8 +30,10 @@ const SESSION_COOKIE = "ce_session";
 const SESSION_TTL_DAYS = 30;
 const PBKDF2_ITERATIONS = 150000;
 /** 注册方式只有「邮箱 + 密码」一种，密码长度约束前后端保持同一套数字 */
+// 账号密码采用常见站点的约束：邮箱 + 6～32 位且不含空格的密码
 const MIN_PASSWORD_LENGTH = 6;
-const MAX_PASSWORD_LENGTH = 200;
+const MAX_PASSWORD_LENGTH = 32;
+const MAX_EMAIL_LENGTH = 100;
 /** 单次上报的卡种上限，防止伪造超大 payload */
 const MAX_VARIANTS_PER_BREAK = 600;
 /** 批量写库时每条 SQL 拼多少行 */
@@ -128,6 +130,14 @@ const sessionCookie = (token, maxAgeSeconds) =>
 const normalizeEmail = (value) => (typeof value === "string" ? value.trim().toLowerCase() : "");
 
 const isEmail = (value) => /^[^\s@]+@[^\s@]+\.[^\s@]{2,}$/.test(value);
+
+/** 校验密码是否符合常见约束，返回中文错误文案（通过则返回空字符串） */
+const passwordProblem = (password) => {
+    if (password.length < MIN_PASSWORD_LENGTH) return `密码至少 ${MIN_PASSWORD_LENGTH} 位`;
+    if (password.length > MAX_PASSWORD_LENGTH) return `密码最多 ${MAX_PASSWORD_LENGTH} 位`;
+    if (/\s/.test(password)) return "密码不能包含空格";
+    return "";
+};
 
 /** 维度 key：小写 slug，允许 . 与 : 以容纳 app.category.maker.product.box */
 const isSafeKey = (value) =>
@@ -266,9 +276,11 @@ const handleRegister = async (request, env) => {
     // 注册只需要账号 + 密码，昵称不单独采集，直接取邮箱前缀做展示名
     const displayName = email.split("@")[0].slice(0, 24) || "收藏家";
 
+    if (!email) return fail("请输入邮箱与密码");
+    if (email.length > MAX_EMAIL_LENGTH) return fail("邮箱过长");
     if (!isEmail(email)) return fail("邮箱格式不正确");
-    if (password.length < MIN_PASSWORD_LENGTH) return fail(`密码至少 ${MIN_PASSWORD_LENGTH} 位`);
-    if (password.length > MAX_PASSWORD_LENGTH) return fail("密码过长");
+    const problem = passwordProblem(password);
+    if (problem) return fail(problem);
 
     const exists = await db.prepare("SELECT id FROM users WHERE email = ?1").bind(email).first();
     if (exists) return fail("该邮箱已注册，请直接登录", 409);
@@ -314,7 +326,8 @@ const handleLogin = async (request, env) => {
     const email = normalizeEmail(body.email);
     const password = typeof body.password === "string" ? body.password : "";
     if (!email || !password) return fail("请输入邮箱与密码");
-    if (password.length > MAX_PASSWORD_LENGTH) return fail("密码过长");
+    // 登录只限制上限，不能用长度下限去拒绝一个已注册的旧密码
+    if (password.length > MAX_PASSWORD_LENGTH) return fail(`密码最多 ${MAX_PASSWORD_LENGTH} 位`);
 
     const user = await db
         .prepare(

@@ -40,12 +40,26 @@ const show = (label, result) => {
 const main = async () => {
     const email = `smoke${Date.now()}@example.com`;
 
-    show("注册-密码5位（应失败）", await post("auth/register", { email, password: "abc12" }));
-    show("注册-密码6位（应成功）", await post("auth/register", { email, password: "abc123" }));
+    console.log("=== 注册约束校验（全部应失败） ===");
+    for (const [label, payload] of [
+        ["空邮箱", { email: "", password: "abc123" }],
+        ["邮箱格式错", { email: "abc", password: "abc123" }],
+        ["密码 5 位", { email, password: "abc12" }],
+        ["密码 33 位", { email, password: "a".repeat(33) }],
+        ["密码含空格", { email, password: "abc 123" }],
+    ]) {
+        const result = await post("auth/register", payload);
+        console.log(`${label.padEnd(12)} ${result.status} ${JSON.stringify(result.body)}`);
+    }
+
+    console.log("\n=== 注册与登录 ===");
+    show("注册-合法", await post("auth/register", { email, password: "abc123" }));
+    show("注册-重复邮箱", await post("auth/register", { email, password: "abc123" }));
+    show("登录-密码错", await post("auth/login", { email, password: "wrong1" }));
 
     const login = await post("auth/login", { email, password: "abc123" });
     cookie = tokenOf(login.setCookie) || cookie;
-    show("登录", { status: login.status, body: login.body, setCookie: login.setCookie.length });
+    show("登录-正确", { status: login.status, body: login.body, setCookie: login.setCookie.length });
 
     show("当前用户", await call("me", {}, cookie));
 
