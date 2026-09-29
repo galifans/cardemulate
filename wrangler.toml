@@ -1,7 +1,11 @@
 name = "cardemulate"
 compatibility_date = "2026-01-01"
 
+# 声明本站是 Pages 项目，Cloudflare 构建时会读本文件里的绑定配置，
+# 因此 D1 绑定跟着仓库走，不需要在面板里手工维护。
+pages_build_output_dir = "dist"
+
 [[d1_databases]]
 binding = "DB"
 database_name = "cardemulate"
-database_id = "local-dev-placeholder"
+database_id = "51265817-c1ed-4e09-98fd-a3d1709fb0c3"
