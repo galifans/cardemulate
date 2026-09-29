@@ -1162,23 +1162,26 @@ export async function onRequest(context) {
     const path = new URL(request.url).pathname.replace(/^\/api\/?/, "").replace(/\/+$/, "");
     const method = request.method.toUpperCase();
 
+    // 【重要】这里必须 await。`return handleXxx()` 只是把 Promise 交出去，
+    // try/catch 不会捕获它的拒绝，任何异步失败都会变成未处理异常，
+    // 线上表现为 Pages 的 1101 错误页，而不是本文件统一的 JSON 报错。
     try {
-        if (path === "config" && method === "GET") return handleConfig(env);
+        if (path === "config" && method === "GET") return await handleConfig(env);
 
-        if (path === "catalog" && method === "GET") return handleCatalogRead(request, env);
-        if (path === "catalog/sync" && method === "POST") return handleCatalogSync(request, env);
+        if (path === "catalog" && method === "GET") return await handleCatalogRead(request, env);
+        if (path === "catalog/sync" && method === "POST") return await handleCatalogSync(request, env);
 
-        if (path === "auth/register" && method === "POST") return handleRegister(request, env);
-        if (path === "auth/login" && method === "POST") return handleLogin(request, env);
-        if (path === "auth/logout" && method === "POST") return handleLogout(request, env);
-        if (path === "me" && method === "GET") return handleMe(request, env);
+        if (path === "auth/register" && method === "POST") return await handleRegister(request, env);
+        if (path === "auth/login" && method === "POST") return await handleLogin(request, env);
+        if (path === "auth/logout" && method === "POST") return await handleLogout(request, env);
+        if (path === "me" && method === "GET") return await handleMe(request, env);
 
-        if (path === "stats" && method === "GET") return handleStats(request, env);
-        if (path === "break" && method === "POST") return handleRecordBreak(request, env);
-        if (path === "breaks" && method === "GET") return handleListBreaks(request, env);
-        if (path === "break" && method === "DELETE") return handleDeleteBreaks(request, env);
-        if (path === "leaderboard" && method === "GET") return handleLeaderboard(request, env);
-        if (path === "global" && method === "GET") return handleGlobal(request, env);
+        if (path === "stats" && method === "GET") return await handleStats(request, env);
+        if (path === "break" && method === "POST") return await handleRecordBreak(request, env);
+        if (path === "breaks" && method === "GET") return await handleListBreaks(request, env);
+        if (path === "break" && method === "DELETE") return await handleDeleteBreaks(request, env);
+        if (path === "leaderboard" && method === "GET") return await handleLeaderboard(request, env);
+        if (path === "global" && method === "GET") return await handleGlobal(request, env);
 
         return fail(`未知接口：${method} /api/${path}`, 404);
     } catch (error) {

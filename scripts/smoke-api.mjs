@@ -1,10 +1,14 @@
 /**
- * 本地 API 冒烟脚本（临时，不入库）。
- * 直接对着 wrangler pages dev 起的本地全栈服务跑完整链路：
- * 注册 -> 登录 -> 记录拆盒 -> 我的拆盒记录 -> 我的统计 -> 全站统计 -> 排行榜。
+ * API 冒烟脚本：注册 -> 登录 -> 记录拆盒 -> 我的拆盒记录 -> 我的统计 -> 全站统计 -> 排行榜。
+ * 默认打本地 wrangler pages dev（http://127.0.0.1:8788），
+ * 传第一个参数或设 CE_BASE 环境变量即可改成线上站点：
+ *
+ *   node scripts/smoke-api.mjs https://cardemulate.pages.dev
+ *
  * 手动管理 Session Cookie（Node fetch 不会自动保存）。
  */
-const BASE = "http://127.0.0.1:8788/api";
+const ORIGIN = (process.argv[2] || process.env.CE_BASE || "http://127.0.0.1:8788").replace(/\/$/, "");
+const BASE = `${ORIGIN}/api`;
 
 let cookie = "";
 
@@ -38,6 +42,7 @@ const show = (label, result) => {
 };
 
 const main = async () => {
+    console.log(`=== 目标站点 ${ORIGIN} ===`);
     const email = `smoke${Date.now()}@example.com`;
 
     console.log("=== 注册约束校验（全部应失败） ===");
