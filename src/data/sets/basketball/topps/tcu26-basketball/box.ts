@@ -944,6 +944,7 @@ const build = (config: BoxConfig): BoxDefinition => {
         maker: "topps",
         productKey: "tcu26-basketball",
         productName: "2025-26 Topps Chrome Updates Basketball",
+        year: "2025-26",
         live: true,
         releaseDate: "2026-08-06",
         cardsPerPack: config.cardsPerPack,

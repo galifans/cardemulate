@@ -99,13 +99,13 @@ npm run boxes:check      # 比对差异，有差异退出码 1
 
 ```
 src/
-  catalog/            目录层：站点 / 品类 / 发行商 / 系列 的定义与派生
-    types.ts            AppDef / CategoryDef / MakerDef / ProductDef / BoxRef
+  catalog/            目录层：站点 / 品类 / 发行商 / 年份 / 系列 的定义与派生
+    types.ts            AppDef / CategoryDef / MakerDef / ProductDef / YearGroupDef / BoxRef
     apps.ts             多站点注册表（APPS、CURRENT_APP）
     registry.ts         盒型注册表（registerBox / boxByKey / boxesWhere）
     define.ts           boxKey() 命名规则 + validateBox() + defineBox()
     taxonomy.ts         品类 / 发行商 / 系列的「预置种子」（未上线的占位）
-    index.ts            由注册表 + 种子派生出 CATEGORIES / MAKERS / findProducts
+    index.ts            由注册表 + 种子派生出 CATEGORIES / MAKERS / findProducts / findYearGroups
     db.ts               目录 -> D1 镜像负载（buildCatalogPayload）
   data/sets/          盒型数据，按 品类/发行商/系列 分目录
     index.ts            汇总注册所有盒型
@@ -139,6 +139,12 @@ schema.sql            D1 建表脚本（v2：维度表 + 事实表分离）
 例如 `basketball.topps.tcu26-basketball.value-box`。
 四段的合法字符是 `[a-z0-9-]`，不允许出现大写、空格、下划线。
 
+### 年份
+
+系列要填 `year`：跨年赛季写 `"2025-26"`，单年发行的写 `"2026"`。
+发行商页按它分组，新的年份在前。同一个系列的所有盒型必须填一致的值 ——
+`validateBox()` 会检查格式，填错（比如写成 `"2025-2026"`）会直接抛错。
+
 ### 新增一个盒型
 
 1. 在 `src/data/sets/<品类>/<发行商>/<系列>/` 下新建 `roster.ts` 与 `box.ts`，
@@ -151,6 +157,13 @@ schema.sql            D1 建表脚本（v2：维度表 + 事实表分离）
    里补一条（只为了让未上线系列也显示占位条目，纯新增盒型可以跳过）。
 
 加完之后品类页的盒型数量、「已上线」标记、面包屑都会自动更新，不需要改任何视图。
+
+### 补一个老系列
+
+历史系列跟新系列走同一套流程：建目录、写 `box.ts`、加进 `registerBoxes()`。
+不同的是配率得先从发行商归档的 Pack Odds 原件里重新提取
+（见 `sources/README.md`），系列多的时候可以一个年份补一个，
+发行商页会自动多出一段年份分组。
 
 ### 新增一个品类 / 发行商
 

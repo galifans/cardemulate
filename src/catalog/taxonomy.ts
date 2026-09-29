@@ -41,6 +41,8 @@ export interface ProductSeed {
     category: string;
     maker: string;
     order: number;
+    /** 系列年份，如 "2025-26"；目录按它分组。已注册盒型的年份以盒型数据为准 */
+    year: string;
     releaseDate?: string;
     note?: string;
     /** 尚未做拆盒数据的盒型占位 */
@@ -132,6 +134,7 @@ export const PRODUCT_SEED: ProductSeed[] = [
         category: "basketball",
         maker: "topps",
         order: 1,
+        year: "2025-26",
         releaseDate: "2026-08-06",
         note: "该系列首个 NBA 版本，官方 Checklist 共 1,299 张卡，分 Hobby / Jumbo / Value / Mega 四种盒型发行。",
         boxes: [],
@@ -142,6 +145,7 @@ export const PRODUCT_SEED: ProductSeed[] = [
         category: "basketball",
         maker: "topps",
         order: 2,
+        year: "2025-26",
         note: "待上线，敬请期待！",
         boxes: [],
     },

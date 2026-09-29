@@ -66,7 +66,7 @@
   - `registry.ts` 盒型注册表（`registerBox` / `boxByKey` / `boxesWhere`）
   - `define.ts` 命名规则 + `validateBox()` + `defineBox()`
   - `taxonomy.ts` 品类 / 发行商 / 系列的预置种子（未上线的占位条目）
-  - `index.ts` 由注册表 + 种子派生出 `CATEGORIES / MAKERS / findProducts`
+  - `index.ts` 由注册表 + 种子派生出 `CATEGORIES / MAKERS / findProducts / findYearGroups`
   - `db.ts` 目录 → D1 镜像负载
 - **视图只读派生结果**：`HomeView` / `CategoryView` / `MakerView` / `ProductView` /
   `BreakView` / `StatsView` 一律 `import { ... } from "../catalog"`，
@@ -81,6 +81,10 @@
 
   例如 `basketball.topps.tcu26-basketball.value-box`。
   四段合法字符均为 `[a-z0-9-]`，不允许大写、空格、下划线。
+- **年份是目录的第二排序维度**：每个盒型都要填 `year`（`"2025-26"` 或 `"2026"`），
+  同一系列的所有盒型必须一致；发行商页按年份分组展示，新的年份在前。
+  排序键取年份前四位，所以 `"2026"` 会排在 `"2025-26"` 前面。
+  新增/补录老系列时不要另建一套机制，直接在 `year` 上落位。
 - **新增盒型**：在 `src/data/sets/<品类>/<发行商>/<系列>/` 建 `roster.ts` + `box.ts` +
   `index.ts`，用 `defineBox({...})` 产出定义，最后在 `src/data/sets/index.ts` 的
   `registerBoxes([...])` 中追加。品类页的盒数、「已上线」标记、面包屑会自动更新。

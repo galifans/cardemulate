@@ -1,7 +1,7 @@
 <script setup lang="ts">
 import { computed } from "vue";
 import { RouterLink, useRoute } from "vue-router";
-import { findCategory, findMaker, findProducts } from "../catalog";
+import { findCategory, findMaker, findYearGroups } from "../catalog";
 
 const route = useRoute();
 const categoryKey = computed(() => String(route.params.category));
@@ -9,7 +9,7 @@ const makerKey = computed(() => String(route.params.maker));
 
 const category = computed(() => findCategory(categoryKey.value));
 const maker = computed(() => findMaker(categoryKey.value, makerKey.value));
-const products = computed(() => findProducts(categoryKey.value, makerKey.value));
+const yearGroups = computed(() => findYearGroups(categoryKey.value, makerKey.value));
 </script>
 
 <template>
@@ -25,38 +25,46 @@ const products = computed(() => findProducts(categoryKey.value, makerKey.value))
         <header class="ce-page-head">
             <p class="ce-card-en">{{ maker?.nameEn }}</p>
             <h1 class="ce-page-title">{{ maker?.name ?? makerKey }} 系列</h1>
-            <p class="ce-page-desc">选择一个系列，查看盒型与拆盒入口</p>
+            <p class="ce-page-desc">按年份排列，新的在前</p>
         </header>
 
-        <section class="ce-section">
-            <div v-if="products.length" class="ce-grid ce-grid-2">
-                <component
-                    :is="product.live ? RouterLink : 'div'"
-                    v-for="product in products"
-                    :key="product.key"
-                    :to="product.live ? `/c/${categoryKey}/${makerKey}/${product.key}` : undefined"
-                    class="ce-card"
-                    :class="product.live ? 'ce-card-hover' : 'ce-card-off'"
-                >
-                    <p class="ce-card-title">
-                        {{ product.name }}
-                        <span v-if="product.live" class="ce-badge ce-badge-live">已上线</span>
-                        <span v-else class="ce-badge ce-badge-soon">待上线</span>
-                    </p>
-                    <p v-if="product.releaseDate" class="ce-card-sub">
-                        上市日期：{{ product.releaseDate }}
-                    </p>
-                    <p class="ce-card-sub">{{ product.note }}</p>
-                    <p v-if="product.live" class="ce-soon-line ce-live-line">
-                        已收录 {{ product.boxes.filter((b) => b.live).length }} 个可拆盒型
-                    </p>
-                </component>
-            </div>
-            <div v-else class="ce-empty">
-                该发行商暂无可选系列。
-                <RouterLink :to="`/c/${categoryKey}`" class="ce-link">返回上一步</RouterLink>
-            </div>
-        </section>
+        <template v-if="yearGroups.length">
+            <section v-for="group in yearGroups" :key="group.year" class="ce-section">
+                <div class="ce-section-head">
+                    <h2 class="ce-section-title">{{ group.year }}</h2>
+                    <span class="ce-section-desc">{{ group.products.length }} 个系列</span>
+                </div>
+
+                <div class="ce-grid ce-grid-2">
+                    <component
+                        :is="product.live ? RouterLink : 'div'"
+                        v-for="product in group.products"
+                        :key="product.key"
+                        :to="product.live ? `/c/${categoryKey}/${makerKey}/${product.key}` : undefined"
+                        class="ce-card"
+                        :class="product.live ? 'ce-card-hover' : 'ce-card-off'"
+                    >
+                        <p class="ce-card-title">
+                            {{ product.name }}
+                            <span v-if="product.live" class="ce-badge ce-badge-live">已上线</span>
+                            <span v-else class="ce-badge ce-badge-soon">待上线</span>
+                        </p>
+                        <p v-if="product.releaseDate" class="ce-card-sub">
+                            上市日期：{{ product.releaseDate }}
+                        </p>
+                        <p class="ce-card-sub">{{ product.note }}</p>
+                        <p v-if="product.live" class="ce-soon-line ce-live-line">
+                            已收录 {{ product.boxes.filter((b) => b.live).length }} 个可拆盒型
+                        </p>
+                    </component>
+                </div>
+            </section>
+        </template>
+
+        <div v-else class="ce-empty">
+            该发行商暂无可选系列。
+            <RouterLink :to="`/c/${categoryKey}`" class="ce-link">返回上一步</RouterLink>
+        </div>
     </div>
 </template>
 

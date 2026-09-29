@@ -14,7 +14,7 @@
 import type { BoxDefinition } from "../engine/types";
 import { boxList, boxByKey } from "./registry";
 import { CATEGORY_SEED, MAKER_META, PRODUCT_SEED } from "./taxonomy";
-import type { BoxRef, CategoryDef, MakerDef, ProductDef } from "./types";
+import type { BoxRef, CategoryDef, MakerDef, ProductDef, YearGroupDef } from "./types";
 
 /* 副作用导入：触发 src/data/sets 下全部盒型注册 */
 import "../data/sets";
@@ -105,6 +105,12 @@ export const MAKERS: Record<string, MakerDef[]> = Object.fromEntries(
 /* 系列与盒型                                                            */
 /* ------------------------------------------------------------------ */
 
+/**
+ * 年份排序键："2025-26" -> 2025。跨年赛季取起始年份，
+ * 所以 "2026" 这种单年系列会排在 "2025-26" 前面（它晚一年上市）。
+ */
+export const yearStart = (year: string): number => Number(year.slice(0, 4));
+
 function defaultProductNote(boxes: BoxDefinition[], productKey: string): string {
     const subsets = new Set<string>();
     let variants = 0;
@@ -143,12 +149,19 @@ function deriveProducts(category: string, maker: string): ProductDef[] {
                 maker,
                 order: seed?.order ?? 100 + index,
                 live: own.some((box) => box.live),
+                year: seed?.year ?? own[0]?.year ?? "",
                 releaseDate: seed?.releaseDate ?? own[0]?.releaseDate,
                 note: seed?.note ?? defaultProductNote(own, key),
                 boxes: [...registered, ...planned],
             };
         })
-        .sort((a, b) => a.order - b.order || a.name.localeCompare(b.name));
+        // 年份新的在前；同一年内按 order，再按名字兜底
+        .sort(
+            (a, b) =>
+                yearStart(b.year) - yearStart(a.year) ||
+                a.order - b.order ||
+                a.name.localeCompare(b.name),
+        );
 }
 
 /* ------------------------------------------------------------------ */
@@ -168,6 +181,20 @@ export const findProducts = (category: string, maker: string): ProductDef[] =>
 
 export const findProduct = (category: string, maker: string, key: string): ProductDef | undefined =>
     findProducts(category, maker).find((item) => item.key === key);
+
+/**
+ * 某发行商下的系列按年份分组，新的年份在前。
+ * 直接切段而不是重新排序 —— findProducts 已经按年份排好了。
+ */
+export const findYearGroups = (category: string, maker: string): YearGroupDef[] => {
+    const groups: YearGroupDef[] = [];
+    for (const product of findProducts(category, maker)) {
+        const last = groups[groups.length - 1];
+        if (last && last.year === product.year) last.products.push(product);
+        else groups.push({ year: product.year, products: [product] });
+    }
+    return groups;
+};
 
 /** 全部盒型 */
 export const allBoxes = (): BoxDefinition[] => ALL_BOXES.slice();

@@ -87,6 +87,11 @@ export interface BoxDefinition {
     productKey: string;
     /** 所属系列/产品展示名，如 "2025-26 Topps Chrome Updates Basketball" */
     productName: string;
+    /**
+     * 所属年份：跨年赛季写 "2025-26"，单年发行的写 "2026"。
+     * 目录按它给系列分组（新的在前），同一个系列的所有盒型必须填成同一个值。
+     */
+    year: string;
     /** 是否已上线可拆；false 时前端灰化显示「待上线，敬请期待！」 */
     live: boolean;
     /** 上市日期 (YYYY-MM-DD) */

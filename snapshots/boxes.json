@@ -1,5 +1,5 @@
 {
-  "format": 1,
+  "format": 2,
   "seeds": [
     "alpha",
     "beta",
@@ -16,6 +16,7 @@
       "maker": "topps",
       "productKey": "tcu26-basketball",
       "productName": "2025-26 Topps Chrome Updates Basketball",
+      "year": "2025-26",
       "live": true,
       "releaseDate": "2026-08-06",
       "cardsPerPack": 4,
@@ -3466,6 +3467,7 @@
       "maker": "topps",
       "productKey": "tcu26-basketball",
       "productName": "2025-26 Topps Chrome Updates Basketball",
+      "year": "2025-26",
       "live": true,
       "releaseDate": "2026-08-06",
       "cardsPerPack": 11,
@@ -7152,6 +7154,7 @@
       "maker": "topps",
       "productKey": "tcu26-basketball",
       "productName": "2025-26 Topps Chrome Updates Basketball",
+      "year": "2025-26",
       "live": true,
       "releaseDate": "2026-08-06",
       "cardsPerPack": 4,
@@ -9964,6 +9967,7 @@
       "maker": "topps",
       "productKey": "tcu26-basketball",
       "productName": "2025-26 Topps Chrome Updates Basketball",
+      "year": "2025-26",
       "live": true,
       "releaseDate": "2026-08-06",
       "cardsPerPack": 6,

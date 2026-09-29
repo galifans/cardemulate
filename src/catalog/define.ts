@@ -16,6 +16,9 @@ export const boxKey = (category: string, maker: string, productKey: string, slug
 /** 只允许小写字母、数字与短横线，冒号用于子集/卡种分层 */
 const SLUG_RE = /^[a-z0-9][a-z0-9-]*$/;
 
+/** 年份：单年 "2026"，跨年赛季 "2025-26" */
+const YEAR_RE = /^\d{4}(-\d{2})?$/;
+
 export type BoxInput = Omit<BoxDefinition, "key">;
 
 const isDev = ((): boolean => {
@@ -54,6 +57,11 @@ export function validateBox(box: BoxDefinition): string[] {
         ["slug", box.slug],
     ] as const) {
         if (!SLUG_RE.test(value)) problems.push(`${label} 必须是小写 slug（a-z0-9-），当前为 "${value}"`);
+    }
+
+    // 年份是目录分组依据，格式错了会让系列排不进任何一组
+    if (!YEAR_RE.test(box.year)) {
+        problems.push(`year 必须是 2026 或 2025-26 这样的年份，当前为 "${box.year}"`);
     }
 
     if (box.key !== boxKey(box.category, box.maker, box.productKey, box.slug)) {

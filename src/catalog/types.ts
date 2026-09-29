@@ -68,7 +68,15 @@ export interface ProductDef {
     maker: string;
     order: number;
     live: boolean;
+    /** 系列年份，如 "2025-26"；目录按它分组 */
+    year: string;
     releaseDate?: string;
     note: string;
     boxes: BoxRef[];
+}
+
+/** 同一发行商下按年份归好组的系列，年份新的在前 */
+export interface YearGroupDef {
+    year: string;
+    products: ProductDef[];
 }

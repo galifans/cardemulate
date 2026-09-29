@@ -57,6 +57,7 @@ const snapshotBox = (box: BoxDefinition) => ({
     maker: box.maker,
     productKey: box.productKey,
     productName: box.productName,
+    year: box.year,
     live: box.live,
     releaseDate: box.releaseDate,
     cardsPerPack: box.cardsPerPack,
@@ -96,7 +97,7 @@ const snapshotBox = (box: BoxDefinition) => ({
 
 const buildSnapshot = () => ({
     /** 快照格式版本；字段增删时递增，避免旧文件造成误判 */
-    format: 1,
+    format: 2,
     seeds: SEEDS,
     boxes: REGISTERED_BOXES.map(snapshotBox),
 });
