@@ -18,11 +18,12 @@
 | 部署方式 | Cloudflare Pages：`git push main` 自动触发构建部署（约 1.5～2 分钟） |
 | 构建命令 | `npm run build` → 输出 `dist` |
 | 本地预览 | `npm run dev`（仅前端，端口 5174）/ `npm run dev:cf`（全栈 + 本地 D1） |
+| 官方资料归档 | `sources/<品类>/<发行商>/<系列产品>/`（登记册见 `sources/README.md`） |
+| 盒型行为快照 | `snapshots/boxes.json`；`npm run boxes:snapshot` 写 / `npm run boxes:check` 比 |
 | 数据库 | Cloudflare D1，库名 `cardemulate`，绑定变量名 `DB`，
 `database_id = 51265817-c1ed-4e09-98fd-a3d1709fb0c3`（区域 WNAM） |
 | 云端账号 | Cloudflare `2092878237@qq.com`，Account ID `88a2dc4c1e2c8652fd444ea1a65dec76` |
 | 当前状态 | 已上线：Pages + 线上 D1 全链路验证通过，自定义域名 `cardemulate.wikiandroid.com` 已 active；待内容扩展 |
-
 ## 2. 站点定位
 
 按发行商公开的 **Pack Odds 表**逐包还原真实卡盒的配率结构，让用户「按盒拆卡」，
@@ -334,6 +335,102 @@ schema.sql       D1 建表脚本（维度表 + 事实表分离）
 - 另：`node` 脚本输出中文在 PowerShell 5.1 里会显示为乱码（UTF-8 被按 GBK 解码），
   属显示层问题，不影响断言结果，先不管
 
+### 2026-09-30（官方数据归档 + 盒型行为快照 + 清空记录改为可选范围）
+
+#### 1. 官方数据源统一归档到仓库（用户要求：数据随仓库走，避免本机遗失）
+
+- ✓ 新建 `sources/` 目录，作为**官方原始资料**的固定落点，目录规则与代码一致：
+  `sources/<品类>/<发行商>/<系列产品>/`
+- ✓ 每个产品固定放这些文件：`README.md`（来源与配率说明）、`pack-odds.pdf/.txt`、
+  `checklist.pdf/.txt`、`education-sheet.txt`、`extract-pdf-text.py`
+- ✓ **`sources/README.md` 登记册**：写清三级来源可信度
+  - **A 官方原件**：`https://www.topps.com/pages/odds`（权威，但对命令行返回 403，只能人工下载）
+  - **B 官方镜像**：`https://xcdn.checklistinsider.com/public/<年>/<月>/...pdf`
+    （第三方托管，**字节与官方一致**，命令行可下，已记录 SHA-256 复核）
+  - **C 参考**：仅用于**找** A 级资料的渠道
+  - 另含「六步采集流程」与「已归档系列」表，以及后续新品类上线时的统一取数入口
+- ✓ 已归档 `sources/basketball/topps/tcu26-basketball/`：
+  `pack-odds.pdf`（242,261 B / SHA-256 `B4F08A7B…8FB817`）、
+  `checklist.pdf`（297,352 B / SHA-256 `7010B390…9E4FC2`）、
+  两个 PDF 的纯文本提取、教育页提取，以及 `extract-pdf-text.py`
+- ✓ **来源真实性交叉验证**：在 VS Code 历史会话里翻出当时的下载链接，
+  重新下载后 **SHA-256 与本地提取件完全一致**，
+  确认手上这份 PDF 就是 Topps 官方配率表，而不是某处二手复制
+
+#### 2. 配率表自动转换脚本（把 PDF 文本变成可 diff 的 TS）
+
+- ✓ 新增 `scripts/import-pack-odds.mjs`：
+  `node scripts/import-pack-odds.mjs <odds.txt> <out.ts>`
+  - 12 个盒型渠道列：`hobby / jumbo / delight / sapphire / value-box-ea|se|cee /
+    mega-box-ea|se|cee / fanatics-box / ascc-promo-pks`
+  - 过滤 PDF 提取产生的噪声行（页码、`Cards Hobby`、促销语等）
+  - `ROW_PATCHES` 修 PDF 抽文本时丢列的行（如 `Alter Ego` 尾列丢失）
+  - 产出 `PACK_ODDS_COLUMNS` / `type PackOddsColumn` / `interface PackOddsRow` / `PACK_ODDS`
+- ✓ 生成 `src/data/sets/basketball/topps/tcu26-basketball/pack-odds.generated.ts`
+  （文件头标注「请勿手工编辑」）：**390 行配率、0 条告警**，
+  抽查 `Base` / `Base Refractors` / `Alter Ego` / `NBA Debut Patch Autographs` 均正确
+- ✓ **做这批盒型时不要手抄配率**——一律走这个脚本，配率才可复核、可 diff
+- ✓ 已确认的盒型结构（官方公布）：Hobby 4 张×20 包 / 1 张签名，Jumbo 11 张×12 包 / 3 张签名，
+  Delight 12 张×1 包 / 2 张签名，Value 4 张×7 包 / 无签名，Mega 6 张×7 包 / 无签名。
+  **官方不公布「一箱几盒」**（`boxesPerCase` 无权威来源，新盒型按 0 处理并省略该行文案）
+
+#### 3. 盒型行为快照（重构盒型数据前的安全网）
+
+- ✓ 新增 `scripts/snapshot-boxes.ts`（esbuild 打包成 node 脚本执行），
+  新增 npm 脚本：
+  - `npm run boxes:snapshot` 把当前所有盒型的完整行为写进 `snapshots/boxes.json`
+  - `npm run boxes:check` 比对，有差异就打印差异行并以退出码 1 结束
+- ✓ 快照内容：每个 `BoxDefinition` 的全部字段 + 子集（roster 存 `{count, digest}`，
+  用 `fnv1a` 摘要，文件从 224 KB 压到 **92,723 B**）+ 平行 + 5 个固定种子
+  （`alpha / beta / gamma / 2026 / test-1`）逐张开出的卡（`id|variantKey|tier|player|no|serial|pack.slot`）
+  - 浮点用 `Number(v.toPrecision(12))` 归一，避免假差异
+- ✓ 基线已写入并 `boxes:check` 通过。**这是后续拆 `box.ts`、把 Value Box 逻辑复用给
+  Hobby / Jumbo / Delight / Mega 的安全网：Value Box 的输出必须保持逐位一致**
+
+#### 4. 清空拆盒记录改为「可选范围 + 二次确认」（用户明确要求）
+
+用户原话：「刷新数据，这一项是多余的，本身就会根据拆盒信息刷新页面内容，
+清空拆盒记录太暴力了，需要可选品类盒子来进行清空，并且清空需要提示用户数据将会丢失且不可恢复，
+需要谨慎确认，用户确认后才能清空选中的品类的盒子的数据清空，并支持清空所有」
+
+- ✓ **后端 `DELETE /api/break` 支持范围限定**（`functions/api/[[path]].js`）
+  - 接受 `?category=` / `?maker=` / `?box=`，复用 `compileFilters()` 拼 `WHERE`；
+    不带任何条件才是清空全部
+  - 删**两张事实表**：只删 `breaks` 会让统计页的累计数字与记录列表对不上
+  - 返回 `{ ok: true, removed: n }`，界面据此提示具体条数
+  - **安全设计：非法范围直接 400，绝不静默退化成「清空全部」**
+    （故意不用会吞掉非法值的 `softKey()`）；未登录 401
+  - 顺带澄清一个曾误判的点：`isSafeKey` 的字符类里 `-` 在末尾是**字面量**而非区间，
+    所以 `tcu26-basketball` / `value-box` 这类 key 本来就合法，无需放宽正则
+- ✓ **`src/api/client.ts`**：`clearBreaks(filter?)` 支持传范围
+- ✓ **`src/stores/app.ts`**：`clearBreaks(scopes: StatsFilter[])`
+  - 范围逐个下发、**最后只汇总一条提示**（同一次确认不该冒出好几条提示）
+  - 中途失败不放弃剩余范围，收尾如实汇总「已清空 N 条，其余未能清空」
+  - 返回 `boolean` 供界面决定是否收起面板
+- ✓ **`src/views/StatsView.vue`**
+  - **删掉「刷新数据」按钮**（拆盒信息本身就会触发刷新）
+  - 「清空拆盒记录」展开成面板：按品类分组列出**确有记录**的盒型，
+    支持单盒 / 整品类 / 全选，按钮上实时显示「清空选中的 N 条」
+  - 第二步独立确认页：**重述将要消失的条数与盒型清单**，
+    文案明说「清空后这些记录会立刻消失，无法恢复」，
+    并要求勾选「我明白这些记录无法恢复」后「确认清空」才可点（危险色按钮）
+  - 勾选范围一变就退回第一步，避免在旧确认页上提交新范围
+  - 把勾选结果**收敛成最少的下发次数**：整品类全选就按品类下发，
+    全部盒型全选就按「全部」下发
+  - 顺带修一处：全站累计 / 排行榜原本只在 `onMounted` 取一次，
+    清空后会残留旧数字；抽出 `loadPublic()`，清空成功后一并重取
+- ✓ 冒烟脚本 `scripts/smoke-api.mjs` 增加「按范围清空」整段断言，本地全栈实测全过：
+  - 未登录 `DELETE /api/break` → 401
+  - `?category=not%20a%20key` → 400，**且事后总数不变**（被拒绝的请求不改数据）
+  - 造 3 条（2 篮球 + 1 棒球）→ `?category=basketball` 精确删 2 条，剩下全是棒球
+  - `?box=baseball.topps.tcbs26-baseball.hobby-box` 精确删 1 条（验证带连字符的盒型 key）
+  - 不带条件 → 清光剩余 1 条，总数归零
+- ✓ 浏览器实测：注册 → 拆一盒 28 张 → 统计页「刷新数据」已消失；
+  勾选盒型 → 确认页 → 勾选知情 → 确认清空 → 提示「已清空 1 条拆盒记录。」，
+  汇总全部归零、按钮置灰、导航角标归零、全站累计同步刷新
+- ✓ `npm run typecheck` 零错误、`npm run build` 成功、`npm run boxes:check` 通过
+- ✓ 文案自检：本次新增字符串只用用户语言（无云/库/接口/写入等实现细节）
+
 ### 关键取舍记录
 
 - **不用 Pinia**：只有一个全局 store，手写 reactive 单例省一个依赖。
@@ -346,6 +443,16 @@ schema.sql       D1 建表脚本（维度表 + 事实表分离）
 - **目录真相在 TS 而非数据库**：页面渲染永远不查库，D1 里的维度表只是镜像，
   用于跨维度对账与后续后台分析。
 - **目录同步手动触发**：不做构建时自动同步，避免部署流程耦合数据库写权限。
+- **官方数据必须归档到仓库**：配率/Checklist 只认发行商公开原件，
+  镜像件必须 SHA-256 复核一致后才算数，且按「品类/发行商/系列」落进 `sources/`。
+  后续新盒型一律从这里取数，不依赖任何外部链接长期可用。
+- **配率不手抄**：一律 `scripts/import-pack-odds.mjs` 从官方 PDF 文本生成，
+  产物带「请勿手工编辑」标头，改动必须可 diff。
+- **拆盒逻辑重构必须先有快照**：`npm run boxes:check` 是盒型行为的回归网，
+  新增盒型可以，但已有盒型的输出不允许变（种子格式 `${box.key}|${seed}` 永不改）。
+  官方不公布的字段（如 `boxesPerCase`）宁可留 0 并省略文案，也不许编数字。
+- **删除是不可逆操作，必须分两步**：范围要用户自己挑，确认页要重述后果
+  并要求显式勾选；范围非法时必须报错，**绝不能退化成「清空全部」**。
 
 ## 5. 待办（TODO）
 
@@ -361,9 +468,13 @@ schema.sql       D1 建表脚本（维度表 + 事实表分离）
 - [x] 首次 `git push -u origin main`（已完成，用 SSH key，无需设备码授权）
 
 ### P1 内容扩展
-- [ ] 篮球：补齐 `tcu26-basketball` 的 Hobby Box / Jumbo Box / Mega Box 配率
+- [ ] 篮球：补齐 `tcu26-basketball` 的 Hobby Box / Jumbo Box / Delight Box / Mega Box 配率
+      （数据已就位：`pack-odds.generated.ts` + `sources/` 归档 + `boxes:check` 快照；
+      待做的是把 `box.ts` 的 SPECS / roster 抽出来复用，再按各盒型渠道列重映射配率）
 - [ ] 品类：棒球、足球、橄榄球、网球、UFC、宝可梦的种子数据与首批盒型
 - [ ] 卡面：替换统一占位图为按品类区分的背景图（仍不涉及实物卡）
+- [ ] 认证页：大写锁定提示 + 按住可见密码的眼睛图标（用户明确要求）
+- [ ] 昵称：允许用户自设展示名（当前由邮箱前缀派生，用户觉得难看）
 
 ### P2 功能增强
 - [ ] 目录同步脚本 `scripts/sync-catalog.mjs`（用 `buildCatalogPayload()` 生成并推送）
@@ -383,6 +494,12 @@ schema.sql       D1 建表脚本（维度表 + 事实表分离）
   用生产域名试，别指望预览别名。
 - `esbuild` 的 postinstall 脚本被 npm 的 allow-scripts 策略拦截，会出现一条 warning；
   不影响构建（Vite 6 用 Rollup 打包，esbuild 仅用于依赖预构建）。
+- **本机没装 wrangler**（不在 `node_modules` 也没全局装），
+  所以 `npm run db:local` 与 `npm run dev:cf` 这两个脚本在本机会报
+  `'wrangler' is not recognized`。要联调本地全栈，直接用 npx 缓存里的 wrangler，
+  例如 `npx --yes wrangler@latest pages dev dist --port 8788 --compatibility-date=2026-01-01`
+  （**不要加 `--d1=DB`**，让它读 `wrangler.toml` 的绑定，否则会另建空库）。
+  脚本本身没问题，线上/CI 环境有 wrangler 就能跑。
 
 ## 7. 环境备忘（本机）
 
@@ -399,5 +516,9 @@ schema.sql       D1 建表脚本（维度表 + 事实表分离）
 - **wrangler 已登录**：凭据在 `%APPDATA%\xdg.config\.wrangler\config\default.toml`；
   账号与库 ID 见第 1 节表格。远程 SQL 要带 `--remote`：
   `npx --yes wrangler@latest d1 execute DB --remote --file=schema.sql`
+- 本机 npx 缓存里已有一份 wrangler 4.143.1，没网也能用：
+  `node "$env:LOCALAPPDATA\npm-cache\_npx\d77349f55c2be1c0\node_modules\wrangler\bin\wrangler.js" --version`
+- **盒型改动后的固定三连**：`npm run typecheck` → `npm run build` → `npm run boxes:check`
+  （第三条只在改了 `src/data/sets` 下任何东西时才必须跑）
 - **`git push` 在 PowerShell 里即使成功也返回退出码 1**（git 把进度写到 stderr，
   PowerShell 当成 `NativeCommandError`）。**看输出里有没有 `main -> main`，不看退出码。**
