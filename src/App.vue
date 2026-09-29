@@ -215,4 +215,37 @@ const navActive = (prefix: string): boolean => route.path.startsWith(prefix);
         display: none;
     }
 }
+
+/*
+ * 手机端：顶栏改两行，导航独占第二行。
+ * 一行里塞不下 logo(150) + 导航(226) + 账号按钮(144) + 间距，
+ * 导航会被 flex 压到几乎没有宽度（实测 390px 下只剩 22px、320px 下 0px），
+ * 文字正好断在账号按钮左边，看起来就像被按钮盖住了。
+ */
+@media (max-width: 600px) {
+    .ce-header-inner {
+        flex-wrap: wrap;
+        height: auto;
+        padding: 9px 20px 7px;
+        gap: 8px 12px;
+    }
+
+    .ce-header-right {
+        order: 2;
+        margin-left: auto;
+    }
+
+    /* flex-basis 100% 才换行；宽度还不够时横向滚动，而不是继续被压窄 */
+    .ce-nav {
+        order: 3;
+        flex: 1 1 100%;
+    }
+}
+
+/* 再窄就只有图标放得下了，字标让位给账号按钮（375px 起放得下，留 20px 余量） */
+@media (max-width: 374px) {
+    .ce-logo-text {
+        display: none;
+    }
+}
 </style>
