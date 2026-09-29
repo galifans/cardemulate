@@ -21,7 +21,7 @@
 | 数据库 | Cloudflare D1，库名 `cardemulate`，绑定变量名 `DB`，
 `database_id = 51265817-c1ed-4e09-98fd-a3d1709fb0c3`（区域 WNAM） |
 | 云端账号 | Cloudflare `2092878237@qq.com`，Account ID `88a2dc4c1e2c8652fd444ea1a65dec76` |
-| 当前状态 | 已上线：Cloudflare Pages + 线上 D1 全链路验证通过；待内容扩展 |
+| 当前状态 | 已上线：Pages + 线上 D1 全链路验证通过，自定义域名 `cardemulate.wikiandroid.com` 已 active；待内容扩展 |
 
 ## 2. 站点定位
 
@@ -222,8 +222,10 @@ schema.sql       D1 建表脚本（维度表 + 事实表分离）
   构建时 Cloudflare 会读本文件里的绑定，因此 **D1 绑定跟着仓库走**，
   不需要在面板里手工维护
 - ✓ **Pages 项目 `cardemulate`**（构建命令 `npm run build`、输出 `dist`、生产分支 `main`）
-- ✓ **自定义域名 `cardemulate.wikiandroid.com`** 已添到项目上
-  （`wikiandroid.com` 本就在同一账号下且状态 active，证书签发中）
+- ✗ **自定义域名 `cardemulate.wikiandroid.com` 当时并未真正生效**
+  （当时误记为「已添到项目上、证书签发中」，实际只把域名加进了项目，
+  区域里的 CNAME 记录从没建过，域名一直卡在 `pending`，证书从未签发。
+  详见下方 2026-09-30 的收尾记录）
 - ✓ **线上冒烟全通过**：注册 5 条约束 → 注册 → 重复邮箱 409 → 登录（错/对）→
   `/api/me` → `/api/break` → `/api/stats`（稀有度 / 子集维度正确）→
   `/api/breaks`（未登录 401、登录后 total / seed / cardCount / best 正确）→
@@ -258,6 +260,80 @@ schema.sql       D1 建表脚本（维度表 + 事实表分离）
 细节只走 `console.error`（Pages 面板实时日志可见），
 符合 2.1 节「不向用户暴露实现细节」的约束。
 
+### 2026-09-30（自定义域名收尾：补齐 DNS 记录，域名正式生效）
+
+上一轮在验证自定义域名时遇到 `Error: connect ETIMEDOUT 199.59.148.97:443`
+后中断，本轮把它做完。
+
+#### 定位：域名加进了项目，但 DNS 记录从来没建过
+
+- 自查结果：`Resolve-DnsName cardemulate.wikiandroid.com` 在公共 DNS 上**无任何记录**；
+  而 `wikiandroid.com` 本身 NS 指向 `leah/tanner.ns.cloudflare.com`、A 记录正常，
+  说明区域健康，只是缺子域名记录
+- 用 `GET /accounts/<id>/pages/projects` 查真实绑定：`cardemulate` 项目当时只有
+  `cardemulate.pages.dev`；再查 `GET .../pages/projects/cardemulate/domains` 才看到
+  自定义域名**其实早就在项目里**，状态 `pending`，
+  原因 `verification_data.error_message = "CNAME record not set"`
+  → **「在面板加域名」这步上轮已完成，缺的是 DNS 记录这一步**
+- 结论：上轮记的「已添到项目上、证书签发中」只对了一半，
+  域名确实加进了项目，但证书从来没开始签发
+
+#### 修法：在区域里补一条代理 CNAME
+
+- 在 `wikiandroid.com` 区域（zone_tag `2c4973d6590e1a2ade0c71b0ffcf34bb`）加：
+  `CNAME cardemulate -> cardemulate.pages.dev`，Proxy status = **Proxied**，TTL = Auto
+  （必须是橙色云朵，DNS only 会让证书签发一直 pending）
+- 记录生效后 Pages 侧状态推进：`verification_data.status` 由 `pending` 转 **`active`**
+  （CNAME 校验通过）、`validation_data`（method `http`）随后也转 **`active`**，
+  域名整体状态由 `pending` 转 **`active`**
+- **注意 522 过渡期**：CNAME 刚建好、Pages 还没挂上路由时，
+  自定义域名会返回 `522 Connection timed out`（页面与 `/api/*` 都是 522）。
+  这不是配置错，等几分钟就好，不要因为看到 522 就去改记录
+- **另一个现象**：过渡期内 `curl -4` 可能是 200、而 `Invoke-WebRequest` 报 522，
+  造成「命令行能通、脚本打不通」的假象（本机到 Cloudflare 的 IPv6 路径不通，
+  `curl -6` 直接 000）。验证域名是否生效，**优先用 `curl -4`，并多试几次**
+
+#### 本机无法自动建 DNS 记录（能力边界，记下来避免再试）
+
+- wrangler 的 OAuth 凭据（`%APPDATA%\xdg.config\.wrangler\config\default.toml`）
+  scopes 里有 `zone:read` + `pages:write`，**没有 DNS 写权限**：
+  `POST /zones/<id>/dns_records` 与 `GET /zones/<id>/dns_records` 一律 `10000 Authentication error`
+- 本机也没有 `CLOUDFLARE_API_TOKEN` 之类的环境变量
+- **若要免手动，需要用户新建一个带 `Zone:DNS:Edit` 权限的 API Token；
+  否则这条记录只能由用户在面板加。**
+- 顺带确认：`pages:write` 是够用的，用 `POST /accounts/<id>/pages/projects/<name>/domains`
+  可以直接把自定义域名加进 Pages 项目（重复添加报 `8000018 already added`）
+
+#### 验证结果（全部通过）
+
+- `Resolve-DnsName` 返回 Cloudflare 边缘 IP（`104.21.81.62` / `172.67.157.103`）
+- Pages 域名状态 `active`（`verification_data` 与 `validation_data` 均 active）
+- 证书：当前由 `CN=wikiandroid.com` 通配证书覆盖，颁发者 Google Trust Services（WE1），
+  2026-11-21 到期（Pages 的专用证书为同机构签发，稍后替换）
+- `curl -4` 连打 6 次全部 `200`，首页 1170 字节、`/api/global` 正常返回 JSON
+- **线上接口冒烟整套重跑通过**（目标站点改用自定义域名）：
+  `node scripts/smoke-api.mjs https://cardemulate.wikiandroid.com`
+  - 5 条注册约束全部 400 且中文提示正确
+  - 注册 200 → 重复邮箱 409 → 密码错 401（文案不区分账号是否存在）→ 登录 200
+  - `/api/me` → `/api/break` → `/api/stats`（`byTier` / `bySubset` 维度正确）
+  - `/api/breaks` 未登录 401、登录后 total / seed / cardCount / best / bySubset 全部正确
+  - `/api/leaderboard`、`/api/global` 正常 → 退出登录后 `/api/me` 返回 `user: null`
+- 复测后清理线上测试数据（`changes: 5`，级联带走 sessions / breaks / pull_stats），
+  `/api/global` 回到 `users: 0 / boxes: 0 / cards: 0`
+- 遗留观察：`/api/global` 里的 `catalog` 计数全为 0，属预期——
+  目录镜像同步是手动触发（尚未执行），页面渲染本来就不查库
+
+#### 关于 Cloudflare API 的两个小坑
+
+- PowerShell 5.1 里 `Invoke-RestMethod -Body '{"name":"..."}'` 会被解析器吃掉内层双引号，
+  服务端收到坏 JSON 报 `8000006 Request body is incorrect`。
+  改用 `curl.exe --data "@$env:TEMP\xxx.json"`（UTF-8 无 BOM 文件）即可
+- `Invoke-RestMethod` 遇到 4xx 会把错误正文吞掉，只能看到一句中文的
+  「远程服务器返回错误: (400)」；看错误详情要用
+  `curl.exe -s -w "\nHTTP=%{http_code}"`
+- 另：`node` 脚本输出中文在 PowerShell 5.1 里会显示为乱码（UTF-8 被按 GBK 解码），
+  属显示层问题，不影响断言结果，先不管
+
 ### 关键取舍记录
 
 - **不用 Pinia**：只有一个全局 store，手写 reactive 单例省一个依赖。
@@ -274,8 +350,10 @@ schema.sql       D1 建表脚本（维度表 + 事实表分离）
 ## 5. 待办（TODO）
 
 ### P0 上线前必须完成
-- [x] 在 Cloudflare 创建 Pages 项目并关联 `galifans/cardemulate`，绑定自定义域名
-      `cardemulate.wikiandroid.com`
+- [x] 在 Cloudflare 创建 Pages 项目并关联 `galifans/cardemulate`
+- [x] 自定义域名 `cardemulate.wikiandroid.com` 生效：域名已加到项目里，
+      DNS 代理 CNAME（`cardemulate -> cardemulate.pages.dev`）于 2026-09-30 补齐，
+      Pages 侧状态 `active`，线上冒烟已通过自定义域名整套重跑
 - [x] 创建 D1 数据库 `cardemulate`（真实 `database_id` 已回填 `wrangler.toml`），
       并执行 `schema.sql`
 - [x] 本地全栈冒烟：注册 → 登录 → 拆盒 → `/api/breaks` → `/api/stats` 与 `/api/global` 数据正确
