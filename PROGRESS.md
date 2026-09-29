@@ -3,7 +3,7 @@
 > **本文档是项目进展与记忆的「权威记录」（Single Source of Truth）。**
 > 所有对本站的改动（新增品类、新增盒型、修复、部署）完成后，
 > **必须同步更新本文档**，确保任何时间打开仓库都能快速恢复上下文。
-> 由 `agent.md` 第 10 节约束强制同步。
+> 由 `agent.md` 第 11 节约束强制同步。
 
 ---
 
@@ -19,7 +19,7 @@
 | 构建命令 | `npm run build` → 输出 `dist` |
 | 本地预览 | `npm run dev`（仅前端，端口 5174）/ `npm run dev:cf`（全栈 + 本地 D1） |
 | 数据库 | Cloudflare D1，库名 `cardemulate`，绑定变量名 `DB` |
-| 当前状态 | ✓ 骨架完成（篮球 1 个盒型），待补实物卡图与更多品类 |
+| 当前状态 | 骨架完成（篮球 1 个盒型），前后端已在本地 D1 上全链路跑通；待部署上线与内容扩展 |
 
 ## 2. 站点定位
 
@@ -93,6 +93,32 @@ schema.sql       D1 建表脚本（维度表 + 事实表分离）
 - ✓ 校验：`npm run typecheck` 零错误；`npm run build` 成功；
   浏览器实测首页 → 篮球 → Topps → 系列 → 按盒拆开，28 张卡正确开出，本机统计已记录
 
+### 2026-09-29（注册收敛 + 后端全链路实测通过）
+
+- ✓ **注册方式收敛为「邮箱 + 密码」**（用户明确要求，不要其他注册方式）
+  - 后端：`MIN_PASSWORD_LENGTH = 6`、`MAX_PASSWORD_LENGTH = 200`；
+    移除昵称采集，展示名由服务端从邮箱前缀派生
+  - 前端：`AuthView.vue` 删除昵称输入框，`MIN_PASSWORD = 6` 与后端对齐；
+    去掉 `minlength` 原生属性（会弹出浏览器原生提示，盖掉中文错误文案）
+  - 登录失败文案不区分「邮箱不存在」与「密码错误」，避免账号枚举
+- ✓ **本地 D1 实测**：新增 `wrangler.toml`（绑定变量名 `DB`）；
+  `npx wrangler d1 execute DB --local --file=schema.sql` 建出 11 张表，
+  `meta.schema_version = 2`
+- ✓ **全链路接口冒烟**（`wrangler pages dev dist --port 8788` + 本地 D1）：
+  注册（5 位密码被拒 / 6 位通过）→ 登录 → `/api/me` → `/api/break` 记录拆盒 →
+  `/api/stats` → `/api/leaderboard` → `/api/global` → 退出登录后 `/api/me` 返回 null
+- ✓ **修复：卡种维度丢失**（真 bug，非环境问题）
+  - 现象：`/api/stats` 的 `byTier` 恒为空，`bySubset` 返回的其实是卡种 key
+  - 根因：后端用 `variantKey.split(":")` 从 key 里拆子集与稀有度，
+    而前端发的 key 里根本没有冒号
+  - 修复：`byVariant` 的每项改为 `{ count, subsetKey, tier }`，后端直接入库；
+    同时把 `subset_key / tier` 加进 `ON CONFLICT DO UPDATE` 的更新列
+  - 验证：`byTier = [common 25, rare 3]`、`bySubset = [base 25, clutch-city 3]`，均正确
+- ✓ **排查经验**：`ce_session` Cookie 里是**原始 token**，数据库 `sessions` 存的是它的
+  SHA-256。早期手工测试把哈希当 Cookie 发出去，导致 `/api/me` 一直返回 `user: null`，
+  一度误判为鉴权 bug。**结论：应用代码一直是对的，是测试姿势错了。**
+  另：Cookie 带 `Secure`，本地 HTTP 下 HTTP 客户端不会自动回传，必须手动带 Cookie 头。
+
 ### 关键取舍记录
 
 - **不用 Pinia**：只有一个全局 store，手写 reactive 单例省一个依赖。
@@ -109,8 +135,11 @@ schema.sql       D1 建表脚本（维度表 + 事实表分离）
 ### P0 上线前必须完成
 - [ ] 在 Cloudflare 创建 Pages 项目并关联 `galifans/cardemulate`，绑定自定义域名
       `cardemulate.wikiandroid.com`
-- [ ] 创建 D1 数据库 `cardemulate`，执行 `schema.sql`，Pages 绑定变量名 `DB`
-- [ ] 线上冒烟：注册 → 登录 → 拆一盒 → `/api/stats` 与 `/api/global` 数据正确
+- [ ] 创建 D1 数据库 `cardemulate`（把真实 `database_id` 回填到 `wrangler.toml`），
+      并执行 `schema.sql`（本地已实测通过，线上待执行）
+- [x] 本地全栈冒烟：注册 → 登录 → 拆盒 → `/api/stats` 与 `/api/global` 数据正确
+- [ ] 线上冒烟（部署完成后重跑一遍本地那套 `/api/*` 验证）
+- [ ] 首次 `git push -u origin main`（需在浏览器完成 GitHub 设备码授权）
 
 ### P1 内容扩展
 - [ ] 篮球：补齐 `tcu26-basketball` 的 Hobby Box / Jumbo Box / Mega Box 配率
@@ -119,6 +148,7 @@ schema.sql       D1 建表脚本（维度表 + 事实表分离）
 
 ### P2 功能增强
 - [ ] 目录同步脚本 `scripts/sync-catalog.mjs`（用 `buildCatalogPayload()` 生成并推送）
+- [ ] 把 `scripts/smoke-api.mjs` 改造成正式回归脚本（目前是临时冒烟脚本）
 - [ ] 排行版 / 全站统计的前端筛选联动（接口已支持 `?category=&maker=&box=`）
 - [ ] 拆盒历史分享（种子可复现，适合做成分享链接）
 - [ ] 拆盒动画与音效（目前是逐张揭开）
@@ -128,6 +158,9 @@ schema.sql       D1 建表脚本（维度表 + 事实表分离）
 - 无实物卡图，所有卡面共用一张占位图（按稀有度变色），属**预期行为**。
 - 本地 `npm run dev` 下 `/api/*` 必然失败（无 Functions 运行时），
   控制台会出现一条连接失败的告警，属**预期行为**；要联调后端请用 `npm run dev:cf`。
+- `wrangler.toml` 的 `database_id` 仍是 `local-dev-placeholder`，
+  仅够本地 `--local` 开发使用；Cloudflare Pages **不读**该文件，
+  D1 绑定必须在 Dashboard（或 `wrangler pages` 命令）里单独配置。
 - `esbuild` 的 postinstall 脚本被 npm 的 allow-scripts 策略拦截，会出现一条 warning；
   不影响构建（Vite 6 用 Rollup 打包，esbuild 仅用于依赖预构建）。
 
