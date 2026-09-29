@@ -47,8 +47,7 @@ const products = computed(() => findProducts(categoryKey.value, makerKey.value))
                         上市日期：{{ product.releaseDate }}
                     </p>
                     <p class="ce-card-sub">{{ product.note }}</p>
-                    <p v-if="!product.live" class="ce-soon-line">待上线，敬请期待！</p>
-                    <p v-else class="ce-soon-line ce-live-line">
+                    <p v-if="product.live" class="ce-soon-line ce-live-line">
                         已收录 {{ product.boxes.filter((b) => b.live).length }} 个可拆盒型
                     </p>
                 </component>

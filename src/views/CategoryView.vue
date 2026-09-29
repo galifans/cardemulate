@@ -56,7 +56,6 @@ const makers = computed(() => findMakers(categoryKey.value));
                             <span v-else class="ce-badge ce-badge-soon">待上线</span>
                         </p>
                         <p class="ce-card-sub">{{ maker.note }}</p>
-                        <p v-if="!maker.live" class="ce-soon-line">待上线，敬请期待！</p>
                     </component>
                 </div>
             </section>
@@ -124,12 +123,6 @@ const makers = computed(() => findMakers(categoryKey.value));
 
 .ce-soon-alert {
     margin-top: 14px;
-}
-
-.ce-soon-line {
-    margin: 12px 0 0;
-    font-size: 12.5px;
-    color: var(--ce-warn);
 }
 
 .ce-link {

@@ -259,6 +259,20 @@ export const api = {
 
     me: () => request<{ ok: true; user: ApiUser | null }>("me"),
 
+    /** 昵称可用性检测（需登录）；只回答能不能用，不写入任何东西 */
+    checkNickname: (displayName: string) =>
+        request<{ ok: true; displayName: string; available: boolean }>("profile/nickname", {
+            method: "POST",
+            body: JSON.stringify({ displayName }),
+        }),
+
+    /** 修改昵称（需登录）。昵称全站唯一，被占会返回 409 */
+    updateProfile: (displayName: string) =>
+        request<{ ok: true; user: ApiUser; unchanged?: true }>("profile", {
+            method: "POST",
+            body: JSON.stringify({ displayName }),
+        }),
+
     /** 站点元信息（后端能力开关） */
     config: () =>
         request<{

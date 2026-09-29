@@ -71,9 +71,6 @@ const product = computed(() => findProduct(categoryKey.value, makerKey.value, pr
                                 {{ getBox(box.ref)!.autoGuaranteed ? "有签名保证" : "无签名保证" }}
                             </span>
                         </div>
-
-                        <p v-if="box.live" class="ce-soon-line ce-live-line">点击进入拆盒</p>
-                        <p v-else class="ce-soon-line">待上线，敬请期待！</p>
                     </component>
                 </div>
             </section>
@@ -164,16 +161,6 @@ const product = computed(() => findProduct(categoryKey.value, makerKey.value, pr
     flex-wrap: wrap;
     gap: 6px;
     margin-top: 12px;
-}
-
-.ce-soon-line {
-    margin: 12px 0 0;
-    font-size: 12.5px;
-    color: var(--ce-warn);
-}
-
-.ce-live-line {
-    color: var(--ce-brand);
 }
 
 .ce-highlights {

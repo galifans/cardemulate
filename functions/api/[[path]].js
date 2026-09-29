@@ -12,6 +12,8 @@
  *     POST /api/auth/login          登录
  *     POST /api/auth/logout         退出
  *     GET  /api/me                  当前登录用户
+ *     POST /api/profile/nickname    检测昵称是否可用（需登录）
+ *     POST /api/profile             修改昵称（需登录，全站唯一）
  *
  *   拆盒与统计
  *     POST /api/break               记录一次拆盒（需登录）
@@ -43,6 +45,12 @@ const PBKDF2_ITERATIONS = 100000;
 const MIN_PASSWORD_LENGTH = 6;
 const MAX_PASSWORD_LENGTH = 32;
 const MAX_EMAIL_LENGTH = 100;
+/**
+ * 昵称约束。注册仍然只要邮箱 + 密码，昵称是登录之后可以自己改的展示名，
+ * 默认取邮箱前缀，太丑就去个人中心换一个。前端 src/account/nickname.ts 是同一套规则。
+ */
+const MIN_NICKNAME_LENGTH = 2;
+const MAX_NICKNAME_LENGTH = 16;
 /** 单次上报的卡种上限，防止伪造超大 payload */
 const MAX_VARIANTS_PER_BREAK = 600;
 /** 批量写库时每条 SQL 拼多少行 */
@@ -150,6 +158,54 @@ const passwordProblem = (password) => {
     if (/\s/.test(password)) return "密码不能包含空格";
     return "";
 };
+
+/** 昵称去掉首尾空白，中间连续空白压成一个空格——唯一性判断才不会因为空格个数放过重复 */
+const normalizeNickname = (value) =>
+    typeof value === "string" ? value.trim().replace(/\s+/gu, " ") : "";
+
+/**
+ * 昵称只允许文字、数字、下划线、连字符，词之间可以有单个空格。
+ * 这里用 Unicode 属性类而不是 [A-Za-z0-9]：中文昵称、日文昵称都要能通过。
+ * 长度按字符数算（Array.from），否则一个中文字会被算成两个。
+ */
+const NICKNAME_PATTERN = /^[\p{L}\p{N}_-]+(?: [\p{L}\p{N}_-]+)*$/u;
+
+const nicknameProblem = (name) => {
+    const length = Array.from(name).length;
+    if (length < MIN_NICKNAME_LENGTH) return `昵称至少 ${MIN_NICKNAME_LENGTH} 个字`;
+    if (length > MAX_NICKNAME_LENGTH) return `昵称最多 ${MAX_NICKNAME_LENGTH} 个字`;
+    if (!NICKNAME_PATTERN.test(name)) return "昵称只能使用文字、数字、空格、下划线与连字符";
+    return "";
+};
+
+/** 随机小写串（32 个字符的字母表，4 字节取模正好均匀），用来给重名的默认昵称让路 */
+const randomTag = () => {
+    const bytes = new Uint8Array(4);
+    crypto.getRandomValues(bytes);
+    return Array.from(bytes, (b) => "abcdefghijkmnpqrstuvwxyz23456789"[b % 32]).join("");
+};
+
+/**
+ * 注册表单只有邮箱，展示名就取邮箱前缀。
+ *
+ * 但昵称是全站唯一的（见 agent.md 6），别人完全可能已经改成同一个前缀，
+ * 那时 INSERT 会撞上唯一索引，用户看到的却是「注册失败」——所以这里不直接
+ * 用前缀，而是列一串候选交给调用方逐个试：先试前缀本身，再试前缀 + 随机串。
+ * 邮箱允许而昵称不允许的字符（点、加号等）先清掉，太短的退成「收藏家」。
+ */
+const defaultDisplayNames = (email) => {
+    const cleaned = Array.from((email.split("@")[0] || "").replace(/[^\p{L}\p{N}_-]+/gu, ""))
+        .slice(0, MAX_NICKNAME_LENGTH)
+        .join("");
+    const base = Array.from(cleaned).length >= MIN_NICKNAME_LENGTH ? cleaned : "收藏家";
+    const stem = Array.from(base)
+        .slice(0, MAX_NICKNAME_LENGTH - 5)
+        .join("");
+    return [base, `${stem}-${randomTag()}`, `${stem}-${randomTag()}`];
+};
+
+/** 唯一索引拦下来时抛的是一句 SQL 文本，只能靠索引里的字段名认出来 */
+const isDisplayNameConflict = (error) => String(error?.message ?? "").includes("display_name");
 
 /**
  * 维度 key 白名单：小写 slug，允许 . 与 :
@@ -289,8 +345,6 @@ const handleRegister = async (request, env) => {
 
     const email = normalizeEmail(body.email);
     const password = typeof body.password === "string" ? body.password : "";
-    // 注册只需要账号 + 密码，昵称不单独采集，直接取邮箱前缀做展示名
-    const displayName = email.split("@")[0].slice(0, 24) || "收藏家";
 
     if (!email) return fail("请输入邮箱与密码");
     if (email.length > MAX_EMAIL_LENGTH) return fail("邮箱过长");
@@ -306,15 +360,23 @@ const handleRegister = async (request, env) => {
     const salt = toBase64(saltBytes);
     const passwordHash = await hashPassword(password, salt, PBKDF2_ITERATIONS);
     const now = new Date().toISOString();
-
-    const inserted = await db
-        .prepare(
-            `INSERT INTO users (email, display_name, password_hash, password_salt, iterations, created_at, last_seen_at)
+    const insert = db.prepare(
+        `INSERT INTO users (email, display_name, password_hash, password_salt, iterations, created_at, last_seen_at)
              VALUES (?1, ?2, ?3, ?4, ?5, ?6, ?6)
              RETURNING id, email, display_name, created_at`,
-        )
-        .bind(email, displayName, passwordHash, salt, PBKDF2_ITERATIONS, now)
-        .first();
+    );
+
+    // 展示名撞上别人改过的昵称时换一个候选接着试；邮箱已经排过重复，
+    // 所以这里只剩下唯一索引一种可能的冲突。
+    let inserted = null;
+    for (const displayName of defaultDisplayNames(email)) {
+        try {
+            inserted = await insert.bind(email, displayName, passwordHash, salt, PBKDF2_ITERATIONS, now).first();
+            break;
+        } catch (error) {
+            if (!isDisplayNameConflict(error)) throw error;
+        }
+    }
 
     if (!inserted) return fail("注册失败，请稍后再试", 500);
 
@@ -392,6 +454,80 @@ const handleMe = async (request, env) => {
     const db = requireDb(env);
     const user = await currentUser(db, request);
     return json({ ok: true, user });
+};
+
+/**
+ * 昵称可用性检测（需登录）。
+ *
+ * 单独开一个接口，是为了让个人中心的「检测是否可用」能给出明确答复，
+ * 而不是等用户点了保存才告诉他重名。
+ * 比对要排除自己：用户很可能就是把当前昵称原样再检测一次。
+ */
+const handleCheckNickname = async (request, env) => {
+    const db = requireDb(env);
+    const user = await currentUser(db, request);
+    if (!user) return fail("请先登录", 401);
+
+    const body = await readJson(request);
+    if (!body) return fail("请求体格式不正确");
+
+    const name = normalizeNickname(body.displayName);
+    const problem = nicknameProblem(name);
+    if (problem) return fail(problem);
+
+    const taken = await db
+        .prepare("SELECT id FROM users WHERE lower(display_name) = lower(?1) AND id != ?2")
+        .bind(name, user.id)
+        .first();
+
+    return json({ ok: true, displayName: name, available: !taken });
+};
+
+/**
+ * 修改昵称（需登录）。
+ *
+ * 唯一性交给这条 UPDATE 自己保证：`NOT EXISTS` 与写入在同一条语句里，
+ * 两个人同时抢同一个昵称时只有一个能改成功（另一个改动行数为 0）。
+ * 不要改成「先查再写」——中间那道缝足够两次请求穿插进去。
+ */
+const handleUpdateProfile = async (request, env) => {
+    const db = requireDb(env);
+    const user = await currentUser(db, request);
+    if (!user) return fail("请先登录", 401);
+
+    const body = await readJson(request);
+    if (!body) return fail("请求体格式不正确");
+
+    const name = normalizeNickname(body.displayName);
+    const problem = nicknameProblem(name);
+    if (problem) return fail(problem);
+
+    // 没改动就直接回原样，免得白跑一次 UPDATE
+    if (name === user.displayName) return json({ ok: true, user, unchanged: true });
+
+    const updated = await db
+        .prepare(
+            `UPDATE users SET display_name = ?1
+             WHERE id = ?2
+               AND NOT EXISTS (
+                   SELECT 1 FROM users WHERE lower(display_name) = lower(?1) AND id != ?2
+               )
+             RETURNING id, email, display_name, created_at`,
+        )
+        .bind(name, user.id)
+        .first();
+
+    if (!updated) return fail("这个昵称已经有人用了，换一个试试", 409);
+
+    return json({
+        ok: true,
+        user: {
+            id: updated.id,
+            email: updated.email,
+            displayName: updated.display_name,
+            createdAt: updated.created_at,
+        },
+    });
 };
 
 /* ------------------------------------------------------------------ */
@@ -1214,6 +1350,9 @@ export async function onRequest(context) {
         if (path === "auth/login" && method === "POST") return await handleLogin(request, env);
         if (path === "auth/logout" && method === "POST") return await handleLogout(request, env);
         if (path === "me" && method === "GET") return await handleMe(request, env);
+        if (path === "profile/nickname" && method === "POST")
+            return await handleCheckNickname(request, env);
+        if (path === "profile" && method === "POST") return await handleUpdateProfile(request, env);
 
         if (path === "stats" && method === "GET") return await handleStats(request, env);
         if (path === "break" && method === "POST") return await handleRecordBreak(request, env);

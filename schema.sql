@@ -1,5 +1,5 @@
 -- =====================================================================
---  CardEmulate · Cloudflare D1 表结构  (schema_version = 2)
+--  CardEmulate · Cloudflare D1 表结构  (schema_version = 3)
 -- =====================================================================
 --
 --  设计目标：将来会有多个站点（app）、多个品类（category）、多个发行商
@@ -268,4 +268,19 @@ CREATE INDEX IF NOT EXISTS idx_pull_stats_maker    ON pull_stats(app_key, maker_
 -- =====================================================================
 --  元信息
 -- =====================================================================
-INSERT OR IGNORE INTO meta (key, value) VALUES ('schema_version', '2');
+--  v3 起昵称不再由邮箱前缀一锤定音，登录后可以自己改（见 agent.md 6），
+--  所以 display_name 必须全站唯一：唯一性判断一律走 lower(display_name)，
+--  大小写不同的同名（Topps / topps）算同一个。
+--  历史默认名是邮箱前缀，可能已经撞车，先把重复的改掉再建唯一索引，
+--  否则 CREATE UNIQUE INDEX 会直接失败。这段重复执行也不会再改动任何行。
+--  【重要】没有这个索引，接口仍然安全（唯一性由带 NOT EXISTS 的单条 UPDATE
+--  保证），但缺少索引时并发开两个页面抢同一个昵称会多跑几次查询。
+-- =====================================================================
+UPDATE users
+   SET display_name = display_name || '-' || substr(id, 1, 4)
+ WHERE id NOT IN (SELECT MIN(id) FROM users GROUP BY lower(display_name));
+
+CREATE UNIQUE INDEX IF NOT EXISTS idx_users_display_name ON users(lower(display_name));
+
+INSERT INTO meta (key, value) VALUES ('schema_version', '3')
+    ON CONFLICT (key) DO UPDATE SET value = excluded.value, updated_at = datetime('now');

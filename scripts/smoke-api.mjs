@@ -1,6 +1,6 @@
 /**
- * API 冒烟脚本：注册 -> 登录 -> 记录拆盒 -> 我的拆盒记录 -> 按范围清空 -> 我的统计
- * -> 全站统计 -> 排行榜。
+ * API 冒烟脚本：注册 -> 登录 -> 记录拆盒 -> 我的拆盒记录 -> 按范围清空 ->
+ * 昵称检测与修改 -> 我的统计 -> 全站统计 -> 排行榜。
  * 默认打本地 wrangler pages dev（http://127.0.0.1:8788），
  * 传第一个参数或设 CE_BASE 环境变量即可改成线上站点：
  *
@@ -187,6 +187,73 @@ const main = async () => {
     );
 
     show("清空后的我的统计", await call("stats", {}, cookie));
+
+    console.log("\n=== 昵称校验 ===");
+    const nick = `smoke-${Date.now() % 1000000}`;
+
+    const anonCheck = await post("profile/nickname", { displayName: nick });
+    console.log(`未登录检测昵称 -> ${anonCheck.status}`);
+    console.log(anonCheck.status === 401 ? "OK: 未登录被拦截" : "FAIL: 未登录不应能检测昵称");
+
+    const anonSave = await post("profile", { displayName: nick });
+    console.log(`未登录保存昵称 -> ${anonSave.status}`);
+    console.log(anonSave.status === 401 ? "OK: 未登录被拦截" : "FAIL: 未登录不应能改昵称");
+
+    for (const [label, name] of [
+        ["全空白", "   "],
+        ["只有 1 个字", "a"],
+        ["超过 16 字", "a".repeat(17)],
+        ["带特殊符号", "bad@name"],
+    ]) {
+        const result = await post("profile/nickname", { displayName: name }, cookie);
+        console.log(`${label.padEnd(12)} ${result.status} ${JSON.stringify(result.body)}`);
+        if (result.status !== 400) console.log(`FAIL: ${label} 的昵称应被拒绝`);
+    }
+
+    // 中文必须能过：昵称规则用的是 Unicode 属性类，不是 [A-Za-z0-9]
+    const cjk = await post("profile/nickname", { displayName: "  冒烟 测试  " }, cookie);
+    console.log(`中文（含首尾空白与双空格）-> ${cjk.status} ${JSON.stringify(cjk.body)}`);
+    console.log(
+        cjk.body.available === true && cjk.body.displayName === "冒烟 测试"
+            ? "OK: 中文昵称可用，空白已归一"
+            : "FAIL: 中文昵称不应被拒，空白应压成一个",
+    );
+
+    const free = await post("profile/nickname", { displayName: nick }, cookie);
+    console.log(`空闲昵称 -> ${free.status} ${JSON.stringify(free.body)}`);
+    console.log(free.body.available === true ? "OK: 空闲昵称可用" : "FAIL: 空闲昵称应可用");
+
+    const saved = await post("profile", { displayName: nick }, cookie);
+    console.log(`保存昵称 -> ${saved.status} ${JSON.stringify(saved.body)}`);
+    console.log(
+        saved.status === 200 && saved.body.user?.displayName === nick
+            ? "OK: 昵称已保存"
+            : "FAIL: 昵称保存失败",
+    );
+    const meAfter = await call("me", {}, cookie);
+    console.log(meAfter.body.user?.displayName === nick ? "OK: 当前用户已是新昵称" : "FAIL: 当前用户昵称未变");
+
+    // 把自己当前昵称重检一次、重存一次：都不能把自己判为占用
+    const own = await post("profile/nickname", { displayName: nick }, cookie);
+    console.log(`重检自己的昵称 -> ${own.status} ${JSON.stringify(own.body)}`);
+    console.log(own.body.available === true ? "OK: 自己的昵称不算被占用" : "FAIL: 不应把自己判为占用");
+    const again = await post("profile", { displayName: nick }, cookie);
+    console.log(`重复保存同一昵称 -> ${again.status} ${JSON.stringify(again.body)}`);
+    console.log(
+        again.status === 200 && again.body.unchanged === true
+            ? "OK: 相同昵称原样返回"
+            : "FAIL: 相同昵称不应报错",
+    );
+
+    // 换第二个账号来抢这个名字：大小写不同也算占用，保存必须 409
+    const otherReg = await post("auth/register", { email: `smoke2${Date.now()}@example.com`, password: "abc123" });
+    const otherCookie = tokenOf(otherReg.setCookie);
+    const clashCheck = await post("profile/nickname", { displayName: nick.toUpperCase() }, otherCookie);
+    console.log(`别人检测同一昵称（大写）-> ${clashCheck.status} ${JSON.stringify(clashCheck.body)}`);
+    console.log(clashCheck.body.available === false ? "OK: 大小写不同也算被占用" : "FAIL: 唯一性未按 lower() 比对");
+    const clash = await post("profile", { displayName: nick.toUpperCase() }, otherCookie);
+    console.log(`别人保存同一昵称 -> ${clash.status} ${JSON.stringify(clash.body)}`);
+    console.log(clash.status === 409 ? "OK: 重名被拒绝" : "FAIL: 重名应返回 409");
 
     show("排行榜", await call("leaderboard"));
     show("全站统计", await call("global"));

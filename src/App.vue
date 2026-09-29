@@ -44,7 +44,16 @@ const navActive = (prefix: string): boolean => route.path.startsWith(prefix);
                     注册 / 登录
                 </RouterLink>
                 <div v-else class="ce-user">
-                    <span class="ce-user-name">{{ user.displayName }}</span>
+                    <RouterLink class="ce-user-name" to="/profile" title="个人中心">
+                        {{ user.displayName }}
+                    </RouterLink>
+                    <RouterLink
+                        class="ce-btn ce-btn-sm"
+                        :class="{ active: navActive('/profile') }"
+                        to="/profile"
+                    >
+                        个人中心
+                    </RouterLink>
                     <button class="ce-btn ce-btn-sm" type="button" @click="store.logout()">退出</button>
                 </div>
             </div>
@@ -171,6 +180,17 @@ const navActive = (prefix: string): boolean => route.path.startsWith(prefix);
     white-space: nowrap;
 }
 
+.ce-user-name:hover {
+    color: var(--ce-brand);
+    text-decoration: underline;
+}
+
+.ce-user .ce-btn.active {
+    color: var(--ce-brand);
+    background: var(--ce-brand-soft);
+    border-color: var(--ce-brand-deep);
+}
+
 .ce-main {
     flex: 1;
     width: 100%;
@@ -202,6 +222,10 @@ const navActive = (prefix: string): boolean => route.path.startsWith(prefix);
 
     .ce-header-inner {
         gap: 12px;
+    }
+
+    .ce-user-name {
+        display: none;
     }
 }
 </style>

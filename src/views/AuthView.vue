@@ -22,9 +22,43 @@ onMounted(() => {
 
 const isRegister = computed(() => mode.value === "register");
 
+/**
+ * 大写锁定只能从键盘事件里读（浏览器没有别的途径），且必须用户先敲一下键才知道。
+ * 这里在按下与松开时都读一次：Caps Lock 键自身的 keydown 里拿到的已经是切换后的状态，
+ * 所以关闭大写也能被及时反映出来。
+ */
+const capsOn = ref(false);
+
+const syncCaps = (event: KeyboardEvent): void => {
+    capsOn.value = event.getModifierState?.("CapsLock") ?? false;
+};
+
+/** 失焦后收起提示，避免它跟着用户跑到别的输入框下面 */
+const dropCaps = (): void => {
+    capsOn.value = false;
+};
+
+/**
+ * 密码可见：按住显示、松开恢复圆点。
+ * 同时支持鼠标、触屏与键盘（空格 / 回车），键盘用户不必一直按着鼠标。
+ */
+const revealed = ref<"password" | "confirm" | null>(null);
+
+const revealOn = (field: "password" | "confirm"): void => {
+    revealed.value = field;
+};
+
+const revealOff = (): void => {
+    revealed.value = null;
+};
+
+const isRevealed = (field: "password" | "confirm"): boolean => revealed.value === field;
+
 const switchMode = (next: "login" | "register"): void => {
     mode.value = next;
     localError.value = "";
+    revealed.value = null;
+    capsOn.value = false;
     store.clearMessages();
 };
 
@@ -71,6 +105,8 @@ const submit = async (): Promise<void> => {
     if (ok) {
         password.value = "";
         confirm.value = "";
+        revealed.value = null;
+        capsOn.value = false;
         await router.push("/stats");
         return;
     }
@@ -138,22 +174,88 @@ const logout = async (): Promise<void> => {
 
                 <label class="ce-field">
                     <span>密码</span>
-                    <input
-                        v-model="password"
-                        type="password"
-                        :autocomplete="isRegister ? 'new-password' : 'current-password'"
-                        :placeholder="isRegister ? `${MIN_PASSWORD}~${MAX_PASSWORD} 位字符` : '请输入密码'"
-                    />
+                    <span class="ce-pw">
+                        <!--
+                            眼睛按钮就贴在输入框里，得给输入框一个明确的 aria-label：
+                            否则读屏软件会把按钮的文字一起念成「密码 按住显示密码」。
+                        -->
+                        <input
+                            v-model="password"
+                            :type="isRevealed('password') ? 'text' : 'password'"
+                            :autocomplete="isRegister ? 'new-password' : 'current-password'"
+                            aria-label="密码"
+                            :placeholder="isRegister ? `${MIN_PASSWORD}~${MAX_PASSWORD} 位字符` : '请输入密码'"
+                            @keydown="syncCaps"
+                            @keyup="syncCaps"
+                            @blur="dropCaps"
+                        />
+                        <button
+                            class="ce-pw-eye"
+                            :class="{ on: isRevealed('password') }"
+                            type="button"
+                            aria-label="按住显示密码"
+                            :aria-pressed="isRevealed('password')"
+                            @mousedown.prevent="revealOn('password')"
+                            @mouseup="revealOff"
+                            @mouseleave="revealOff"
+                            @touchstart.prevent="revealOn('password')"
+                            @touchend="revealOff"
+                            @touchcancel="revealOff"
+                            @keydown.space.prevent="revealOn('password')"
+                            @keyup.space="revealOff"
+                            @keydown.enter.prevent="revealOn('password')"
+                            @keyup.enter="revealOff"
+                        >
+                            <svg viewBox="0 0 24 24" aria-hidden="true">
+                                <path
+                                    d="M1.5 12S5.5 5.5 12 5.5 22.5 12 22.5 12 18.5 18.5 12 18.5 1.5 12 1.5 12Z"
+                                />
+                                <circle cx="12" cy="12" r="3.4" />
+                            </svg>
+                        </button>
+                    </span>
                 </label>
+
+                <p v-if="capsOn" class="ce-caps">大写锁定已打开。</p>
 
                 <label v-if="isRegister" class="ce-field">
                     <span>确认密码</span>
-                    <input
-                        v-model="confirm"
-                        type="password"
-                        autocomplete="new-password"
-                        placeholder="再输入一次"
-                    />
+                    <span class="ce-pw">
+                        <input
+                            v-model="confirm"
+                            :type="isRevealed('confirm') ? 'text' : 'password'"
+                            autocomplete="new-password"
+                            aria-label="确认密码"
+                            placeholder="再输入一次"
+                            @keydown="syncCaps"
+                            @keyup="syncCaps"
+                            @blur="dropCaps"
+                        />
+                        <button
+                            class="ce-pw-eye"
+                            :class="{ on: isRevealed('confirm') }"
+                            type="button"
+                            aria-label="按住显示密码"
+                            :aria-pressed="isRevealed('confirm')"
+                            @mousedown.prevent="revealOn('confirm')"
+                            @mouseup="revealOff"
+                            @mouseleave="revealOff"
+                            @touchstart.prevent="revealOn('confirm')"
+                            @touchend="revealOff"
+                            @touchcancel="revealOff"
+                            @keydown.space.prevent="revealOn('confirm')"
+                            @keyup.space="revealOff"
+                            @keydown.enter.prevent="revealOn('confirm')"
+                            @keyup.enter="revealOff"
+                        >
+                            <svg viewBox="0 0 24 24" aria-hidden="true">
+                                <path
+                                    d="M1.5 12S5.5 5.5 12 5.5 22.5 12 22.5 12 18.5 18.5 12 18.5 1.5 12 1.5 12Z"
+                                />
+                                <circle cx="12" cy="12" r="3.4" />
+                            </svg>
+                        </button>
+                    </span>
                 </label>
 
                 <p v-if="isRegister" class="ce-faint ce-auth-rule">
@@ -218,6 +320,60 @@ const logout = async (): Promise<void> => {
 .ce-auth-rule {
     font-size: 11.5px;
     margin-top: -2px !important;
+}
+
+/* 密码可见：按住图标看明文，松开立刻回到圆点 */
+.ce-field .ce-pw {
+    position: relative;
+    margin-bottom: 0;
+}
+
+.ce-field .ce-pw input {
+    padding-right: 42px;
+}
+
+.ce-pw-eye {
+    position: absolute;
+    top: 50%;
+    right: 5px;
+    transform: translateY(-50%);
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    width: 32px;
+    height: 32px;
+    padding: 0;
+    border: none;
+    border-radius: 8px;
+    background: transparent;
+    color: var(--ce-text-dim);
+    touch-action: manipulation;
+    user-select: none;
+}
+
+.ce-pw-eye svg {
+    width: 19px;
+    height: 19px;
+    fill: none;
+    stroke: currentColor;
+    stroke-width: 1.7;
+    stroke-linejoin: round;
+}
+
+.ce-pw-eye:hover {
+    color: var(--ce-text);
+    background: rgba(255, 255, 255, 0.07);
+}
+
+.ce-pw-eye.on {
+    color: var(--ce-brand);
+    background: var(--ce-brand-soft);
+}
+
+.ce-caps {
+    margin-top: -8px !important;
+    font-size: 12px;
+    color: var(--ce-warn);
 }
 
 .ce-link {

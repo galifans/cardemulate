@@ -168,6 +168,51 @@ const logout = async (): Promise<void> => {
     state.info = "已退出登录。";
 };
 
+/** 昵称可用性检测的结果；error 表示没问出结果，与「已被占用」是两件事 */
+export type NicknameAvailability = "available" | "taken" | "error";
+
+/**
+ * 问后端这个昵称能不能用。
+ *
+ * 这里刻意不写 state.error / state.info：检测是用户随时可能重复点的动作，
+ * 提示应该出现在输入框旁边，由调用方自己决定措词与位置。
+ */
+const checkNickname = async (displayName: string): Promise<NicknameAvailability> => {
+    if (!state.user) return "error";
+    try {
+        const result = await api.checkNickname(displayName);
+        return result.available ? "available" : "taken";
+    } catch {
+        return "error";
+    }
+};
+
+/**
+ * 改昵称（需登录）。
+ *
+ * 昵称全站唯一，重名由后端拒绝；成功后直接回写 state.user，
+ * 头部与排行榜立刻就是新名字。
+ */
+const updateNickname = async (displayName: string): Promise<boolean> => {
+    clearMessages();
+    if (!state.user) {
+        state.error = "请先登录。";
+        return false;
+    }
+    state.busy = true;
+    try {
+        const result = await api.updateProfile(displayName);
+        state.user = result.user;
+        state.info = `昵称已改为 ${result.user.displayName}。`;
+        return true;
+    } catch (error) {
+        state.error = error instanceof ApiError ? error.message : "昵称没能保存，请稍后重试。";
+        return false;
+    } finally {
+        state.busy = false;
+    }
+};
+
 /**
  * 记录一次拆盒：只写云端。
  * 未登录时直接拒绝 —— 本站没有「本地拆卡」这种玩法。
@@ -276,6 +321,8 @@ export const useAppStore = () => ({
     register,
     login,
     logout,
+    checkNickname,
+    updateNickname,
     recordBreak,
     clearBreaks,
     loadBreaks,
