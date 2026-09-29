@@ -213,12 +213,12 @@ const recordBreak = async (box: BoxDefinition, result: RipResult): Promise<boole
             byVariant,
             best,
         });
-        state.info = "本次拆盒已保存到云端。";
+        state.info = "本次拆盒已记入统计。";
         await syncAfterAuth();
         return true;
     } catch (error) {
         state.error =
-            error instanceof ApiError ? error.message : "本次拆盒未能保存到云端，请稍后重试。";
+            error instanceof ApiError ? error.message : "本次拆盒未能保存，请稍后重试。";
         return false;
     } finally {
         state.busy = false;
@@ -238,7 +238,7 @@ const clearBreaks = async (): Promise<void> => {
         state.breaks = [];
         state.breakTotal = 0;
         await loadServerStats();
-        state.info = "已清空云端拆盒记录。";
+        state.info = "已清空拆盒记录。";
     } catch (error) {
         state.error = error instanceof ApiError ? error.message : "清空失败，请稍后重试。";
     } finally {

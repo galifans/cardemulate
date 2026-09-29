@@ -223,10 +223,9 @@ const toggleSubset = (key: string): void => {
             <!-- ---------------- 拆盒 ---------------- -->
             <section v-if="tab === 'rip'" class="ce-section">
                 <div v-if="!signedIn" class="ce-card ce-rip-gate">
-                    <h2 class="ce-section-title">拆卡需要先登录</h2>
+                    <h2 class="ce-section-title">登录后才能拆卡</h2>
                     <p class="ce-faint">
-                        本站的拆盒结果统一保存在云端数据库，用于个人统计与排行榜，
-                        因此不提供本地拆卡。注册只需要邮箱和密码，没有其他方式。
+                        拆盒记录与个人统计都归入你的账号，登录后即可开拆。
                     </p>
                     <div class="ce-rip-buttons">
                         <RouterLink to="/auth" class="ce-btn ce-btn-primary">
@@ -320,10 +319,10 @@ const toggleSubset = (key: string): void => {
                                 </button>
                             </p>
                             <p v-if="recorded" class="ce-faint ce-seed-note">
-                                本盒已保存到云端，可在<RouterLink to="/stats" class="ce-link">
+                                已记入统计，可在<RouterLink to="/stats" class="ce-link">
                                     我的统计
                                 </RouterLink>
-                                里查看。
+                                查看。
                             </p>
                         </div>
 

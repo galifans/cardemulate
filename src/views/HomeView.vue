@@ -85,7 +85,7 @@ const formatNumber = (value: number): string => value.toLocaleString("zh-CN");
             <div class="ce-card ce-howto">
                 <h2 class="ce-section-title">怎么玩</h2>
                 <ol class="ce-howto-list">
-                    <li>注册一个账号，拆盒数、各品类卡牌张数会自动统计并同步到云端。</li>
+                    <li>注册一个账号，拆盒数与卡牌张数会自动记入你的统计。</li>
                     <li>进入「篮球 → Topps → 2025-26 Topps Chrome Updates Basketball」。</li>
                     <li>点「按盒拆」，引擎会用确定性随机数逐包还原一整个 Value Box（28 张）。</li>
                     <li>每盒都会给出随机种子，记下种子就能复现同一盒，方便核对与讨论。</li>

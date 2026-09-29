@@ -178,14 +178,12 @@ const globalTotal = computed(() => Math.max(1, globalStats.value?.cards ?? 1));
             <p class="ce-card-en">My Collection</p>
             <h1 class="ce-page-title">我的拆盒统计</h1>
             <p class="ce-page-desc">
-                每一次拆盒都会写入云端数据库，登录后即可在这里看到自己的全部记录；
-                排行榜与全站统计对所有访客开放。
+                这里汇总你的全部拆盒记录；排行榜与全站统计对所有访客开放。
             </p>
         </header>
 
         <p v-if="offline && loaded" class="ce-alert ce-alert-warn">
-            无法连接后端服务，暂时拿不到统计数据。本地开发请使用
-            <code class="ce-mono">npm run dev:cf</code> 启动完整环境。
+            统计数据暂时不可用，请稍后重试。
         </p>
         <p v-if="store.state.error" class="ce-alert ce-alert-error">{{ store.state.error }}</p>
         <p v-else-if="store.state.info" class="ce-alert ce-alert-ok">{{ store.state.info }}</p>
@@ -193,8 +191,8 @@ const globalTotal = computed(() => Math.max(1, globalStats.value?.cards ?? 1));
         <section v-if="!signedIn" class="ce-card ce-stats-top">
             <h2 class="ce-section-title">登录后查看我的拆盒统计</h2>
             <p class="ce-faint">
-                本站不提供本地拆卡：每次拆盒都会写入云端数据库，登录后就能在这里看到拆盒数、
-                稀有度分布、卡种子集、最稀有的卡以及完整的拆盒记录。注册只需要邮箱和密码。
+                登录后可以看到拆盒数、稀有度分布、卡种子集、最稀有的卡，
+                以及完整的拆盒记录。
             </p>
             <div class="ce-stats-actions">
                 <RouterLink to="/auth" class="ce-btn ce-btn-primary">注册 / 登录</RouterLink>
@@ -228,7 +226,7 @@ const globalTotal = computed(() => Math.max(1, globalStats.value?.cards ?? 1));
                     :disabled="store.state.busy"
                     @click="store.loadServerStats(); store.loadBreaks()"
                 >
-                    刷新云端数据
+                    刷新数据
                 </button>
                 <button
                     class="ce-btn ce-btn-danger"
@@ -236,7 +234,7 @@ const globalTotal = computed(() => Math.max(1, globalStats.value?.cards ?? 1));
                     :disabled="store.state.busy || myBoxes === 0"
                     @click="store.clearBreaks()"
                 >
-                    清空云端记录
+                    清空拆盒记录
                 </button>
             </div>
         </section>
@@ -244,7 +242,7 @@ const globalTotal = computed(() => Math.max(1, globalStats.value?.cards ?? 1));
         <section class="ce-section">
             <div class="ce-section-head">
                 <h2 class="ce-section-title">按盒子</h2>
-                <span class="ce-section-desc">数据来自云端 breaks 表</span>
+                <span class="ce-section-desc">按盒型汇总</span>
             </div>
 
             <div v-if="boxRows.length" class="ce-card ce-table-wrap">
@@ -317,7 +315,7 @@ const globalTotal = computed(() => Math.max(1, globalStats.value?.cards ?? 1));
         <section class="ce-section">
             <div class="ce-section-head">
                 <h2 class="ce-section-title">最稀有的 20 张</h2>
-                <span class="ce-section-desc">按配率倒序</span>
+                <span class="ce-section-desc">从最稀有开始</span>
             </div>
 
             <div v-if="rarestRows.length" class="ce-card ce-table-wrap">
@@ -437,7 +435,7 @@ const globalTotal = computed(() => Math.max(1, globalStats.value?.cards ?? 1));
                         <span class="ce-mono ce-tier-count">{{ formatNumber(row.count) }}</span>
                     </li>
                 </ul>
-                <p v-else class="ce-faint ce-mt-14">后端不可用，暂时拿不到全站数据。</p>
+                <p v-else class="ce-faint ce-mt-14">全站数据暂时不可用。</p>
             </div>
 
             <div class="ce-card">
