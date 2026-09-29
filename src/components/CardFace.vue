@@ -50,19 +50,19 @@ const serial = computed(() => {
                     {{ mark.label }}
                 </span>
             </div>
-            <span class="ce-face-tier">{{ meta.name }}</span>
+            <div class="ce-face-bar">
+                <span class="ce-face-tier">{{ meta.name }}</span>
+                <TeamIcon class="ce-face-team" :team="card.team" />
+            </div>
         </div>
 
         <div class="ce-face-body">
             <p class="ce-face-player">{{ card.player }}</p>
             <p class="ce-face-name">{{ card.fullName }}</p>
-            <div class="ce-face-foot">
-                <div class="ce-face-meta">
-                    <span class="ce-badge">#{{ card.no }}</span>
-                    <span v-if="serial" class="ce-badge ce-mono">{{ serial }}</span>
-                    <span class="ce-badge ce-mono">{{ card.oddsLabel }}</span>
-                </div>
-                <TeamIcon :team="card.team" :size="26" />
+            <div class="ce-face-meta">
+                <span class="ce-badge">#{{ card.no }}</span>
+                <span v-if="serial" class="ce-badge ce-mono">{{ serial }}</span>
+                <span class="ce-badge ce-mono">{{ card.oddsLabel }}</span>
             </div>
         </div>
     </article>
@@ -148,10 +148,23 @@ const serial = computed(() => {
     opacity: calc(0.25 + var(--glow));
 }
 
-.ce-face-tier {
+/*
+ * 卡图自己的一条底栏：档位药丸在左、队标在右。
+ * 两者同一行靠同一条 flex 撑着，各自绝对定位迟早会飘开。
+ * 队标画在这里而不是文字区，是因为「卡片」指的是这张卡图，
+ * 下面的球员名 / 卡种是卡片信息，不算卡面。
+ */
+.ce-face-bar {
     position: absolute;
-    bottom: 8px;
-    left: 8px;
+    inset: auto 8px 8px;
+    display: flex;
+    align-items: flex-end;
+    justify-content: space-between;
+    gap: 8px;
+    pointer-events: none;
+}
+
+.ce-face-tier {
     color: var(--tier);
     border-color: color-mix(in srgb, var(--tier) 55%, transparent);
 }
@@ -224,21 +237,13 @@ const serial = computed(() => {
     min-height: 2.7em;
 }
 
-/* 信息行在左、队标在右下角：卡片高度仍然只由文字区决定 */
-.ce-face-foot {
-    display: flex;
-    align-items: flex-end;
-    gap: 8px;
-    margin-top: auto;
-    padding-top: 8px;
-}
-
+/* 信息行按在文字区底部，卡片高度仍然只由文字区决定 */
 .ce-face-meta {
     display: flex;
     flex-wrap: wrap;
     gap: 5px;
-    flex: 1 1 auto;
-    min-width: 0;
+    margin-top: auto;
+    padding-top: 8px;
 }
 
 @keyframes ce-pop {
