@@ -792,8 +792,13 @@ const toggleSubset = (key: string): void => {
     margin-top: 30px;
 }
 
+/*
+ * 不让卡片拉到整行高：网格默认 stretch，角标少一张的卡会空出一大截，
+ * 队标被 margin-top: auto 顶到行底，看着像贴在整行而不是贴在这张卡上。
+ */
 .ce-card-grid {
     grid-template-columns: repeat(auto-fill, minmax(178px, 1fr));
+    align-items: start;
 }
 
 .ce-card-grid > * {

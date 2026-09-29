@@ -71,8 +71,9 @@ schema.sql       D1 建表脚本（维度表 + 事实表分离）
   - 页面：`HomeView`（品类宫格）/ `CategoryView` / `MakerView` / `ProductView` /
     `BreakView`（拆盒模拟 + 配率表 + Checklist 三标签）/ `StatsView` / `AuthView` /
     `NotFoundView`
-  - 组件：`CardFace.vue`（同一张 `card-art.svg` 用 CSS `filter` 按稀有度变色，
-    绕开无实物卡图的问题）、`CategoryIcon.vue`（inline SVG）
+  - 组件：`CardFace.vue`（同一张 `card-art.svg` 按稀有度变色，
+    绕开无实物卡图的问题；当时用 CSS `filter`，后已换成 `--tier` 混色，
+    见 2026-09-30「卡图颜色改由稀有度混色」）、`CategoryIcon.vue`（inline SVG）
   - 状态：`stores/app.ts` 手写 reactive 单例；未登录 / 后端不可用时自动降级为
     localStorage 本机统计，站点永不白屏
 - ✓ **Phase C 扩展性重构**（关键决策）
@@ -862,11 +863,40 @@ schema.sql       D1 建表脚本（维度表 + 事实表分离）
   WordPress 接口 404、四个候选文件名全部 403），已写进登记册的待办，
   要求下次**当场**把每个文件的完整链接记进系列 README
 
+### 2026-09-30（卡图颜色改由稀有度混色，卡片不再被拉到整行高）
+
+上一版只改了文字区底色，卡图区还是那块深蓝紫的占位图，于是一张「稀有平行」
+只有角上的 pill 是金色、卡面本体仍是一片蓝；队标也看着像贴在整行底部而不是这张卡上。
+
+- **卡图不再用 CSS 滤镜套色**：`TIERS[tier].filter` 里的 `hue-rotate` 一直是失效的——
+  占位图是 hue 250°、明度不到一成的深蓝紫，在这么暗的颜色上 hue-rotate 的负系数
+  会先被裁到 0。实测 `#b487ff`（编号平行）的卡图被转成了 `rgb(0,116,63)` 绿色，
+  金色档转出来依旧是蓝色。这个字段已整个删掉，不留一个假旋钮
+- **卡图色相改由 `--tier` 两层层叠**：`.ce-face-hue` 用 `mix-blend-mode: color`
+  拿走底图的明暗、色相与饱和度整份换成 `--tier`；`.ce-face-lift` 再用
+  `mix-blend-mode: screen` 叠一层同色提亮，强度直接取档位的 `--glow`
+  （`0.06 + glow * 0.6`），不另配一套数值。`.ce-face-art` 加 `isolation: isolate`
+  把混色锁在卡图内部，底色也换成 `color-mix(--tier 30%, #0a0f1e)` 兜底
+- 实测六档卡图的平均色相与档位主色偏差 ≤ 5°：普卡 219°、反射卡 159°、插入卡 209°、
+  编号平行 265°、稀有平行 39°（金）、超稀有 338°
+- **卡片不再被拉到整行高**：`.ce-card-grid` 补 `align-items: start`。网格默认
+  `stretch`，一行里角标少的卡会被拉长，`.ce-face-foot` 的 `margin-top: auto`
+  再把队标顶到行底——看着就是「队标贴在整行右下角」而不是贴在这张卡上。
+  实测 80 张卡高度回到各自的内容高度，队标与徽章底部齐平（都距卡底 14px）
+- 代价：同一行里角标行数不同的卡不再等高（原来靠拉伸凑齐）。等高是假的整齐，
+  队标贴在哪张卡上是真的信息，取后者
+- ✓ 验证：`npm run typecheck` / `npm run build` 通过；Hobby 一盒 80 张逐张量过：
+  两层混色层 80/80 在位、卡图 `filter: none`、`.ce-card-grid` 为 `align-items: start`、
+  队标 80/80 在位、角标 13 张照常显示；五档文字对比度重测——
+  人物名 5.42–7.30:1、卡名 4.57–4.79:1，全部 ≥ 4.5:1
+
 ### 关键取舍记录
 
 - **不用 Pinia**：只有一个全局 store，手写 reactive 单例省一个依赖。
-- **卡面用占位图 + CSS filter**：实物卡图缺失且涉及版权，按稀有度做色彩区分即可，
-  后续补图只需替换 `public/card-art.svg` 与 `CardFace.vue` 的取图逻辑。
+- **卡面用占位图 + 按稀有度混色**：实物卡图缺失且涉及版权，按稀有度做色彩区分即可，
+  后续补图只需替换 `public/card-art.svg`。染色**不用** CSS `filter`：
+  `hue-rotate` 在这么暗的底图上会先被裁掉色相（实测把紫色档转成绿色），
+  走 `mix-blend-mode: color` 换色相 + `screen` 提亮两层，色值一律来自 `--tier`。
 - **拆卡只走云端（已推翻早期的 local-first）**：早期为了站点可用性做过
   localStorage 本地历史，但用户明确要求「不要本地拆卡」，已全部删除。
   现在拆盒记录**只在 D1**，未登录不能用拆卡功能；

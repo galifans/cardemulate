@@ -3,7 +3,8 @@
  * 卡面组件。
  *
  * 由于没有真实卡片实物图，统一使用 public/card-art.svg 作为底图，
- * 再按稀有度套用 CSS 滤镜 + 光晕，做出「平行彩虹」的视觉差异。
+ * 再把稀有度主色混进卡图与卡面，做出「平行彩虹」的视觉差异。
+ * 染色只能用 --tier：CSS 滤镜在这么暗的底图上转不出色相（见 .ce-face-art 注释）。
  */
 import { computed } from "vue";
 import type { PulledCard } from "../engine/types";
@@ -34,9 +35,10 @@ const serial = computed(() => {
             <img
                 src="/card-art.svg"
                 :alt="`${card.fullName} - ${card.player}`"
-                :style="{ filter: meta.filter }"
                 loading="lazy"
             />
+            <span class="ce-face-hue" aria-hidden="true"></span>
+            <span class="ce-face-lift" aria-hidden="true"></span>
             <span class="ce-face-sheen" aria-hidden="true"></span>
             <div v-if="marks.length" class="ce-face-marks">
                 <span
@@ -81,11 +83,19 @@ const serial = computed(() => {
     animation: ce-pop 0.42s cubic-bezier(0.2, 0.9, 0.3, 1.2);
 }
 
+/*
+ * 占位底图是深蓝紫的（hue 250°、明度不到一成就被裁黑），
+ * 用 CSS filter 的 hue-rotate 转它，负系数先被裁到 0，转出来的既不是档位色也会发绿。
+ * 所以色相一律由 --tier 通过混色层给：底图只贡献明暗和纹理。
+ */
 .ce-face-art {
     position: relative;
     aspect-ratio: 5 / 7;
     overflow: hidden;
-    background: #0a0f1e;
+    /* 底图没加载出来时也不该露出面板蓝底 */
+    background: color-mix(in srgb, var(--tier) 30%, #0a0f1e);
+    /* 混色层只跟卡图内部叠，不往外溢到卡身 */
+    isolation: isolate;
 }
 
 .ce-face-art img {
@@ -98,6 +108,25 @@ const serial = computed(() => {
 
 .ce-face:hover .ce-face-art img {
     transform: scale(1.04);
+}
+
+/* 取走底图的明暗，色相与饱和度整份换成 --tier：「金卡一眼是金」就靠这一层 */
+.ce-face-hue {
+    position: absolute;
+    inset: 0;
+    background: var(--tier);
+    mix-blend-mode: color;
+    pointer-events: none;
+}
+
+/* 越稀有的档位加得越亮，强度直接取档位的 --glow，不另配一套数值 */
+.ce-face-lift {
+    position: absolute;
+    inset: 0;
+    background: var(--tier);
+    mix-blend-mode: screen;
+    opacity: calc(0.06 + var(--glow) * 0.6);
+    pointer-events: none;
 }
 
 .ce-face-sheen {
