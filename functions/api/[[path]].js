@@ -29,7 +29,14 @@
 
 const SESSION_COOKIE = "ce_session";
 const SESSION_TTL_DAYS = 30;
-const PBKDF2_ITERATIONS = 150000;
+/**
+ * 【重要】Cloudflare 的 WebCrypto 对 PBKDF2 有硬性上限：
+ *   Pbkdf2 failed: iteration counts above 100000 are not supported
+ * 超过 100000 会在运行期直接抛异常，导致注册/登录返回 500。
+ * 本地 miniflare 不受此限制，所以这个坑只在线上暴露。
+ * 100000 就是本站能用的最大值，不要调高。
+ */
+const PBKDF2_ITERATIONS = 100000;
 /** 注册方式只有「邮箱 + 密码」一种，密码长度约束前后端保持同一套数字 */
 // 账号密码采用常见站点的约束：邮箱 + 6～32 位且不含空格的密码
 const MIN_PASSWORD_LENGTH = 6;

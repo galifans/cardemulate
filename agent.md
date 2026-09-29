@@ -119,8 +119,11 @@
 - 注册失败且错误文案包含「已注册」时，前端自动切到登录模式，不要弹单独的错误页。
 - 展示名由服务端从邮箱前缀派生（`email.split("@")[0].slice(0, 24)`），不单独采集；
   因此**不要**在前端恢复昵称输入框。
-- 密码存储：PBKDF2-SHA256，`PBKDF2_ITERATIONS = 150000`，每用户独立 16 字节随机盐，
+- 密码存储：PBKDF2-SHA256，`PBKDF2_ITERATIONS = 100000`，每用户独立 16 字节随机盐，
   用 base64 存入 `users.password_hash`。**禁止**降级为 MD5 / SHA1 / 无盐哈希。
+  **100000 是硬性天花板**：Cloudflare 的 WebCrypto 会拒绝更高的迭代次数
+  （`iteration counts above 100000 are not supported`），线上直接抛异常，
+  本地 miniflare 不会——不要因为「本地没事」就调高这个数字。
 - 会话：`ce_session` Cookie 存**原始** token，数据库 `sessions` 表只存它的 SHA-256；
   比对必须用 `safeEqual()` 常量时间比较。排查登录问题时注意这个方向——
   拿去查库的是哈希，Cookie 里发出去的是原始 token，两者不能混用。

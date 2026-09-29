@@ -175,7 +175,7 @@ CREATE TABLE IF NOT EXISTS users (
     display_name  TEXT NOT NULL,
     password_hash TEXT NOT NULL,
     password_salt TEXT NOT NULL,
-    iterations    INTEGER NOT NULL DEFAULT 150000,
+    iterations    INTEGER NOT NULL DEFAULT 100000,
     created_at    TEXT NOT NULL,
     last_seen_at  TEXT
 );
