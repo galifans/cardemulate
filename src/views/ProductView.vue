@@ -1,8 +1,9 @@
 <script setup lang="ts">
-import { computed } from "vue";
+import { computed, ref } from "vue";
 import { RouterLink, useRoute } from "vue-router";
 import { findCategory, findMaker, findProduct } from "../catalog";
 import { getBox } from "../catalog";
+import type { BoxRef } from "../catalog/types";
 
 const route = useRoute();
 const categoryKey = computed(() => String(route.params.category));
@@ -13,13 +14,71 @@ const category = computed(() => findCategory(categoryKey.value));
 const maker = computed(() => findMaker(categoryKey.value, makerKey.value));
 const product = computed(() => findProduct(categoryKey.value, makerKey.value, productKey.value));
 
-/** 已上线盒型，顺序同目录顺序 */
-const liveBoxes = computed(() =>
-    (product.value?.boxes ?? [])
-        .filter((box) => box.live)
-        .map((box) => getBox(box.ref))
-        .filter((box) => box !== undefined),
+/** 一张盒型卡片：规格与内容摘要都来自注册表，没注册的占位盒型只有手写说明 */
+interface BoxCard extends BoxRef {
+    config: {
+        cardsPerPack: number;
+        packsPerBox: number;
+        cardsPerBox: number;
+        boxesPerCase: number;
+        autoGuaranteed: boolean;
+    } | null;
+    content: {
+        exclusives: string[];
+        subsetCount: number;
+        variantCount: number;
+    } | null;
+}
+
+const boxCards = computed<BoxCard[]>(() =>
+    (product.value?.boxes ?? []).map((ref) => {
+        const box = getBox(ref.ref);
+        return {
+            ...ref,
+            config: box
+                ? {
+                      cardsPerPack: box.cardsPerPack,
+                      packsPerBox: box.packsPerBox,
+                      cardsPerBox: box.cardsPerPack * box.packsPerBox,
+                      boxesPerCase: box.boxesPerCase,
+                      autoGuaranteed: box.autoGuaranteed,
+                  }
+                : null,
+            content: box
+                ? {
+                      exclusives: box.boxExclusives,
+                      subsetCount: box.subsets.length,
+                      variantCount: box.variants.length,
+                  }
+                : null,
+        };
+    }),
 );
+
+/** 注意事项四个盒型完全一致，取任一已上线盒型的即可 */
+const boxNotes = computed(() => {
+    for (const card of boxCards.value) {
+        const box = getBox(card.ref);
+        if (box?.live) return box.notes;
+    }
+    return [];
+});
+
+/** 配置说明弹窗：只存 boxKey，内容从 boxCards 里现取，避免两处状态不同步 */
+const configRef = ref("");
+const configDetail = computed(() => {
+    const card = boxCards.value.find((item) => item.ref === configRef.value);
+    if (!card?.content) return null;
+    return { name: card.name, ...card.content };
+});
+
+const openConfig = (ref: string) => {
+    configRef.value = ref;
+};
+
+const closeConfig = () => {
+    configRef.value = "";
+};
 </script>
 
 <template>
@@ -51,63 +110,57 @@ const liveBoxes = computed(() =>
                 </div>
 
                 <div class="ce-grid ce-grid-2">
-                    <component
-                        :is="box.live ? RouterLink : 'div'"
-                        v-for="box in product.boxes"
-                        :key="box.ref"
-                        :to="box.live ? `/open/${box.ref}` : undefined"
-                        class="ce-card"
-                        :class="box.live ? 'ce-card-hover' : 'ce-card-off'"
+                    <div
+                        v-for="card in boxCards"
+                        :key="card.ref"
+                        class="ce-card ce-box-card"
+                        :class="card.live ? 'ce-card-hover' : 'ce-card-off'"
                     >
                         <p class="ce-card-title">
-                            {{ box.name }}
-                            <span v-if="box.live" class="ce-badge ce-badge-live">可拆盒</span>
+                            {{ card.name }}
+                            <span v-if="card.live" class="ce-badge ce-badge-live">可拆盒</span>
                             <span v-else class="ce-badge ce-badge-soon">待上线</span>
+                            <button
+                                v-if="card.content"
+                                class="ce-box-more"
+                                type="button"
+                                @click="openConfig(card.ref)"
+                            >
+                                配置说明
+                            </button>
                         </p>
-                        <p class="ce-card-sub">{{ box.note }}</p>
+                        <p v-if="card.note" class="ce-card-sub">{{ card.note }}</p>
 
-                        <div v-if="box.live && getBox(box.ref)" class="ce-box-config">
-                            <span class="ce-badge">
-                                {{ getBox(box.ref)!.cardsPerPack }} 张 / 包
-                            </span>
-                            <span class="ce-badge">{{ getBox(box.ref)!.packsPerBox }} 包 / 盒</span>
-                            <span class="ce-badge">
-                                {{ getBox(box.ref)!.packsPerBox * getBox(box.ref)!.cardsPerPack }} 张 / 盒
-                            </span>
-                            <span v-if="getBox(box.ref)!.boxesPerCase > 0" class="ce-badge">
-                                {{ getBox(box.ref)!.boxesPerCase }} 盒 / 箱
+                        <div v-if="card.config" class="ce-box-config">
+                            <span class="ce-badge">{{ card.config.cardsPerPack }} 张 / 包</span>
+                            <span class="ce-badge">{{ card.config.packsPerBox }} 包 / 盒</span>
+                            <span class="ce-badge">{{ card.config.cardsPerBox }} 张 / 盒</span>
+                            <span v-if="card.config.boxesPerCase > 0" class="ce-badge">
+                                {{ card.config.boxesPerCase }} 盒 / 箱
                             </span>
                             <span class="ce-badge">
-                                {{ getBox(box.ref)!.autoGuaranteed ? "有签名保证" : "无签名保证" }}
+                                {{ card.config.autoGuaranteed ? "有签名保证" : "无签名保证" }}
                             </span>
                         </div>
-                    </component>
+
+                        <!-- 整卡可点：覆盖层负责跳转，上面的按钮靠 z-index 盖住它 -->
+                        <RouterLink
+                            v-if="card.live"
+                            class="ce-box-cover"
+                            :to="`/open/${card.ref}`"
+                            :aria-label="`进入拆盒页：${card.name}`"
+                        ></RouterLink>
+                    </div>
                 </div>
             </section>
 
-            <section v-if="liveBoxes.length" class="ce-section">
-                <div v-for="liveBox in liveBoxes" :key="liveBox.key" class="ce-card">
-                    <h2 class="ce-section-title">{{ liveBox.name }}</h2>
-                    <div class="ce-highlights">
-                        <div>
-                            <h3 class="ce-hl-title">本盒独家内容</h3>
-                            <ul>
-                                <li v-for="item in liveBox.boxExclusives" :key="item">{{ item }}</li>
-                            </ul>
-                        </div>
-                    </div>
-                    <p class="ce-faint ce-hl-foot">
-                        共 {{ liveBox.subsets.length }} 个子集、{{ liveBox.variants.length }} 个卡种。
-                        进入拆盒页可查看完整配率表与 Checklist。
-                    </p>
-                </div>
-
+            <section v-if="boxNotes.length" class="ce-section">
                 <div class="ce-card">
                     <h2 class="ce-section-title">注意事项</h2>
                     <div class="ce-highlights">
                         <div>
                             <ul>
-                                <li v-for="item in liveBoxes[0].notes" :key="item">{{ item }}</li>
+                                <li v-for="item in boxNotes" :key="item">{{ item }}</li>
                             </ul>
                         </div>
                     </div>
@@ -117,6 +170,27 @@ const liveBoxes = computed(() =>
 
         <div v-else class="ce-empty">
             没有找到该系列。<RouterLink to="/" class="ce-link">返回首页</RouterLink>
+        </div>
+
+        <div v-if="configDetail" class="ce-modal" @click.self="closeConfig">
+            <div class="ce-modal-panel" role="dialog" aria-modal="true" aria-labelledby="ce-config-title">
+                <div class="ce-modal-head">
+                    <h2 id="ce-config-title" class="ce-section-title">{{ configDetail.name }}</h2>
+                    <button class="ce-modal-close" type="button" @click="closeConfig">关闭</button>
+                </div>
+
+                <div class="ce-modal-block">
+                    <h3 class="ce-section-title">本盒独家内容</h3>
+                    <ul class="ce-config-list">
+                        <li v-for="item in configDetail.exclusives" :key="item">{{ item }}</li>
+                    </ul>
+                </div>
+
+                <p class="ce-faint ce-config-foot">
+                    共 {{ configDetail.subsetCount }} 个子集、{{ configDetail.variantCount }} 个卡种。
+                    进入拆盒页可查看完整配率表与 Checklist。
+                </p>
+            </div>
         </div>
     </div>
 </template>
@@ -164,19 +238,54 @@ const liveBoxes = computed(() =>
     margin-top: 12px;
 }
 
+.ce-box-card {
+    position: relative;
+}
+
+.ce-box-more {
+    /* 整卡跳转靠覆盖层实现，按钮必须压在它上面才点得到 */
+    position: relative;
+    z-index: 1;
+    padding: 1px 9px;
+    border-radius: 999px;
+    border: 1px dashed var(--ce-border);
+    background: transparent;
+    color: var(--ce-text-faint);
+    font-size: 11.5px;
+    transition: color 0.16s ease, border-color 0.16s ease;
+}
+
+.ce-box-more:hover {
+    border-color: var(--ce-brand);
+    color: var(--ce-brand);
+}
+
+.ce-box-cover {
+    position: absolute;
+    inset: 0;
+    border-radius: inherit;
+}
+
+.ce-config-list {
+    margin: 10px 0 0;
+    padding-left: 18px;
+    color: var(--ce-text-dim);
+    font-size: 13.5px;
+    display: flex;
+    flex-direction: column;
+    gap: 5px;
+}
+
+.ce-config-foot {
+    margin: 20px 0 0;
+    font-size: 12.5px;
+}
+
 .ce-highlights {
     display: grid;
     grid-template-columns: repeat(auto-fit, minmax(280px, 1fr));
     gap: 22px;
     margin-top: 16px;
-}
-
-.ce-hl-title {
-    font-size: 13px;
-    color: var(--ce-text-faint);
-    text-transform: uppercase;
-    letter-spacing: 0.08em;
-    margin-bottom: 8px;
 }
 
 .ce-highlights ul {
@@ -187,11 +296,6 @@ const liveBoxes = computed(() =>
     display: flex;
     flex-direction: column;
     gap: 5px;
-}
-
-.ce-hl-foot {
-    margin: 18px 0 0;
-    font-size: 12.5px;
 }
 
 .ce-link {

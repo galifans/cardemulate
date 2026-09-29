@@ -57,7 +57,11 @@ export interface BoxRef {
     slug: string;
     name: string;
     live: boolean;
-    note: string;
+    /**
+     * 手写说明。只有「已规划未上线」的占位盒型需要 —— 上线的盒型包装规格
+     * 全在注册表里，视图直接读，不再拼一串注定和规格重复的说明。
+     */
+    note?: string;
 }
 
 /** 系列 / 产品 */
