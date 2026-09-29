@@ -1,0 +1,224 @@
+PAGES: 5
+===== PAGE 1 =====
+Subset                                        Hobby            Breaker
+Base Common                                   5:1
+Base Common Refractor                         1:8
+Base Common Oil Spill                         1:2
+Base Common Xfractor                          1:16
+Base Common Sky Blue                          1:10
+Base Common Purple                            1:14
+Base Common Blue                              1:18
+Base Common Purple Xfractor                   1:24
+Base Common Blue Xfractor                     1:36
+Base Common Green                             1:47
+Base Common Gold                              1:70
+Base Common Orange                            1:140
+Base Common Black                             1:234
+Base Common Red                               1:350
+Base Common SuperFractor                      1:3514
+Base Common Geometric                                          2:1
+Base Common Purple Geometric                                   1:2
+Base Common Blue Geometric                                     1:3
+Base Common Gold Geometric                                     1:4
+Base Common Red/Black Geometric                                1:7
+Base Common Red Geometric                                      1:17
+Base Common Black Geometric                                    1:167
+Base Uncommon                                 1:1
+Base Uncommon Refractor                       1:6
+Base Uncommon Oil Spill                       1:24
+Base Uncommon Xfractor                        1:12
+Base Uncommon Sky Blue                        1:14
+Base Uncommon Purple                          1:18
+Base Uncommon Blue                            1:24
+Base Uncommon Purple Xfractor                 1:36
+Base Uncommon Blue Xfractor                   1:47
+Base Uncommon Green                           1:100
+Base Uncommon Gold                            1:140
+Base Uncommon Orange                          1:175
+Base Uncommon Black                           1:350
+Base Uncommon Red                             1:700
+Base Uncommon SuperFractor                    1:3514
+Base Uncommon Geometric                                        1:2
+Base Uncommon Purple Geometric                                 1:3
+Base Uncommon Blue Geometric                                   1:4
+Base Uncommon Gold Geometric                                   1:7
+Base Uncommon Red/Black Geometric                              1:17
+Base Uncommon Red Geometric                                    1:34
+Base Uncommon Black Geometric                                  1:167
+Base Rare                                     1:3
+===== PAGE 2 =====
+Base Rare Refractor                                1:24
+Base Rare Oil Spill                                1:96
+Base Rare Xfractor                                 1:48
+Base Rare Sky Blue                                 1:24
+Base Rare Blue                                     1:36
+Base Rare Purple Xfractor                          1:47
+Base Rare Blue Xfractor                            1:72
+Base Rare Green                                    1:140
+Base Rare Gold                                     1:175
+Base Rare Orange                                   1:234
+Base Rare Black                                    1:700
+Base Rare Red                                      1:1168
+Base Rare SuperFractor                             1:3514
+Base Rare Geometric                                                   1:5
+Base Rare Purple Geometric                                            1:4
+Base Rare Blue Geometric                                              1:7
+Base Rare Gold Geometric                                              1:17
+Base Rare Red/Black Geometric                                         1:34
+Base Rare Red Geometric                                               1:56
+Base Rare Black Geometric                                             1:167
+Arrivals                                           1:4
+Muse                                               1:4
+First                                              1:4
+Finishers                                          1:11
+Arrivals Refractor                                 1:10
+Muse Refractor                                     1:10
+First Refractor                                    1:10
+Finishers Refractor                                1:30
+Arrivals Xfractor                                  1:20
+Muse Xfractor                                      1:20
+First Xfractor                                     1:20
+Finishers Xfractor                                 1:60
+Arrivals Sky Blue                                  1:78
+Muse Sky Blue                                      1:78
+First Sky Blue                                     1:78
+Finishers Sky Blue                                 1:234
+Arrivals Purple                                    1:94
+Muse Purple                                        1:94
+First Purple                                       1:94
+Finishers Purple                                   1:280
+Arrivals Blue                                      1:118
+Muse Blue                                          1:118
+First Blue                                         1:118
+Finishers Blue                                     1:354
+Arrivals Die Cut                                   1:156
+Muse Die Cut                                       1:156
+===== PAGE 3 =====
+First Die Cut                                      1:156
+Finishers Die Cut                                  1:467
+Arrivals Gold                                      1:234
+Muse Gold                                          1:234
+First Gold                                         1:234
+Finishers Gold                                     1:700
+Arrivals Orange                                    1:467
+Muse Orange                                        1:467
+First Orange                                       1:467
+Finishers Orange                                   1:1406
+Arrivals Red                                       1:2343
+Muse Red                                           1:2343
+First Red                                          1:2343
+Finishers Red                                      1:7178
+Arrivals SuperFractor                              1:12495
+Muse SuperFractor                                  1:12495
+First SuperFractor                                 1:12495
+Finishers SuperFractor                             1:48192
+Arrivals Geometric                                                   1:5
+Muse Geometric                                                       1:5
+First Geometric                                                      1:5
+Finishers Geometric                                                  1:13
+Arrivals Blue Geometric                                              1:8
+Muse Blue Geometric                                                  1:8
+First Blue Geometric                                                 1:8
+Finishers Blue Geometric                                             1:23
+Arrivals Gold Geometric                                              1:12
+Muse Gold Geometric                                                  1:12
+First Gold Geometric                                                 1:12
+Finishers Gold Geometric                                             1:34
+Arrivals Red/Black Geometric                                         1:23
+Muse Red/Black Geometric                                             1:23
+First Red/Black Geometric                                            1:23
+Finishers Red/Black Geometric                                        1:67
+Arrivals Red Geometric                                               1:56
+Muse Red Geometric                                                   1:56
+First Red Geometric                                                  1:56
+Finishers Red Geometric                                              1:167
+Arrivals Black Geometric                                             1:594
+Muse Black Geometric                                                 1:594
+First Black Geometric                                                1:594
+Finishers Black Geometric                                            1:2291
+Pulse                                              1:62              1:10
+The Man                                            1:480             1:161
+Autographs                                         1:15
+Rookie Autographs                                  1:22
+===== PAGE 4 =====
+Autographs Refractors                             1:31
+Rookie Autographs Refractors                      1:50
+Autographs Blue Xfractor                          1:65
+Rookie Autographs Blue Xfractor                   1:94
+Autographs Gold                                   1:127
+Rookie Autographs Gold                            1:172
+Autographs Orange                                 1:250
+Rookie Autographs Orange                          1:343
+Autographs Red/Black Vapor                        1:623
+Rookie Autographs Red/Black Vapor                 1:857
+Autographs Red                                    1:1246
+Rookie Autographs Red                             1:1713
+Autographs SuperFractor                           1:6227
+Rookie Autographs SuperFractor                    1:8563
+Autographs Green Geometric                                          1:11
+Rookie Autographs Green Geometric                                   1:6
+Autographs Gold Geometric                                           1:8
+Rookie Autographs Gold Geometric                                    1:9
+Autographs Yellow Geometric                                         1:9
+Rookie Autographs Yellow Geometric                                  1:12
+Autographs Black Geometric                                          1:12
+Rookie Autographs Black Geometric                                   1:17
+Autographs Orange Geometric                                         1:20
+Rookie Autographs Orange Geometric                                  1:28
+Autographs Red/Black Geometric                                      1:30
+Rookie Autographs Red/Black Geometric                               1:41
+Autographs Red Geometric                                            1:60
+Rookie Autographs Red Geometric                                     1:82
+Baseline Autographs                               1:25
+Masters Autographs                                1:163
+Baseline Autographs Refractors                    1:64
+Masters Autographs Refractors                     1:150
+Baseline Autographs Blue Xfractor                 1:74
+Masters Autographs Blue Xfractor                  1:120
+Baseline Autographs Gold                          1:137
+Masters Autographs Gold                           1:191
+Baseline Autographs Orange                        1:274
+Masters Autographs Orange                         1:312
+Baseline Autographs Red/Black Vapor               1:685
+Masters Autographs Red/Black Vapor                1:745
+Baseline Autographs Red                           1:1370
+Masters Autographs Red                            1:1458
+Baseline Autographs SuperFractor                  1:6850
+Masters Autographs SuperFractor                   1:7287
+Baseline Autographs Green Geometric                                 1:15
+Masters Autographs Green Geometric                                  1:55
+===== PAGE 5 =====
+Baseline Autographs Gold Geometric                                    1:7
+Masters Autographs Gold Geometric                                     1:11
+Baseline Autographs Yellow Geometric                                  1:10
+Masters Autographs Yellow Geometric                                   1:12
+Baseline Autographs Black Geometric                                   1:14
+Masters Autographs Black Geometric                                    1:16
+Baseline Autographs Orange Geometric                                  1:22
+Masters Autographs Orange Geometric                                   1:25
+Baseline Autographs Red/Black Geometric                               1:33
+Masters Autographs Red/Black Geometric                                1:36
+Baseline Autographs Red Geometric                                     1:66
+Masters Autographs Red Geometric                                      1:70
+Electrifying Signatures Geometric                                     1:3
+Colossal Shots Autographs Geometric                                   1:5
+Electrifying Signatures Green Geometric                               1:6
+Colossal Shots Autographs Green Geometric                             1:6
+Electrifying Signatures Gold Geometric                                1:8
+Colossal Shots Autographs Gold Geometric                              1:7
+Electrifying Signatures Yellow Geometric                              1:10
+Colossal Shots Autographs Yellow Geometric                            1:10
+Electrifying Signatures Black Geometric                               1:14
+Colossal Shots Autographs Black Geometric                             1:14
+Electrifying Signatures Orange Geometric                              1:23
+Colossal Shots Autographs Orange Geometric                            1:23
+Electrifying Signatures Red/Black Geometric                           1:34
+Colossal Shots Autographs Red/Black Geometric                         1:34
+Electrifying Signatures Red Geometric                                 1:67
+Colossal Shots Autographs Red Geometric                               1:67
+Electrifying Signatures SuperFractor                                  1:333
+Colossal Shots Autographs SuperFractor                                1:333
+Headliners                                         1:648              1:79
+Aura                                               1:962              1:161
+Headliners SuperFractor                            1:30668            1:4008
+Aura SuperFractor                                  1:22490            1:3207

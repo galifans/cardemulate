@@ -1,0 +1,160 @@
+PAGES: 4
+===== PAGE 1 =====
+Subsets                                            Hobby           FDI
+Base                                               1:5             1:5
+Base Bronze                                        1:10            1:10
+Base Blue                                          1:16            1:16
+Base Gold                                          1:23            1:23
+Base Red                                           1:46            1:46
+Base Platinum                                      1:229           1:229
+Ice Water                                          1:12            1:12
+Flight Path                                        1:16            1:16
+Architects                                         1:16            1:16
+Ice Water Bronze                                   1:23            1:23
+Flight Path Bronze                                 1:31            1:31
+Architects Bronze                                  1:31            1:31
+Ice Water Blue                                     1:39            1:39
+Flight Path Blue                                   1:51            1:51
+Architects Blue                                    1:51            1:51
+Ice Water Gold                                     1:58            1:58
+Flight Path Gold                                   1:77            1:77
+Architects Gold                                    1:77            1:77
+Ice Water Red                                      1:115           1:115
+Flight Path Red                                    1:153           1:153
+Architects Red                                     1:153           1:153
+Ice Water Platinum                                 1:568           1:568
+Flight Path Platinum                               1:764           1:764
+Architects Platinum                                1:764           1:764
+3 and D                                            1:39            1:39
+Monsters of the Deep                               1:51            1:51
+The Paint                                          1:39            1:39
+3 and D Red                                        1:39            1:39
+Monsters of the Deep Red                           1:153           1:153
+The Paint Red                                      1:153           1:153
+3 and D Holo Gold                                  1:191           1:191
+Monsters of the Deep Holo Gold                     1:255           1:255
+The Paint Holo Gold                                1:255           1:255
+3 and D Platinum                                   1:568           1:568
+Monsters of the Deep Platinum                      1:764           1:764
+The Paint Platinum                                 1:764           1:764
+Rookie 3 Patch Autographs Horizontal               1:13            1:13
+Rookie 3 Patch Autographs Vertical                 1:12            1:12
+Relics Autographs Prime                            1:23            1:23
+Rookie 3 Patch Autographs Horizontal Bronze1:23                    1:23
+Rookie 3 Patch Autographs Vertical Bronze          1:23            1:23
+Relics Autographs Prime Bronze                     1:45            1:45
+Rookie 3 Patch Autographs Horizontal Blue          1:37            1:37
+Rookie 3 Patch Autographs Vertical Blue            1:37            1:37
+Relics Autographs Prime Blue                       1:74            1:74
+===== PAGE 2 =====
+Rookie 3 Patch Autographs Horizontal Gold          1:56             1:56
+Rookie 3 Patch Autographs Vertical Gold            1:56             1:56
+Relics Autographs Prime Gold                       1:111            1:111
+Rookie 3 Patch Autographs Horizontal Red           1:111            1:111
+Rookie 3 Patch Autographs Vertical Red             1:112            1:112
+Relics Autographs Prime Red                        1:222            1:222
+Rookie 3 Patch Autographs Horizontal Platinum1:554                  1:554
+Rookie 3 Patch Autographs Vertical Platinum1:554                    1:554
+Relics Autographs Prime Platinum                   1:1107           1:1107
+Rookie 3 Patch Autographs Horizontal Emerald                        1:2
+Rookie 3 Patch Autographs Vertical Emerald                          1:2
+Rookie 3 Patch Autographs Horizontal Holo Gold                      1:5
+Rookie 3 Patch Autographs Vertical Holo Gold                        1:5
+Veteran 3 Patch Autographs                         1:23             1:23
+Veteran 3 Patch Autographs Bronze                  1:19             1:19
+Veteran 3 Patch Autographs Blue                    1:22             1:22
+Veteran 3 Patch Autographs Gold                    1:32             1:32
+Veteran 3 Patch Autographs Red                     1:63             1:63
+Veteran 3 Patch Autographs Platinum                1:321            1:321
+Raindrops Signatures                               1:12             1:12
+Serendipitous Sigs                                 1:13             1:13
+Raindrops Signatures Bronze                        1:23             1:23
+Serendipitous Sigs Bronze                          1:22             1:22
+Raindrops Signatures Blue                          1:31             1:31
+Serendipitous Sigs Blue                            1:34             1:34
+Raindrops Signatures Gold                          1:47             1:47
+Serendipitous Sigs Gold                            1:51             1:51
+Raindrops Signatures Red                           1:93             1:93
+Serendipitous Sigs Red                             1:101            1:101
+Raindrops Signatures Platinum                      1:471            1:471
+Serendipitous Sigs Platinum                        1:503            1:503
+Full Court Signs                                   1:13             1:13
+Hit the Mark                                       1:17             1:17
+Full Court Signs Bronze                            1:23             1:23
+Hit the Mark Bronze                                1:24             1:24
+Full Court Signs Blue                              1:37             1:37
+Hit the Mark Blue                                  1:37             1:37
+Full Court Signs Gold                              1:56             1:56
+Hit the Mark Gold                                  1:54             1:54
+Full Court Signs Red                               1:115            1:115
+Hit the Mark Red                                   1:108            1:108
+Full Court Signs Platinum                          1:554            1:554
+Hit the Mark Platinum                              1:554            1:554
+Triple Power Autographs                            1:25             1:25
+Rookie Autographs                                  1:14             1:14
+Triple Power Autographs Bronze                     1:23             1:23
+===== PAGE 3 =====
+Rookie Autographs Bronze                          1:23             1:23
+Triple Power Autographs Blue                      1:48             1:48
+Rookie Autographs Blue                            1:38             1:38
+Triple Power Autographs Gold                      1:68             1:68
+Rookie Autographs Gold                            1:56             1:56
+Triple Power Autographs Red                       1:123            1:123
+Rookie Autographs Red                             1:112            1:112
+Triple Power Autographs Platinum                  1:492            1:492
+Rookie Autographs Platinum                        1:554            1:554
+Thunderdunk Signatures                            1:15             1:15
+Rookie-verse Autographs                           1:12             1:12
+Thunderdunk Signatures Bronze                     1:22             1:22
+Rookie-verse Autographs Bronze                    1:23             1:23
+Thunderdunk Signatures Blue                       1:28             1:28
+Rookie-verse Autographs Blue                      1:37             1:37
+Thunderdunk Signatures Gold                       1:42             1:42
+Rookie-verse Autographs Gold                      1:56             1:56
+Thunderdunk Signatures Red                        1:82             1:82
+Rookie-verse Autographs Red                       1:112            1:112
+Thunderdunk Signatures Platinum                   1:418            1:418
+Rookie-verse Autographs Platinum                  1:568            1:568
+Rim Reapers Signatures                            1:60             1:60
+Quest for Glory Autographs                        1:74             1:74
+City Drip Signatures                              1:80             1:80
+Rim Reapers Signatures Holo Gold                  1:202            1:202
+Quest for Glory Autographs Holo Gold              1:246            1:246
+City Drip Signatures Holo Gold                    1:264            1:264
+Rim Reapers Signatures Platinum                   1:615            1:615
+Quest for Glory Autographs Platinum               1:764            1:764
+City Drip Signatures Platinum                     1:791            1:791
+Rookie Relics Autographs                          1:14             1:14
+Fresh Force Relic Autographs                      1:13             1:13
+Rookie Relics Autographs Bronze                   1:24             1:24
+Fresh Force Relic Autographs Bronze               1:23             1:23
+Rookie Relics Autographs Blue                     1:41             1:41
+Fresh Force Relic Autographs Blue                 1:39             1:39
+Rookie Relics Autographs Gold                     1:62             1:62
+Fresh Force Relic Autographs Gold                 1:60             1:60
+Triple Relics Autographs Gold                     1:140            1:140
+Rookie Relics Autographs Red                      1:128            1:128
+Fresh Force Relic Autographs Red                  1:119            1:119
+Triple Relics Autographs Red                      1:281            1:281
+Rookie Relics Autographs Platinum                 1:554            1:554
+Fresh Force Relic Autographs Platinum             1:554            1:554
+Triple Relics Autographs Platinum                 1:1302           1:1302
+Game Time Graphs                                  1:10             1:10
+===== PAGE 4 =====
+Next Feature Signatures                          1:19            1:19
+Game Time Graphs Bronze                          1:19            1:19
+Next Feature Signatures Bronze                   1:29            1:29
+Game Time Graphs Blue                            1:31            1:31
+Next Feature Signatures Blue                     1:48            1:48
+Game Time Graphs Gold                            1:46            1:46
+Next Feature Signatures Gold                     1:72            1:72
+Game Time Graphs Red                             1:91            1:91
+Next Feature Signatures Red                      1:143           1:143
+Game Time Graphs Platinum                        1:452           1:452
+Next Feature Signatures Platinum                 1:714           1:714
+Re-Markable                                      1:12            1:12
+Re-Markable Bronze                               1:22            1:22
+Re-Markable Blue                                 1:37            1:37
+Re-Markable Gold                                 1:54            1:54
+Re-Markable Red                                  1:111           1:111
+Re-Markable Platinum                             1:554           1:554

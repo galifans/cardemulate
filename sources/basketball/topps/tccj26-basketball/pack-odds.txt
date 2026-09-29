@@ -1,0 +1,69 @@
+PAGES: 2
+===== PAGE 1 =====
+     Checklists and odds provided by Topps reflect the intended
+               configuration of that product at the time of
+production, but actual contents and odds may vary, and inclusion of a
+                   subject does not guarantee that it
+                will appear in every parallel or variation.
+                                                         Odds
+Base                                                       4:1
+Base White                                                 1:7
+Base Refractor                                            1:10
+Base LogoFractor                                          1:20
+Base Teal Speckle Refractor                               1:26
+Base Pink Refractor                                       1:31
+Base Aqua Shimmer                                         1:38
+Base Lasers                                               1:44
+Base Blue Refractor                                       1:51
+Base Sonar                                                1:61
+Base Green Refractor                                      1:77
+Base Purple Mini-Diamond                                 1:101
+Base Gold Refractor                                      1:151
+Base Cactus Jack Refractor                               1:184
+Base Orange Refractor                                    1:302
+Base Black Refractor                                     1:754
+Base Red Refractor                                      1:1509
+Base Red Mini-Diamond Refractor                         1:1509
+Base SuperFractor                                       1:7575
+Utopia Highlights                                          1:8
+Jacked Up                                                  1:8
+LA Flame Legends                                          1:15
+Utopia Highlights Blue Refractor                         1:126
+Jacked Up Blue Refractor                                 1:126
+LA Flame Legends Blue Refractor                          1:252
+Utopia Highlights Green Refractor                        1:191
+Jacked Up Green Refractor                                1:191
+LA Flame Legends Green Refractor                         1:381
+Utopia Highlights Purple Mini-Diamond                    1:252
+Jacked Up Purple Mini-Diamond                            1:252
+LA Flame Legends Purple Mini-Diamond                     1:503
+Utopia Highlights Gold Refractor                         1:377
+Jacked Up Gold Refractor                                 1:377
+LA Flame Legends Gold Refractor                          1:754
+Utopia Highlights Orange Refractor                       1:754
+Jacked Up Orange Refractor                               1:754
+LA Flame Legends Orange Refractor                       1:1509
+Utopia Highlights Black Refractor                       1:1884
+Jacked Up Black Refractor                               1:1884
+LA Flame Legends Black Refractor                        1:3768
+Utopia Highlights Red Refractor                         1:3768
+===== PAGE 2 =====
+Jacked Up Red Refractor                              1:3768
+LA Flame Legends Red Refractor                       1:7575
+Utopia Highlights SuperFractor                       1:19137
+Jacked Up SuperFractor                               1:19137
+LA Flame Legends SuperFractor                        1:38274
+Astrovision                                           1:305
+Cactus Mode                                          1:1200
+Astrovision SuperFractor                             1:42777
+Cactus Mode SuperFractor                             1:42777
+Base Autograph Variation                              1:208
+Cactus Ink                                            1:208
+Base Autograph Variation Orange Refractor            1:1064
+Cactus Ink Orange Refractor                          1:1064
+Base Autograph Variation Black Refractor             1:2664
+Cactus Ink Black Refractor                           1:2664
+Base Autograph Variation Red Refractor               1:5348
+Cactus Ink Red Refractor                             1:5348
+Base Autograph Variation SuperFractor                1:26934
+Cactus Ink SuperFractor                              1:26934
