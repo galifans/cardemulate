@@ -8,6 +8,8 @@
 import { computed } from "vue";
 import type { PulledCard } from "../engine/types";
 import { TIERS } from "../engine/tiers";
+import { cardMarks } from "../engine/marks";
+import TeamIcon from "./TeamIcon.vue";
 
 const props = defineProps<{
     card: PulledCard;
@@ -17,10 +19,14 @@ const props = defineProps<{
 
 const meta = computed(() => TIERS[props.card.tier]);
 
-const badge = computed(() => {
-    if (props.card.numbered === 1) return "1 of 1";
-    if (props.card.numbered !== null) return `${props.card.serial ?? "-"} / ${props.card.numbered}`;
-    return "";
+/** 卡图下方那排标记：签字 / 限量编号 / 新秀 */
+const marks = computed(() => cardMarks(props.card));
+
+/** 具体到手的那一张：限量卡的流水号 */
+const serial = computed(() => {
+    if (props.card.numbered === null) return "";
+    if (props.card.numbered === 1) return "1 / 1";
+    return `${props.card.serial ?? "-"} / ${props.card.numbered}`;
 });
 </script>
 
@@ -34,17 +40,29 @@ const badge = computed(() => {
                 loading="lazy"
             />
             <span class="ce-face-sheen" aria-hidden="true"></span>
-            <span v-if="badge" class="ce-face-serial ce-mono">{{ badge }}</span>
-            <span v-if="card.rookie && !compact" class="ce-face-rookie">RC</span>
             <span class="ce-face-tier">{{ meta.name }}</span>
+        </div>
+
+        <div v-if="!compact && marks.length" class="ce-face-marks">
+            <span
+                v-for="mark in marks"
+                :key="mark.key"
+                class="ce-mark"
+                :class="`ce-mark-${mark.kind}`"
+            >
+                {{ mark.label }}
+            </span>
         </div>
 
         <div class="ce-face-body">
             <p class="ce-face-player">{{ card.player }}</p>
-            <p class="ce-face-team ce-faint">{{ card.team }}</p>
+            <div class="ce-face-team">
+                <TeamIcon :team="card.team" />
+            </div>
             <p class="ce-face-name">{{ card.fullName }}</p>
             <div class="ce-face-meta">
                 <span class="ce-badge">#{{ card.no }}</span>
+                <span v-if="serial" class="ce-badge ce-mono">{{ serial }}</span>
                 <span class="ce-badge ce-mono">{{ card.oddsLabel }}</span>
                 <span v-if="!compact" class="ce-badge">第 {{ card.pack }} 包</span>
             </div>
@@ -105,10 +123,10 @@ const badge = computed(() => {
     opacity: calc(0.25 + var(--glow));
 }
 
-.ce-face-serial,
-.ce-face-tier,
-.ce-face-rookie {
+.ce-face-tier {
     position: absolute;
+    bottom: 8px;
+    left: 8px;
     font-size: 11px;
     padding: 2px 8px;
     border-radius: 7px;
@@ -119,21 +137,40 @@ const badge = computed(() => {
     font-weight: 600;
 }
 
-.ce-face-serial {
-    top: 8px;
-    right: 8px;
+.ce-face-marks {
+    display: flex;
+    flex-wrap: wrap;
+    justify-content: center;
+    gap: 6px;
+    padding: 9px 12px 0;
 }
 
-.ce-face-rookie {
-    top: 8px;
-    left: 8px;
+.ce-mark {
+    font-size: 10.5px;
+    font-weight: 700;
+    letter-spacing: 0.06em;
+    line-height: 1.6;
+    padding: 1px 9px;
+    border-radius: 999px;
+    border: 1px solid;
+}
+
+.ce-mark-auto {
+    color: #ffc870;
+    border-color: rgba(255, 181, 71, 0.55);
+    background: rgba(255, 181, 71, 0.12);
+}
+
+.ce-mark-numbered {
+    color: #cbaaff;
+    border-color: rgba(180, 135, 255, 0.55);
+    background: rgba(180, 135, 255, 0.12);
+}
+
+.ce-mark-rookie {
     color: #7dbcff;
     border-color: rgba(90, 169, 255, 0.55);
-}
-
-.ce-face-tier {
-    bottom: 8px;
-    left: 8px;
+    background: rgba(90, 169, 255, 0.12);
 }
 
 .ce-face-body {
@@ -152,8 +189,7 @@ const badge = computed(() => {
 }
 
 .ce-face-team {
-    margin: 0;
-    font-size: 11.5px;
+    display: flex;
 }
 
 .ce-face-name {

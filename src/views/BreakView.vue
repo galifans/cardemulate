@@ -380,7 +380,7 @@ const toggleSubset = (key: string): void => {
                     <div class="ce-section-head ce-rip-cards-head">
                         <h2 class="ce-section-title">开出的卡</h2>
                         <span class="ce-section-desc">
-                            优先展示高稀有度，再按官方配率排序
+                            优先展示高稀有度，再按官方配率排序 · AUTO 签字、/N 限量编号、RC 新秀
                         </span>
                     </div>
 

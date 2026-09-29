@@ -113,15 +113,17 @@ src/
       roster.ts         球员名单（紧凑元组）
       box.ts            子集、平行、配率、盒型定义
       index.ts
+  data/teams.ts       球队展示元数据（缩写 + 主色，卡面图标用）
   engine/             拆包引擎（与具体卡盒解耦）
     types.ts            BoxDefinition / SubsetDef / VariantDef / PulledCard
     rng.ts             fnv1a + mulberry32，种子可复现
     rip.ts             加权抽样、期望值、概率、最优卡比较
     tiers.ts           稀有度元数据与配色
+    marks.ts           卡面标记（AUTO / 限量编号 / RC）的推导
   api/client.ts       后端接口封装，含降级逻辑
   stores/app.ts       用户会话、云端拆盒记录、服务端统计
   views/              页面
-  components/         组件
+  components/         组件（CategoryIcon 品类图标、TeamIcon 球队图标、CardFace 卡面等）
 functions/api/        Pages Functions：鉴权、统计、目录同步
 schema.sql            D1 建表脚本（v2：维度表 + 事实表分离）
 ```

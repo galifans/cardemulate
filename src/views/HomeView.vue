@@ -75,8 +75,7 @@ const formatNumber = (value: number): string => value.toLocaleString("zh-CN");
                             <p class="ce-card-sub">{{ category.tagline }}</p>
                         </div>
                     </div>
-                    <p v-if="category.live" class="ce-cat-feature">{{ category.feature }}</p>
-                    <p v-else class="ce-cat-soon">待上线，敬请期待！</p>
+                    <p v-if="!category.live" class="ce-cat-soon">待上线，敬请期待！</p>
                 </component>
             </div>
 
@@ -187,12 +186,6 @@ const formatNumber = (value: number): string => value.toLocaleString("zh-CN");
 .ce-card-title {
     margin: 2px 0 0 !important;
     font-size: 17px;
-}
-
-.ce-cat-feature {
-    margin: 14px 0 0;
-    font-size: 12.5px;
-    color: var(--ce-brand);
 }
 
 .ce-cat-soon {

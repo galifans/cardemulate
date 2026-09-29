@@ -31,8 +31,6 @@ export interface CategoryDef {
     order: number;
     /** 是否已有可拆的盒型（由已注册数据推导） */
     live: boolean;
-    /** 已上线内容的说明文案 */
-    feature?: string;
     /** 该品类下已注册的盒型数量 */
     boxCount: number;
 }

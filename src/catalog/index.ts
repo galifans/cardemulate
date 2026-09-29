@@ -55,11 +55,6 @@ export const CATEGORIES: CategoryDef[] = CATEGORY_SEED.slice()
             tagline: seed.tagline,
             order: seed.order,
             live: live.length > 0,
-            feature:
-                seed.feature ??
-                (live.length
-                    ? `已上线：${live.map((box) => box.name).join(" / ")}（按盒拆）`
-                    : undefined),
             boxCount: registered.length,
         };
     });

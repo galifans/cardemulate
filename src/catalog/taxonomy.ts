@@ -19,8 +19,6 @@ export interface CategorySeed {
     order: number;
     /** 该品类下的发行商（顺序即展示顺序） */
     makers: string[];
-    /** 如不写，则根据已注册盒型自动生成 */
-    feature?: string;
 }
 
 export interface MakerSeed {
