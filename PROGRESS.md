@@ -37,7 +37,7 @@ src/catalog/     目录层（唯一真相，运行时渲染不查库）
 src/data/sets/   盒型数据（按 品类/发行商/系列 分目录）
 src/engine/      拆包引擎（与具体卡盒完全解耦）
 src/api/         后端接口封装（含降级）
-src/stores/      用户会话 + 本地历史 + 服务端统计
+src/stores/      用户会话 + 云端拆盒记录 + 服务端统计
 functions/api/   Pages Functions（鉴权 / 统计 / 目录同步）
 schema.sql       D1 建表脚本（维度表 + 事实表分离）
 ```
@@ -145,13 +145,58 @@ schema.sql       D1 建表脚本（维度表 + 事实表分离）
   云端子集 `Base Set 26 / Clutch City 1 / Stratospheric Stars 1`，
   本机与云端数字一致 —— 证明上一轮的 `byVariant` 维度修复在真实链路上生效
 
+### 2026-09-29（拆卡改为登录后云端记录，统计页只读数据库）
+
+- ✓ **取消本地拆卡**（用户明确要求：不要本地拆卡，只能云端拆卡，需要登录才能使用）
+  - `src/stores/app.ts` 删光 `HISTORY_KEY` / `MAX_LOCAL_HISTORY` / `LocalBreak`
+    / `localSummary` / `clearHistory` / `state.history`，改成纯粹的云端记录 store
+  - store 新增 `breaks` / `breakTotal` / `hasMoreBreaks` 与
+    `loadBreaks()` / `loadMoreBreaks()` / `resetCloud()`，登出时一并清空
+  - `recordBreak()` 改为 `Promise<boolean>`：未登录直接报错返回 false，
+    只有真正写入 D1 成功才算「已记录」（`BreakView` 的 `recorded` 之前无条件置 true，
+    会把失败当成成功，已修）
+- ✓ **拆卡入口加登录门**：`BreakView` 未登录时不渲染拆盒面板，
+  只显示「拆卡需要先登录」卡片 + `/auth` 链接；点拆卡也会兜底跳 `/auth`
+- ✓ **后端新增 `GET /api/breaks`**（需登录，按 id 倒序分页）
+  - 参数：`limit`（默认 20，最大 100）、`offset`，以及
+    `category` / `maker` / `box` 切片，复用 `compileFilters()`
+  - 返回 `{ total, limit, offset, breaks[] }`，`byTier` / `bySubset` 存的是 JSON 文本，
+    用 `parseJsonObject()` 解析，脏数据一律当空对象，不让一行坏数据扝掉整个列表
+  - `client.ts` 新增 `BreakRecord` 类型与 `api.breaks(filter, limit, offset)`
+- ✓ **统计页 `StatsView` 改为纯云端**
+  - 删掉整个「本机」层（localBoxRows / localTierRows / localSubsetRows /
+    localRarest / localRecent / localCards）
+  - 汇总格改为拆盒数 / 出卡数 / 已拆盒型 / 编号卡，全部来自 `/api/stats`
+  - 新增「拆盒记录」明细表（时间 / 盒子 / 种子 / 张数 / 编号卡 / 最佳卡 / 配率），
+    底部「显示更多」调 `loadMoreBreaks()`，由 `hasMoreBreaks` 控显隐
+  - 未登录不再展示空统计，改为一张登录引导卡；
+    全站累计与拆盒排行 Top 20 仍对匿名访客开放并**移到登录门外面**
+  - 库里只存 `best_variant` 这类 key，新增 `variantIndex` 查表把 key 还原成卡种全名
+  - `App.vue` 导航角标从 `state.history.length` 改为 `state.breakTotal`
+- ✓ 冒烟脚本扩容：新增「未登录 `GET /api/breaks` 必须 401」与
+  「登录后 total=1 且 seed / cardCount / best / bySubset 全部正确」两条断言
+- ✓ 本地全栈实测（`wrangler pages dev` + 本地 D1）：注册 6 条约束、登录、
+  拆盒、记录接口全部通过；浏览器实测登出后拆盒面板消失、
+  重新登录后拆一盒 28 张 → 导航角标 1→2、提示「本次拆盒已保存到云端」、
+  `/stats` 汇总 2 盒 / 56 张 / 1 盒型 / 2 编号卡，明细两行种子可对得上
+
+#### 本地 D1 踩坑：`pages dev --d1=DB` 会另建一个空库
+
+`npm run dev:cf` 原本带 `--d1=DB`，它绑定出来的库叫 `local-DB`，
+而 `wrangler d1 execute DB --local` 写的是 `wrangler.toml` 里的 `cardemulate` 库。
+两者不是同一个 sqlite 文件，于是注册接口报 `D1_ERROR: no such table: users`。
+**修法：去掉 `--d1=DB`，让 `pages dev` 直接读 `wrangler.toml` 的 D1 绑定**；
+另补了 `npm run db:local` 与 `npm run smoke` 两个脚本。
+
 ### 关键取舍记录
 
 - **不用 Pinia**：只有一个全局 store，手写 reactive 单例省一个依赖。
 - **卡面用占位图 + CSS filter**：实物卡图缺失且涉及版权，按稀有度做色彩区分即可，
   后续补图只需替换 `public/card-art.svg` 与 `CardFace.vue` 的取图逻辑。
-- **本地优先（local-first）**：未登录或后端不可用时全部走 localStorage，
-  服务器只做跨设备统计与排行榜，站点可用性不依赖 D1。
+- **拆卡只走云端（已推翻早期的 local-first）**：早期为了站点可用性做过
+  localStorage 本地历史，但用户明确要求「不要本地拆卡」，已全部删除。
+  现在拆盒记录**只在 D1**，未登录不能用拆卡功能；
+  代价是本地 `npm run dev` 下拆卡不可用（需 `npm run dev:cf`），这是有意为之。
 - **目录真相在 TS 而非数据库**：页面渲染永远不查库，D1 里的维度表只是镜像，
   用于跨维度对账与后续后台分析。
 - **目录同步手动触发**：不做构建时自动同步，避免部署流程耦合数据库写权限。
@@ -163,7 +208,7 @@ schema.sql       D1 建表脚本（维度表 + 事实表分离）
       `cardemulate.wikiandroid.com`
 - [ ] 创建 D1 数据库 `cardemulate`（把真实 `database_id` 回填到 `wrangler.toml`），
       并执行 `schema.sql`（本地已实测通过，线上待执行）
-- [x] 本地全栈冒烟：注册 → 登录 → 拆盒 → `/api/stats` 与 `/api/global` 数据正确
+- [x] 本地全栈冒烟：注册 → 登录 → 拆盒 → `/api/breaks` → `/api/stats` 与 `/api/global` 数据正确
 - [ ] 线上冒烟（部署完成后重跑一遍本地那套 `/api/*` 验证）
 - [ ] 首次 `git push -u origin main`（需在浏览器完成 GitHub 设备码授权）
 

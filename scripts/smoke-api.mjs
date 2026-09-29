@@ -1,7 +1,7 @@
 /**
  * 本地 API 冒烟脚本（临时，不入库）。
  * 直接对着 wrangler pages dev 起的本地全栈服务跑完整链路：
- * 注册 -> 登录 -> 记录拆盒 -> 我的统计 -> 全站统计 -> 排行榜。
+ * 注册 -> 登录 -> 记录拆盒 -> 我的拆盒记录 -> 我的统计 -> 全站统计 -> 排行榜。
  * 手动管理 Session Cookie（Node fetch 不会自动保存）。
  */
 const BASE = "http://127.0.0.1:8788/api";
@@ -94,6 +94,31 @@ const main = async () => {
     const tierOk = stats.byTier.length === 2;
     const subsetOk = stats.bySubset.some((row) => row.subset_key === "clutch-city");
     console.log(tierOk && subsetOk ? "OK: 稀有度与子集维度均已正确入库" : "FAIL: 维度聚合仍不正确");
+
+    console.log("\n=== 拆盒记录接口校验 ===");
+    const anonBreaks = await call("breaks");
+    console.log(`未登录 GET /api/breaks -> ${anonBreaks.status} ${JSON.stringify(anonBreaks.body)}`);
+    console.log(anonBreaks.status === 401 ? "OK: 未登录被拦截" : "FAIL: 未登录不应拿到记录");
+
+    const mine = await call("breaks?limit=5", {}, cookie);
+    show("我的拆盒记录", {
+        status: mine.status,
+        body: {
+            total: mine.body.total,
+            limit: mine.body.limit,
+            offset: mine.body.offset,
+            first: mine.body.breaks?.[0],
+        },
+    });
+    const first = mine.body.breaks?.[0];
+    const recordOk =
+        mine.status === 200 &&
+        mine.body.total === 1 &&
+        first?.seed === "TEST-1" &&
+        first?.cardCount === 28 &&
+        first?.best?.variantKey === "clutch-city-rare" &&
+        first?.bySubset?.["clutch-city"] === 3;
+    console.log(recordOk ? "OK: 拆盒记录已从数据库正确读出" : "FAIL: 拆盒记录字段不正确");
 
     show("排行榜", await call("leaderboard"));
     show("全站统计", await call("global"));

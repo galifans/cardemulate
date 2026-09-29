@@ -27,7 +27,7 @@
 ```bash
 npm install
 
-# 只跑前端，/api 请求会失败并自动降级为本机统计
+# 只跑前端，/api 请求会失败，拆卡与统计都不可用
 npm run dev
 
 # 前端 + Pages Functions + 本地 D1（wrangler）
@@ -40,7 +40,13 @@ npm run dev:cf
 npm run typecheck   # vue-tsc --noEmit
 npm run build       # 产出 dist/
 npm run preview     # 预览已构建产物，端口 4173
+npm run db:local    # 向本地 D1 应用 schema.sql
+npm run smoke       # 对着本地服务跑一遍 API 冒烟测试
 ```
+
+> 本地 D1 的两个命令必须指向**同一个库**：`db:local` 走 `wrangler.toml` 里的 `DB`
+> 绑定，`dev:cf` 也**不要**加 `--d1=DB`（那会另建一个空库，导致
+> `no such table: users`）。
 
 ## 首次部署
 
@@ -95,7 +101,7 @@ src/
     rip.ts             加权抽样、期望值、概率、最优卡比较
     tiers.ts           稀有度元数据与配色
   api/client.ts       后端接口封装，含降级逻辑
-  stores/app.ts       用户会话、本地历史、服务端统计
+  stores/app.ts       用户会话、云端拆盒记录、服务端统计
   views/              页面
   components/         组件
 functions/api/        Pages Functions：鉴权、统计、目录同步
@@ -165,7 +171,18 @@ curl -X POST https://cardemulate.wikiandroid.com/api/catalog/sync \
 - 密码以 **PBKDF2-SHA256（150,000 次迭代 + 每用户随机盐）** 哈希存储，不保存明文。
 - 登录态用一个 `ce_session` Cookie（`HttpOnly` + `Secure` + `SameSite=Lax`，30 天），
   数据库只存其 SHA-256；登录失败不区分「邮箱不存在 / 密码错误」，避免账号枚举。
-- **未登录也能拆卡**，数据存在浏览器本地；登录后才同步到云端用于排行榜与统计。
+- **未登录不能拆卡**：本站不提供本地拆卡，点「按盒拆开」前必须先注册 / 登录。
+  注册只需要邮箱 + 密码，页默认进登录。
+
+## 拆卡与记录
+
+- **只有云端拆卡**：每次拆盒结果都写入 D1 的 `breaks` 表，并从 `pull_stats`
+  聚合出按稀有度 / 按子集的维度统计，没有任何浏览器本地存储。
+- 未登录时 `BreakView` 只显示一张「拆卡需要先登录」卡片；`/stats` 显示登录引导，
+  但全站累计与排行榜仍然对匿名访客开放。
+- 登录后 `/stats` 展示：拆盒数 / 出卡数 / 已拆盒型 / 编号卡、按盒子汇总、
+  稀有度分布、卡种子集 Top 24、最稀有的 20 张、以及可「显示更多」的拆盒记录明细。
+- 明细列表由 `GET /api/breaks` 分页拉取（默认 20 条，单页最多 100 条）。
 
 ## 接口一览
 
@@ -176,11 +193,12 @@ curl -X POST https://cardemulate.wikiandroid.com/api/catalog/sync \
 | POST | `/api/auth/login` | 登录 |
 | POST | `/api/auth/logout` | 退出 |
 | GET | `/api/me` | 当前用户 |
-| GET | `/api/stats` | 本人统计（支持 `?category=&maker=&box=`） |
-| POST | `/api/break` | 记录一次拆盒 |
-| DELETE | `/api/break` | 清空本人拆盒记录 |
-| GET | `/api/leaderboard` | 排行榜（支持切片参数） |
-| GET | `/api/global` | 全站统计 + 目录镜像规模 |
+| GET | `/api/stats` | 本人统计，需登录（支持 `?category=&maker=&box=`） |
+| GET | `/api/breaks` | 本人拆盒记录，需登录（`?limit=&offset=` + 同上切片参数） |
+| POST | `/api/break` | 记录一次拆盒，需登录 |
+| DELETE | `/api/break` | 清空本人拆盒记录，需登录 |
+| GET | `/api/leaderboard` | 排行榜（支持切片参数，匿名可读） |
+| GET | `/api/global` | 全站统计 + 目录镜像规模（匿名可读） |
 | GET | `/api/catalog` | 读取目录镜像（需已同步） |
 | POST | `/api/catalog/sync` | 推送目录镜像（需 `x-sync-token`） |
 

@@ -1,6 +1,6 @@
 <script setup lang="ts">
 import { computed, onUnmounted, ref, watch } from "vue";
-import { RouterLink, useRoute } from "vue-router";
+import { RouterLink, useRoute, useRouter } from "vue-router";
 import CardFace from "../components/CardFace.vue";
 import { getBox } from "../catalog";
 import {
@@ -18,7 +18,11 @@ import { useAppStore } from "../stores/app";
 import type { Tier } from "../engine/types";
 
 const route = useRoute();
+const router = useRouter();
 const store = useAppStore();
+
+/** 拆卡必须登录：结果要写进云端数据库，所以未登录时直接拦住 */
+const signedIn = computed(() => Boolean(store.state.user));
 
 const boxKey = computed(() => String(route.params.boxKey));
 const box = computed(() => getBox(boxKey.value));
@@ -51,6 +55,11 @@ const rollNewSeed = (): void => {
 
 const startRip = (): void => {
     if (!box.value) return;
+    if (!signedIn.value) {
+        store.clearMessages();
+        void router.push("/auth");
+        return;
+    }
     stopTimer();
     recorded.value = false;
     revealed.value = 0;
@@ -58,7 +67,7 @@ const startRip = (): void => {
 
     const seed = seedInput.value.trim() || randomSeed();
     seedInput.value = seed;
-    const ripped = ripBox(box.value, { seed, boxIndex: store.state.history.length });
+    const ripped = ripBox(box.value, { seed, boxIndex: store.state.breaks.length });
     result.value = ripped;
 
     timer = window.setInterval(() => {
@@ -71,8 +80,10 @@ const startRip = (): void => {
             revealed.value = ripped.cards.length;
             revealedPack.value = box.value!.packsPerBox;
             stopTimer();
-            void store.recordBreak(box.value!, ripped);
-            recorded.value = true;
+            // 只有云端写入成功才算「已记录」，失败时用户可以再试一次
+            void store.recordBreak(box.value!, ripped).then((ok) => {
+                recorded.value = ok;
+            });
         }
     }, 260);
 };
@@ -83,8 +94,10 @@ const skipToEnd = (): void => {
     revealed.value = result.value.cards.length;
     revealedPack.value = box.value.packsPerBox;
     if (!recorded.value) {
-        void store.recordBreak(box.value, result.value);
-        recorded.value = true;
+        const current = box.value;
+        void store.recordBreak(current, result.value).then((ok) => {
+            recorded.value = ok;
+        });
     }
 };
 
@@ -209,7 +222,20 @@ const toggleSubset = (key: string): void => {
 
             <!-- ---------------- 拆盒 ---------------- -->
             <section v-if="tab === 'rip'" class="ce-section">
-                <div class="ce-card ce-rip-panel">
+                <div v-if="!signedIn" class="ce-card ce-rip-gate">
+                    <h2 class="ce-section-title">拆卡需要先登录</h2>
+                    <p class="ce-faint">
+                        本站的拆盒结果统一保存在云端数据库，用于个人统计与排行榜，
+                        因此不提供本地拆卡。注册只需要邮箱和密码，没有其他方式。
+                    </p>
+                    <div class="ce-rip-buttons">
+                        <RouterLink to="/auth" class="ce-btn ce-btn-primary">
+                            注册 / 登录后拆卡
+                        </RouterLink>
+                    </div>
+                </div>
+
+                <div v-else class="ce-card ce-rip-panel">
                     <div class="ce-rip-controls">
                         <label class="ce-field ce-seed-field">
                             <span>随机种子（同一种子 = 同一盒）</span>
@@ -222,7 +248,7 @@ const toggleSubset = (key: string): void => {
                             <button
                                 class="ce-btn ce-btn-primary"
                                 type="button"
-                                :disabled="revealed > 0 && revealed < totalCards"
+                                :disabled="store.state.busy || (revealed > 0 && revealed < totalCards)"
                                 @click="startRip"
                             >
                                 {{ result ? "再拆一盒" : "按盒拆开" }}
@@ -259,6 +285,9 @@ const toggleSubset = (key: string): void => {
                     <p v-if="store.state.error" class="ce-alert ce-alert-error">
                         {{ store.state.error }}
                     </p>
+                    <p v-else-if="store.state.info" class="ce-alert ce-alert-ok">
+                        {{ store.state.info }}
+                    </p>
                 </div>
 
                 <template v-if="result">
@@ -290,11 +319,11 @@ const toggleSubset = (key: string): void => {
                                     复现这一盒
                                 </button>
                             </p>
-                            <p v-if="!store.state.user" class="ce-faint ce-seed-note">
-                                未登录：本盒已记入本机统计。<RouterLink to="/auth" class="ce-link">
-                                    注册后
+                            <p v-if="recorded" class="ce-faint ce-seed-note">
+                                本盒已保存到云端，可在<RouterLink to="/stats" class="ce-link">
+                                    我的统计
                                 </RouterLink>
-                                可云端同步。
+                                里查看。
                             </p>
                         </div>
 
@@ -559,6 +588,18 @@ const toggleSubset = (key: string): void => {
     display: flex;
     flex-direction: column;
     gap: 16px;
+}
+
+.ce-rip-gate {
+    display: flex;
+    flex-direction: column;
+    gap: 12px;
+    align-items: flex-start;
+}
+
+.ce-rip-gate p {
+    max-width: 620px;
+    line-height: 1.7;
 }
 
 .ce-rip-controls {

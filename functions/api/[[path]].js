@@ -14,9 +14,10 @@
  *     GET  /api/me                  当前登录用户
  *
  *   拆盒与统计
- *     POST /api/break               记录一次拆盒
- *     DELETE /api/break             清空我的拆盒记录
- *     GET  /api/stats               我的统计（可按 category/maker/box 过滤）
+ *     POST /api/break               记录一次拆盒（需登录）
+ *     GET  /api/breaks              我的拆盒记录（需登录，分页）
+ *     DELETE /api/break             清空我的拆盒记录（需登录）
+ *     GET  /api/stats               我的统计（需登录，可按 category/maker/box 过滤）
  *     GET  /api/leaderboard         排行榜
  *     GET  /api/global              全站统计（可按 category/maker/box 过滤）
  *
@@ -40,6 +41,9 @@ const MAX_VARIANTS_PER_BREAK = 600;
 const ROWS_PER_STATEMENT = 25;
 /** 每次 db.batch() 最多提交多少条语句 */
 const STATEMENTS_PER_BATCH = 40;
+/** 拆盒记录分页上限 / 默认值 */
+const MAX_BREAKS_PER_PAGE = 100;
+const DEFAULT_BREAKS_PER_PAGE = 20;
 
 const DEFAULT_APP = "cardemulate";
 
@@ -535,6 +539,89 @@ const handleDeleteBreaks = async (request, env) => {
         db.prepare("DELETE FROM pull_stats WHERE app_key = ?1 AND user_id = ?2").bind(appKey, user.id),
     ]);
     return json({ ok: true });
+};
+
+/** 安全地把库里存的 JSON 文本解析成对象，脏数据一律当空对象 */
+const parseJsonObject = (text) => {
+    try {
+        const parsed = JSON.parse(String(text ?? "{}"));
+        return parsed && typeof parsed === "object" && !Array.isArray(parsed) ? parsed : {};
+    } catch {
+        return {};
+    }
+};
+
+/**
+ * 我的拆盒记录：按 id 倒序分页返回。
+ * 前端不再保留任何本地记录，统计页就是靠这个接口 + /api/stats 渲染的。
+ */
+const handleListBreaks = async (request, env) => {
+    const db = requireDb(env);
+    const appKey = appKeyOf(env);
+    const user = await currentUser(db, request);
+    if (!user) return fail("请先登录", 401);
+
+    const url = new URL(request.url);
+    const rawLimit = Number(url.searchParams.get("limit"));
+    const rawOffset = Number(url.searchParams.get("offset"));
+    const limit = Number.isFinite(rawLimit)
+        ? Math.min(Math.max(Math.trunc(rawLimit), 1), MAX_BREAKS_PER_PAGE)
+        : DEFAULT_BREAKS_PER_PAGE;
+    const offset = Number.isFinite(rawOffset) ? Math.max(Math.trunc(rawOffset), 0) : 0;
+
+    const filters = readFilters(request);
+    // ?1 = app_key、?2 = user_id，切片条件从 ?3 开始，limit/offset 接在后面
+    const where = compileFilters(
+        [
+            ["category_key", filters.categoryKey],
+            ["maker_key", filters.makerKey],
+            ["box_key", filters.boxKey],
+        ],
+        3,
+    );
+    const scope = `WHERE app_key = ?1 AND user_id = ?2${where.sql}`;
+
+    const [total, rows] = await Promise.all([
+        db.prepare(`SELECT COUNT(*) AS total FROM breaks ${scope}`).bind(appKey, user.id, ...where.binds).first(),
+        db
+            .prepare(
+                `SELECT id, box_key, category_key, maker_key, product_key, seed, card_count,
+                        by_tier, by_subset, best_variant, best_player, best_tier, best_odds, created_at
+                 FROM breaks ${scope}
+                 ORDER BY id DESC LIMIT ?${where.next} OFFSET ?${where.next + 1}`,
+            )
+            .bind(appKey, user.id, ...where.binds, limit, offset)
+            .all(),
+    ]);
+
+    return json({
+        ok: true,
+        user,
+        filters,
+        total: total?.total ?? 0,
+        limit,
+        offset,
+        breaks: (rows?.results ?? []).map((row) => ({
+            id: row.id,
+            boxKey: row.box_key,
+            categoryKey: row.category_key,
+            makerKey: row.maker_key,
+            productKey: row.product_key,
+            seed: row.seed,
+            cardCount: row.card_count,
+            byTier: parseJsonObject(row.by_tier),
+            bySubset: parseJsonObject(row.by_subset),
+            best: row.best_variant
+                ? {
+                      variantKey: row.best_variant,
+                      player: row.best_player ?? "",
+                      tier: row.best_tier ?? "common",
+                      odds: row.best_odds ?? 0,
+                  }
+                : null,
+            createdAt: row.created_at,
+        })),
+    });
 };
 
 /* ------------------------------------------------------------------ */
@@ -1088,6 +1175,7 @@ export async function onRequest(context) {
 
         if (path === "stats" && method === "GET") return handleStats(request, env);
         if (path === "break" && method === "POST") return handleRecordBreak(request, env);
+        if (path === "breaks" && method === "GET") return handleListBreaks(request, env);
         if (path === "break" && method === "DELETE") return handleDeleteBreaks(request, env);
         if (path === "leaderboard" && method === "GET") return handleLeaderboard(request, env);
         if (path === "global" && method === "GET") return handleGlobal(request, env);

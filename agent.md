@@ -107,6 +107,22 @@
   浏览器原生提示会盖掉我们的中文文案。邮箱输入用 `type="text" inputmode="email"`，
   所有校验在 `submit()` 里自己做。
 
+### 6.1 拆卡必须登录（没有本地模式）
+
+- **只有云端拆卡**：拆盒结果只写入 D1 的 `breaks` / `pull_stats`，
+  未登录用户看不到拆盒面板，`BreakView` 只展示一个「拆卡需要先登录」卡片 + `/auth` 链接。
+- **严禁**重新引入基于 `localStorage` 的本机历史（历史上存在过 `HISTORY_KEY` /
+  `LocalBreak` / `localSummary` / `state.history` / `clearHistory`，
+  它们已经被彻底删除，不要再拿回来）。
+- 服务端所有拆盒相关接口都要求登录：`POST /api/break`、`GET /api/breaks`、
+  `DELETE /api/break`、`GET /api/stats` 未登录一律 `401 { ok:false, error:"请先登录" }`；
+  `GET /api/global` 与 `GET /api/leaderboard` 对匿名访客开放。
+- 统计页的数据源只有两个：`GET /api/stats`（聚合）与 `GET /api/breaks`（明细分页）。
+  不要在前端重算一份聚合。
+- 导航栏的盒数角标取 `state.breakTotal`（云端总数），不是当前页的记录条数。
+- 拆盒写入失败时必须把 `recorded` 保持为 `false`（`recordBreak()` 返回布尔值），
+  否则用户会以为已经入库。
+
 ## 7. 数据库约束
 
 - Cloudflare D1，绑定变量名**必须**是 `DB`，不可改名。
@@ -119,7 +135,9 @@
 - `box_key` / `variant_key` 是**软引用**（不加外键），允许数据先于目录同步落地。
 - 写批量 upsert 时用 `INSERT ... ON CONFLICT (...) DO UPDATE SET col = excluded.col`，
   **严禁** `INSERT OR REPLACE`——它是先删后插，会触发子表的 `ON DELETE CASCADE`。
-- 前端渲染永远不依赖数据库；数据库不可用时自动降级为「本机统计」。
+- 前端渲染永远不依赖数据库：目录（品类 / 盒型 / 配率）由 TS 静态定义渲染，
+  后端不可用时页面照常打开，只是拿不到统计数据。
+- 个人拆盒记录**只在数据库里**，前端不再有任何本地历史（见 6.1）。
 - **卡种上报必须带维度**：`byVariant` 的每一项是
   `{ count, subsetKey, tier }`，不能只给张数。`pull_stats.subset_key / tier`
   依赖这两个字段，缺失会导致「按稀有度 / 按子集」统计恒为空。

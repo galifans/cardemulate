@@ -11,7 +11,8 @@ onMounted(() => {
 });
 
 const user = computed(() => store.state.user);
-const boxCount = computed(() => store.state.history.length);
+/** 导航角标用云端记录总数，未登录时后端不返回数据，自然为 0 */
+const boxCount = computed(() => store.state.breakTotal);
 
 const navActive = (prefix: string): boolean => route.path.startsWith(prefix);
 </script>

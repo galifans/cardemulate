@@ -72,12 +72,12 @@ export interface StatsFilter {
     box?: string;
 }
 
-const queryString = (filter?: StatsFilter): string => {
-    if (!filter) return "";
+const queryString = (filter?: StatsFilter, extra?: Record<string, string | number>): string => {
     const params = new URLSearchParams();
-    if (filter.category) params.set("category", filter.category);
-    if (filter.maker) params.set("maker", filter.maker);
-    if (filter.box) params.set("box", filter.box);
+    if (filter?.category) params.set("category", filter.category);
+    if (filter?.maker) params.set("maker", filter.maker);
+    if (filter?.box) params.set("box", filter.box);
+    for (const [key, value] of Object.entries(extra ?? {})) params.set(key, String(value));
     const text = params.toString();
     return text ? `?${text}` : "";
 };
@@ -108,7 +108,7 @@ export interface BreakPayload {
     } | null;
 }
 
-/** 一行拆盒记录（最近 / 最稀有列表共用） */
+/** 一行拆盒记录（stats 的 recent / rarest 列表使用） */
 export interface BreakRow {
     box_key: string;
     category_key: string;
@@ -119,6 +119,26 @@ export interface BreakRow {
     best_variant: string | null;
     best_odds: number | null;
     created_at: string;
+}
+
+/** GET /api/breaks 返回的一条拆盒记录；数据全部来自 D1 的 breaks 表 */
+export interface BreakRecord {
+    id: number;
+    boxKey: string;
+    categoryKey: string;
+    makerKey: string;
+    productKey: string;
+    seed: string;
+    cardCount: number;
+    byTier: Record<string, number>;
+    bySubset: Record<string, number>;
+    best: {
+        variantKey: string;
+        player: string;
+        tier: string;
+        odds: number;
+    } | null;
+    createdAt: string;
 }
 
 /** 按维度聚合的一行 */
@@ -254,6 +274,17 @@ export const api = {
 
     recordBreak: (payload: BreakPayload) =>
         request<{ ok: true }>("break", { method: "POST", body: JSON.stringify(payload) }),
+
+    /** 我的拆盒记录（需登录）。全部数据存在 D1，前端不再保留本地历史 */
+    breaks: (filter?: StatsFilter, limit = 20, offset = 0) =>
+        request<{
+            ok: true;
+            user: ApiUser;
+            total: number;
+            limit: number;
+            offset: number;
+            breaks: BreakRecord[];
+        }>(`breaks${queryString(filter, { limit, offset })}`),
 
     clearBreaks: () => request<{ ok: true }>("break", { method: "DELETE" }),
 
