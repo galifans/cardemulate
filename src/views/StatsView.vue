@@ -8,6 +8,8 @@ import { allBoxes, getBox } from "../catalog";
 import type { GroupKind, Tier } from "../engine/types";
 
 const store = useAppStore();
+/** store 是普通对象，嵌套的 ComputedRef 不会在模板里自动解包，必须先取出来 */
+const hasMoreBreaks = store.hasMoreBreaks;
 const globalStats = ref<GlobalStats | null>(null);
 const leaders = ref<{ display_name: string; boxes: number; cards: number }[]>([]);
 const offline = ref(false);
@@ -390,7 +392,7 @@ const globalTotal = computed(() => Math.max(1, globalStats.value?.cards ?? 1));
             </div>
             <p v-else class="ce-faint ce-mt-14">还没有拆盒记录。</p>
 
-            <div v-if="store.hasMoreBreaks" class="ce-stats-actions ce-mt-16">
+            <div v-if="hasMoreBreaks" class="ce-stats-actions ce-mt-16">
                 <button
                     class="ce-btn"
                     type="button"
