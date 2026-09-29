@@ -112,6 +112,11 @@
 
 ## 5. 概率模型约束
 
+- **官方资料只有 `sources/` 一个入口**：新系列的盒型配置、配率、名册一律先按
+  `sources/README.md` 的流程把发行商原件归档到 `sources/<品类>/<品牌>/<系列>/`，
+  再从原件生成 `src/data/`；**禁止**对着整理站、截图或记忆填数。配率走
+  `scripts/import-pack-odds.mjs`，名册誊抄完必须跑 `npm run roster:check` 对回原件，
+  原表自身的矛盾登记进脚本里的 `SOURCE_DEFECTS` / 导入脚本的 `ROW_PATCHES`。
 - 配率必须来自发行商**公开的 Pack Odds 表**，不得凭空估算；来源变化时在 `box.ts`
   头部注释里说明。
 - 抽样模型：`weight = 1/odds`；`premiumWeight = Σ(1/odds)`；

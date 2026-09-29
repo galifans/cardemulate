@@ -50,17 +50,19 @@ npm run smoke       # 对着本地服务跑一遍 API 冒烟测试
 # 把官方 Pack Odds 文本转成可 diff 的 TS（不要手抄配率）
 node scripts/import-pack-odds.mjs sources/<...>/pack-odds.txt src/data/sets/<...>/pack-odds.generated.ts
 
+npm run roster:check     # 名册对回归档的官方 Checklist，有出入退出码 1
 npm run boxes:snapshot   # 记录当前所有盒型的完整拆盒行为
 npm run boxes:check      # 比对差异，有差异退出码 1
 ```
 
-> 官方原始资料（Pack Odds / Checklist 的 PDF 与文本提取）统一归档在 `sources/`，
+> 官方原始资料（Pack Odds / Checklist / 发行说明的原始件与文本提取件）统一归档在 `sources/`，
 > 目录规则与代码一致：`sources/<品类>/<发行商>/<系列产品>/`。
-> 来源分级、SHA-256 与采集流程见 `sources/README.md`。
+> 来源分级、SHA-256 与逐步采集流程见 `sources/README.md`。
 >
 > 改了 `src/data/sets/` 下任何数据后，除了 `typecheck` 与 `build`，
 > 还要跑 `npm run boxes:check`：它锁住已有盒型的拆盒结果（含 5 个固定种子的逐卡输出），
 > 重构共享逻辑时能立刻发现有没有把老盒型改坏。
+> 动了 `roster.ts` 则另外跑 `npm run roster:check`，它锁的是名册与官方名单的一致性。
 
 > 本地 D1 的两个命令必须指向**同一个库**：`db:local` 走 `wrangler.toml` 里的 `DB`
 > 绑定，`dev:cf` 也**不要**加 `--d1=DB`（那会另建一个空库，导致

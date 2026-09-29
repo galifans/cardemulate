@@ -9,6 +9,7 @@
         "build": "vite build",
         "preview": "vite preview --port 4173",
         "typecheck": "vue-tsc --noEmit",
+        "roster:check": "node scripts/check-roster.mjs",
         "db:local": "wrangler d1 execute DB --local --file=schema.sql",
         "smoke": "node scripts/smoke-api.mjs",
         "dev:cf": "vite build && wrangler pages dev dist --compatibility-date=2026-01-01",

@@ -19,6 +19,7 @@
 | 构建命令 | `npm run build` → 输出 `dist` |
 | 本地预览 | `npm run dev`（仅前端，端口 5174）/ `npm run dev:cf`（全栈 + 本地 D1） |
 | 官方资料归档 | `sources/<品类>/<发行商>/<系列产品>/`（登记册见 `sources/README.md`） |
+| 名册核对 | `npm run roster:check`：把 `roster.ts` 逐行对回归档的官方 Checklist |
 | 盒型行为快照 | `snapshots/boxes.json`；`npm run boxes:snapshot` 写 / `npm run boxes:check` 比 |
 | 数据库 | Cloudflare D1，库名 `cardemulate`，绑定变量名 `DB`，
 `database_id = 51265817-c1ed-4e09-98fd-a3d1709fb0c3`（区域 WNAM） |
@@ -831,6 +832,36 @@ schema.sql       D1 建表脚本（维度表 + 事实表分离）
 - ✓ 验证：`npm run typecheck` / `npm run build` 通过；Hobby 一盒 80 张逐张量过：
   队标距卡片右边 13px、下边 14px，五档底色、文字对比度全部达标
 
+### 2026-09-30（官方资料登记补齐：表格版检查表归档 + 名册核对脚本）
+
+用户问「这些卡盒配置、checklist、概率信息之前是从哪里获取的」，要求记进项目，
+以后新品类按同样方式取，避免信息拿偏。查了一遍：登记册（`sources/README.md`）
+与系列采集记录本来就在，缺的是三件事——可执行的核对手段、表格版检查表、
+以及一条能照着做的新品类流程。
+
+- **补上 `checklist.xlsx`**：镜像站还在的官方名单表格版，列已经拆好
+  （`卡号 / 人物 / 球队 / 新秀标记`），已归档并记哈希（`56AF5184…4479`）。
+  PDF 版仍是权威件，但誊抄时表格版不用猜列，两份互相佐证
+- **新增 `scripts/check-roster.mjs`（`npm run roster:check`）**：esbuild 打包
+  `roster.ts` 后逐行对回原件，同时对上 `checklist.xlsx` 与 `checklist.txt`。
+  卡号 + 人物必须命中，球队与新秀标记必须一致；命中不了时再按「人物 + 球队」
+  反查，把「卡号抄错」与「名单里没这个人」分开报。人物名比对忽略重音与标点
+  （官方表自己就不统一：`Dončić` 带重音、`Jakucionis` 不带）
+- **核对结果**：1084 行全部对上，球队与新秀标记零出入。只查出一处官方原表缺陷——
+  NBA Debut Patch Autographs 整份名单被贴了两遍，第二遍重复占用了第一遍的
+  `DPA-AB` / `DPA-CJ`，`roster.ts` 里用 `DPA-ABAL` / `DPA-CJJ` 区分。
+  这一处登记在脚本的 `SOURCE_DEFECTS` 里，命中时只提示不判失败
+- **xlsx 解析不引依赖**：脚本用 Node 自带的 `zlib.inflateRawSync` 自己读 zip 容器，
+  不为一次核对往仓库里加 `xlsx` 之类的包
+- **采集流程从 6 步扩到 11 步**，每步都给了可复制的命令：找官方页 → 取原件 → 归档 →
+  转文本 → 记哈希 → 生成配率 → 誊抄名册 → 核对名册 → 盒型配置 → 跑回归 → 写记录；
+  并补了一张「一条数据能不能用」的判定表，以及「官方表自相矛盾时以 PDF 原件为准」的规则
+- ✓ 验证：`npm run roster:check` 通过（1084 行；官方表 1149 条 + 192 条重复卡号）、
+  `npm run typecheck` / `npm run build` / `npm run boxes:check` 通过
+- 仍有缺口：`checklist.pdf` 的确切镜像链接找不回来了（镜像站目录列表已关闭 302、
+  WordPress 接口 404、四个候选文件名全部 403），已写进登记册的待办，
+  要求下次**当场**把每个文件的完整链接记进系列 README
+
 ### 关键取舍记录
 
 - **不用 Pinia**：只有一个全局 store，手写 reactive 单例省一个依赖。
@@ -906,6 +937,11 @@ schema.sql       D1 建表脚本（维度表 + 事实表分离）
 - **首页品类卡不罗列该品类下的盒型名**：一个系列就已经有四个盒型，
   按年份补录后数量只会更多，卡片上必然放不下（用户直接指出了这点）。
   首页只负责「有哪些品类 + 一句话定位」，盒型细节点进品类页再看。
+- **名册誊抄必须能对回原件**：`roster.ts` 是从官方 Checklist 手工抄进去的，
+  抄错卡号、抄错球队、漏掉新秀标记都不会报错，只会安静地开出一张假卡。
+  所以核对是采集流程的固定一步（`npm run roster:check`），而不是「有空再看」；
+  官方原表自身的矛盾（重复卡号、漏字）登记进 `SOURCE_DEFECTS` / `ROW_PATCHES`
+  并写明依据，**不允许**为了让脚本通过而放松比对规则。
 
 ## 5. 待办（TODO）
 
@@ -975,6 +1011,7 @@ schema.sql       D1 建表脚本（维度表 + 事实表分离）
 - 本机 npx 缓存里已有一份 wrangler 4.143.1，没网也能用：
   `node "$env:LOCALAPPDATA\npm-cache\_npx\d77349f55c2be1c0\node_modules\wrangler\bin\wrangler.js" --version`
 - **盒型改动后的固定三连**：`npm run typecheck` → `npm run build` → `npm run boxes:check`
-  （第三条只在改了 `src/data/sets` 下任何东西时才必须跑）
+  （第三条只在改了 `src/data/sets` 下任何东西时才必须跑；动了 `roster.ts` 还要跑
+  `npm run roster:check`）
 - **`git push` 在 PowerShell 里即使成功也返回退出码 1**（git 把进度写到 stderr，
   PowerShell 当成 `NativeCommandError`）。**看输出里有没有 `main -> main`，不看退出码。**
