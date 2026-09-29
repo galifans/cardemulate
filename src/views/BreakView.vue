@@ -49,12 +49,15 @@ onUnmounted(stopTimer);
 
 const totalCards = computed(() => result.value?.cards.length ?? 0);
 
+/** 正在逐包揭示：此时不允许再开一盒 */
+const ripping = computed(() => revealed.value > 0 && revealed.value < totalCards.value);
+
 const rollNewSeed = (): void => {
     seedInput.value = randomSeed();
 };
 
 const startRip = (): void => {
-    if (!box.value) return;
+    if (!box.value || ripping.value) return;
     if (!signedIn.value) {
         store.clearMessages();
         void router.push("/auth");
@@ -80,6 +83,8 @@ const startRip = (): void => {
             revealed.value = ripped.cards.length;
             revealedPack.value = box.value!.packsPerBox;
             stopTimer();
+            // 开完就换上新种子：接着点「再拆一盒」就是全新一盒，不用先手动换种子
+            rollNewSeed();
             // 只有云端写入成功才算「已记录」，失败时用户可以再试一次
             void store.recordBreak(box.value!, ripped).then((ok) => {
                 recorded.value = ok;
@@ -93,6 +98,7 @@ const skipToEnd = (): void => {
     stopTimer();
     revealed.value = result.value.cards.length;
     revealedPack.value = box.value.packsPerBox;
+    rollNewSeed();
     if (!recorded.value) {
         const current = box.value;
         void store.recordBreak(current, result.value).then((ok) => {
@@ -238,7 +244,13 @@ const toggleSubset = (key: string): void => {
                     <div class="ce-rip-controls">
                         <label class="ce-field ce-seed-field">
                             <span>随机种子（同一种子 = 同一盒）</span>
-                            <input v-model="seedInput" type="text" maxlength="24" class="ce-mono" />
+                            <input
+                                v-model="seedInput"
+                                type="text"
+                                maxlength="24"
+                                class="ce-mono"
+                                @keydown.enter="startRip"
+                            />
                         </label>
                         <div class="ce-rip-buttons">
                             <button class="ce-btn" type="button" @click="rollNewSeed">
@@ -247,13 +259,13 @@ const toggleSubset = (key: string): void => {
                             <button
                                 class="ce-btn ce-btn-primary"
                                 type="button"
-                                :disabled="store.state.busy || (revealed > 0 && revealed < totalCards)"
+                                :disabled="store.state.busy || ripping"
                                 @click="startRip"
                             >
                                 {{ result ? "再拆一盒" : "按盒拆开" }}
                             </button>
                             <button
-                                v-if="result && revealed < totalCards"
+                                v-if="ripping"
                                 class="ce-btn"
                                 type="button"
                                 @click="skipToEnd"
@@ -269,7 +281,7 @@ const toggleSubset = (key: string): void => {
                                 :style="{ width: `${(revealed / Math.max(1, totalCards)) * 100}%` }"
                             ></span>
                         </div>
-                        <p class="ce-faint ce-rip-progress-text">
+                        <p v-if="ripping" class="ce-faint ce-rip-progress-text">
                             正在开第 {{ revealedPack }} / {{ box.packsPerBox }} 包 · 已翻出
                             {{ revealed }} / {{ totalCards }} 张
                         </p>

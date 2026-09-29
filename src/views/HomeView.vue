@@ -79,20 +79,20 @@ const formatNumber = (value: number): string => value.toLocaleString("zh-CN");
                     <p v-else class="ce-cat-soon">待上线，敬请期待！</p>
                 </component>
             </div>
+
+            <p class="ce-faint ce-cat-more">分类会一直加，每个分区里的发行商与系列也会陆续补上。</p>
         </section>
 
         <section class="ce-section">
             <div class="ce-card ce-howto">
                 <h2 class="ce-section-title">怎么玩</h2>
                 <ol class="ce-howto-list">
-                    <li>注册一个账号，拆盒数与卡牌张数会自动记入你的统计。</li>
-                    <li>进入「篮球 → Topps → 2025-26 Topps Chrome Updates Basketball」。</li>
-                    <li>点「按盒拆」，引擎会用确定性随机数逐包还原一整个 Value Box（28 张）。</li>
-                    <li>每盒都会给出随机种子，记下种子就能复现同一盒，方便核对与讨论。</li>
+                    <li>从品类逐层进入发行商与系列，选中想拆的盒型。</li>
+                    <li>按盒拆开，逐包还原整盒卡片，张数与结果记入你的统计。</li>
+                    <li>每盒都会给出随机种子，同一种子可以复现同一盒。</li>
                 </ol>
                 <p class="ce-faint ce-howto-note">
-                    本模拟器只还原概率结构，不涉及任何真实交易；所有卡面为统一占位图，
-                    待后续补充实物图。
+                    本模拟器只还原概率结构，不涉及任何真实交易；卡面为占位图。
                 </p>
             </div>
         </section>
@@ -199,6 +199,11 @@ const formatNumber = (value: number): string => value.toLocaleString("zh-CN");
     margin: 14px 0 0;
     font-size: 12.5px;
     color: var(--ce-warn);
+}
+
+.ce-cat-more {
+    margin: 16px 0 0;
+    font-size: 12.5px;
 }
 
 .ce-howto-list {
