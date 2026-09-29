@@ -959,6 +959,76 @@ schema.sql       D1 建表脚本（维度表 + 事实表分离）
   「注册 / 登录」与「个人中心 / 退出」之间来回跳，量到的宽度就是假的
 - ✓ 验证：`npm run typecheck` / `npm run build` 通过；上表逐档实测
 
+### 2026-09-30（把可用数据站点的实测结果补进来源登记册）
+
+用户要「补充 2026 年 Topps 发行的 NBA 篮球卡盒，以及各自的 checklist 与配率」，
+允许从 Topps 之外的站点取数，并要求记录哪些站点能用。先做了一轮找源，
+结论落进 `sources/README.md`：二级入口表补齐级别与本机可达性，新增第六节记实测。
+
+- Topps 官网在本机彻底不可达：`www.topps.com` 与 `topps.com` 都是 403，
+  `/pages/odds` 与 `/media/...` 一样，`api` / `media` / `cdn` 子域名连解析都没有，
+  浏览器打开是 Cloudflare 的拦截页。A 级原件只能人工在别的网络上取
+- 新找到一条 B 级通路：`www.cardboardconnection.com/wp-content/uploads/<年>/<月>/`。
+  它托管 Topps 官方附件，实测 `Final_CheckList_26CUBK.pdf` 与已归档的
+  `tcu26-basketball/checklist.pdf` 同为 297352 字节，是同一份官方名单；
+  但它**不含配率**（同产品的 CC 文章里一个 `1:x` 都没有），也没有 Chrome Black 的文章
+- 交叉验证了 Checklist Insider 指南页的配率转述：89 个不重复数值里 81 个与官方表
+  逐项一致，对得上的是官方 `-EA` 列；CI 自己把通道改了名（Delight→Breaker、
+  Value Box→Blaster），即便要用也得先做列映射，不能照抄
+- 死路记录：`web.archive.org`、`archive.ph`、Google、DuckDuckGo、Mojeek 连不上或 403
+  （Wayback 这条退路在本机不存在）；`tcdb` / `sportscardspro` / `dacardworld` /
+  `steelcitycollectibles` / `fanatics` 一律 403；Bing 能开但结果与关键词无关
+- Chrome Black 的配率原件确认拿不到：镜像按文件名规律试了 5 种写法 × 6 个月份目录
+  （24 个）全 403，CC 没有该产品文章，猜的 5 个官方名单文件名全 404
+- ✓ 验证：本轮只改 `sources/README.md`，未触碰代码
+
+### 2026-09-30（补录筹备：归档 16 套官方原件，写出名册与配率两个转写脚本）
+
+用户要求「补充 2026 Topps 发行的 NBA 篮球卡盒，以及各自的 checklist 与配率，
+能从 Topps 官方获取最佳，其他网站也可以，并记录哪些站点能取到数」。
+补录的产品有 16 个（8 套官方配率 PDF + 15 套官方名单表格版），
+靠手抄做不完，所以先把采集流水线自动化。
+
+- **推翻了上一轮的结论**。上一轮认定「镜像站没有配率 PDF」，实际是按文件名规律猜链接
+  猜出来的假象。改成先把指南页 HTML 下载下来、再从 HTML 里正则抽
+  `xcdn.checklistinsider.com` 开头的链接，一轮就点清了 16 个产品的全部附件：
+  8 套官方配率 PDF（Chrome Updates、Topps Basketball、Chrome、Chrome Cactus Jack、
+  Cosmic Chrome、NBA Hoops、Signature Class、Topps 3、Finest），
+  15 套名单表格版。教训：「找不到原件」先怀疑自己的找法，写进
+  `sources/README.md` 第五节
+- 归档结构落成 `sources/basketball/topps/<产品>/`，与 `src/data/sets/` 同构；
+  配率只有名单没有配率 PDF 的 7 套走 D 级（指南页转述），Chrome Black 连指南页
+  都没有配率，单独处理
+- **抽出 pypdf 的一个致命坑**：普通模式（`extract_text()`）会把空格单元格直接吞掉，
+  `Base Rainbow 1:35　　　　1:9` 被压成 `Base Rainbow Green and Blue 1:35 1:9`，
+  列位信息彻底消失，下游按顺序猜列必然错。量化验证过：同一页用布局模式才保留x坐标。
+  所以统一改成 `extraction_mode="layout"`，脚本收进
+  `scripts/extract-pdf-text.py`（配率默认布局模式，名单用 `--plain`），
+  删掉各系列目录里的旧副本。**配率表必须用布局模式**写进采集流程第 4 步
+- 官方配率表有三种写法：`1:X`（平均多少包出一张）、`A:B`（`4:1` 要换算成 `B/A`）、
+  `-`（该渠道没有这个卡种）。旧的导入脚本写死了 `1:X` 和 TCU26 的 12 个渠道名，
+  换一套表就跑不动，所以重写：渠道名改成命令行第三个参数、列位按表头算、
+  `A:B` 支持、按产品登记的覆盖行、免责声明文案放宽到三种写法
+- **列的归属规则是量出来的**：表头左对齐而数值居中，所以拿表头位置当左边界会错
+  （`Paradox` 行的 `1:296` 结束于 380，下一列表头在 382，只看结束位会归错列）。
+  最终规则分两种：写成 `-` 的表每行令牌数刚好等于列数，按顺序摆放；
+  空格真的空着的表令牌数少于列数，按数值的水平中心归列，列边界取相邻表头的中间位。
+  一份 PDF 里可能有好几张表（分页会重排行位），列位跟着当前表头走
+- **重写后的脚本对 TCU26 输出 390 行、12 列，与已上线的
+  `pack-odds.generated.ts` 逐行逐格完全一致（diff 为 0）**，
+  证明新规则是旧行为的超集而不是改动
+- 新增 `scripts/import-roster.mjs` 把 `checklist.xlsx` 转成 `roster.ts`：
+  按「A 列有字、B 列空」认分节标题，`[Rookie]`（写在人物名后或单独一列）转成行尾 `"R"`。
+  在 16 套名单上全跑通，其中 Chrome Black 复现出之前手工核对过的
+  20 分节 / 556 行结果，说明分节识别正确
+- `scripts/lib/xlsx.mjs`：`check-roster.mjs` 与 `import-roster.mjs` 共用同一份
+  xlsx 读取实现（不引依赖，自己解 zip + 读 sharedStrings），避免两边漂移。
+  顺手修掉 `` `<c …/>` `` 自闭标签被漏读的 bug（`t="s"` 写在自闭标签上时索引会漏出去）
+- 同步 `sources/README.md`：目录约定改指共用脚本、采集流程第 4/6/7 步换成实际命令、
+  补上「空格单元格会被吞掉，所以配率必须用布局模式」这条
+- ✓ 验证：`npm run roster:check` 通过（TCU26 核对 1084 行 / 官方 1149 条 + 192 条重复卡号）；
+  重写后的配率脚本对 TCU26 输出与已上线文件逐格一致（diff 0）；本轮未改任何页面代码
+
 ### 关键取舍记录
 
 - **不用 Pinia**：只有一个全局 store，手写 reactive 单例省一个依赖。

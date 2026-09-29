@@ -1,8 +1,11 @@
 /**
  * 发行商官方 Pack Odds 表（自动生成，请勿手工编辑）。
  *
- * 来源：odds.txt（Topps 官方 Pack Odds PDF 的文本提取件）。
- * 重新生成：node scripts/import-pack-odds.mjs <odds.txt> <本文件>
+ * 来源：pack-odds.txt（Topps 官方 Pack Odds PDF 的文本提取件）。
+ * 重新生成：node scripts/import-pack-odds.mjs <pack-odds.txt> <本文件> "Hobby,Jumbo,Delight,Sapphire,Value Box EA,Value Box SE,Value Box CEE,Mega Box EA,Mega Box SE,Mega Box CEE,Fanatics Box,ASCC Promo Pks"
+ *
+ * odds 是「平均多少包出一张」：官方表的 `1:X` 直接取 X，`A:B` 取 B / A。
+ * null 表示官方表里这一格是空的——即该渠道没有这个卡种。
  */
 
 /** 官方表的列顺序，索引与 PackOddsRow.odds 一一对应 */

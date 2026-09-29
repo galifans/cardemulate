@@ -25,10 +25,12 @@ sources/<品类>/<品牌>/<系列产品>/
 | `checklist.pdf` / `checklist.txt` | 官方 Checklist（名单）原始件与文本提取件 | 必须 |
 | `checklist.xlsx` | 官方 Checklist 的表格版（列已经拆好：卡号 / 人物 / 球队 / 新秀标记） | 能拿到就必须收 |
 | `education-sheet.txt` | 官方发行说明的文本提取件，盒型配置（每包张数、每盒包数）以它为准 | 必须 |
-| `extract-pdf-text.py` | 从 PDF 提取文本的脚本，保证提取结果可复现 | 必须 |
 
 `.pdf` 是权威原件，`.txt` 只是它的文本视图，方便检索与 diff。
-两者不同步时以 `.pdf` 为准。
+两者不同步时以 `.pdf` 为准。文本提取统一用仓库根目录的 `scripts/extract-pdf-text.py`，
+**不要**在每个系列目录里放副本；转换命令见第三节第 4 步。
+派生数据用 `scripts/import-pack-odds.mjs` 与 `scripts/import-roster.mjs` 生成，
+两者共同依赖 `scripts/lib/xlsx.mjs`。
 
 `.xlsx` 与 `.pdf` 是同一份官方名单的两种导出，互为佐证：`.pdf` 是权威件，
 但表格版把球队、新秀标记放在了独立列里，誊抄与核对都以它为准，
@@ -36,24 +38,48 @@ sources/<品类>/<品牌>/<系列产品>/
 
 ## 二、来源分级
 
-数据来源只认下面三级，其他渠道（论坛、博客、二手转发）一律不作为依据。
+数据来源只认下面四级，其他渠道（论坛、博客、二手转发）一律不作为依据。
 
 | 级别 | 说明 | 用途 |
 | --- | --- | --- |
 | **A 官方原件** | 发行商自己发布的产品页面、Pack Odds 表、Checklist、发行说明 | 唯一可用于生成数据的来源 |
 | **B 官方镜像** | 由第三方托管、但内容与 A 逐字节相同的文件 | 当 A 无法直接下载时使用，须记录哈希以便验证 |
 | **C 参考** | 整理站、卖家页面对 A 的转述 | 只能用来**寻找** A，不能用来填数据 |
+| **D 授权转述件** | 技能站指南页里对官方配率表的转述 | **只对配率开放**，且必须走完下面四道手续，缺一条就退回 C 级 |
+
+### D 级只对配率开放
+
+**名单永远不用 D 级。** Topps 官方 Checklist 的表格版在目前见过的每个系列里都能从镜像下到，
+名单一律按 B 级处理；只有配率表存在「官方原件全网拿不到」的情况。
+
+D 级成立的四个条件，采集时必须逐条留痕：
+
+1. **有明确授权**。2026-09-30 用户决定：官方配率 PDF 拿不到的产品，
+   允许用 Checklist Insider 指南页的转述当配率来源。
+2. **官方原件确实不可得**。要写明试过哪些路径、各自返回什么（本机 Topps 官网 403、
+   镜像没有上传该文件），不能因为「懒得找」就跳到 D 级。
+3. **做过数值交叉验证**。拿一个**同时有官方原件与指南页转述**的系列做对照，
+   把命中率写进系列 README。已完成的对照见第六节「指南页的配率只是转述」。
+4. **改名列出来**。指南页把官方通道名改写过（`Delight` → `Breaker`、
+   `Value Box` → `Blaster`），映射关系必须写进系列 README，不许现场猜。
+
+走 D 级时的固定做法：指南页 HTML 归档成 `pack-odds-ci.html`，
+用脚本抽出「标签 + 配率」文本存成 `pack-odds.txt`，然后走第六步同一个导入脚本。
+受影响系列的 `box.ts` 头部必须写明配率来自 D 级授权转述件。
 
 ### 稳定入口
 
-| 入口 | 地址 | 状态 |
-| --- | --- | --- |
-| Topps 官方配率页 | `https://www.topps.com/pages/odds` | A 级，但带反爬，命令行直连返回 403，只能人工打开 |
-| Topps 官方产品页 | `https://www.topps.com/products/<产品 slug>` | A 级，同样 403 |
-| Checklist Insider 镜像 | `https://xcdn.checklistinsider.com/public/<年>/<月>/...pdf` | B 级，可命令行直接下载，内容为 Topps 官方 PDF 原件 |
+| 入口 | 地址 | 级别 | 本机可达性 |
+| --- | --- | --- | --- |
+| Topps 官方配率页 | `https://www.topps.com/pages/odds` | A | ✘ 命令行与真实浏览器都落到 Cloudflare 拦截页 |
+| Topps 官方产品页 | `https://www.topps.com/products/<产品 slug>` | A | ✘ 同上；换 `topps.com`、`/media/...` 也一样，没有可用子域名 |
+| Checklist Insider 镜像 | `https://xcdn.checklistinsider.com/public/<年>/<月>/<文件名>` | B | ✔ 唯一能下到官方 PDF / 表格的入口 |
+| Checklist Insider 指南页 | `https://www.checklistinsider.com/<产品 slug>`、`?s=<关键词>` | C | ✔ 站点搜索是**找产品**最省事的入口 |
+| Cardboard Connection 附件 | `https://www.cardboardconnection.com/wp-content/uploads/<年>/<月>/<文件名>` | B | ✔ 托管 Topps 官方 Education Sheet 与 Final Checklist 原件 |
+| Cardboard Connection 文章 | `https://www.cardboardconnection.com/<产品 slug>-set-review-and-checklist` | C | △ 时好时坏，只有 CC 写过的产品才有页面 |
 
 实践结论：**配率与名单优先走 B 级镜像下载，再用哈希或页数比对确认与 A 级一致**；
-Topps 官网只用人工核对，不写进自动化流程。
+Topps 官网只用人工核对，不写进自动化流程。逐站实测结果见第六节。
 
 ## 三、采集流程
 
@@ -68,11 +94,16 @@ Topps 官网只用人工核对，不写进自动化流程。
    镜像内容与官网逐字节相同，属于 B 级。
 3. **归档**。把 Pack Odds、Checklist、发行说明放进 `<系列目录>`，文件名统一成
    `pack-odds.pdf` / `checklist.pdf`，表格版原名保留为 `checklist.xlsx`。
-4. **转文本**。用目录里的脚本转出 `.txt`，不要用别的工具，保证提取结果可复现：
+4. **转文本**。用仓库根目录的脚本转出 `.txt`，不要用别的工具，保证提取结果可复现：
    ```powershell
    pip install pypdf
-   python <系列目录>/extract-pdf-text.py <原件.pdf> <输出.txt>
+   python scripts/extract-pdf-text.py <原件.pdf> <输出.txt>            # 配率表：布局模式
+   python scripts/extract-pdf-text.py <原件.pdf> <输出.txt> --plain    # 名单：普通模式
    ```
+   **配率表必须用布局模式**（脚本默认就是）。普通模式会把空格单元格直接吞掉，
+   列位信息一起消失，`Base Rainbow 1:35　　　　1:9` 会被压成
+   `Base Rainbow Green and Blue 1:35 1:9`，下游只能按顺序猜列，一定错。
+   名单没有列位问题，用 `--plain` 出得更干净。
    输出以 `PAGES: n` 开头，接着是 `===== PAGE i =====` 分段。**不要**手改 `.txt`：
    改不动原件时就在系列 README 的已知问题里写明，让 `.txt` 与 `.pdf` 的差异可追溯。
 5. **记哈希**。每份文件算 SHA-256 并写进 `<系列目录>/README.md`：
@@ -80,15 +111,38 @@ Topps 官网只用人工核对，不写进自动化流程。
    Get-FileHash <系列目录>/*.pdf, <系列目录>/*.xlsx -Algorithm SHA256
    ```
    B 级来源必须记；将来拿到 A 级原件时用哈希确认两者是同一份。
-6. **生成配率**。用导入脚本把 `pack-odds.txt` 转成 `pack-odds.generated.ts`：
+6. **生成配率**。用导入脚本把 `pack-odds.txt` 转成 `pack-odds.generated.ts`，
+   第三个参数是这张表的列名。列名必须**照抄官方表头**、顺序从左到右；
+   官方表头里带着 `Odds`、`Box` 之类的后缀时只写渠道本身（写成
+   `Hobby,Jumbo,Delight,...` 而不是 `Hobby Odds,Jumbo Odds,...`），脚本会自己匹配：
    ```powershell
-   node scripts/import-pack-odds.mjs `<系列目录>`/pack-odds.txt `<代码目录>`/pack-odds.generated.ts
+   node scripts/import-pack-odds.mjs `<系列目录>`/pack-odds.txt `<代码目录>`/pack-odds.generated.ts "Hobby,Jumbo,..."
    ```
    脚本会把识别不了的行打印出来，**必须逐条人工核对**，不能放着警告往下走。
-   配率**禁止**手抄、禁止估算，数值只从这张表来。
-7. **誊抄名册**。按 `<代码目录>/roster.ts` 的行格式（`[卡号, 人物, 球队]`，
-   新秀加 `"R"`）从 `checklist.xlsx` 抄写；官方表有重音符号不一致或缺字的情况，
-   代码里统一写正确的全名。
+   配率**禁止**手抄、禁止估算，数值只从这张表来（拿不到官方表时走 D 级，仍然不许手抄，
+   由脚本从指南页 HTML 提取）。
+
+   官方表有几种写法，脚本都处理好了，但改动脚本前要知道它们的存在：
+
+   | 写法 | 例子 | 数值单位 |
+   | --- | --- | --- |
+   | `1:X` | `1:12,259` | `X`（平均多少包出一张） |
+   | `A:B` | `4:1` | `B / A`（`4:1` = 平均 4 包出一张 → 0.25） |
+   | `-` | `-` | 空，该渠道没有这个卡种 |
+   | 小数 | `2.1` | 原样 |
+
+   空格的处理分两种表：写成 `-` 的表每行令牌数刚好等于列数，按顺序摆放；
+   空格真的空着的表令牌数少于列数，按数值的水平中心归列。
+   一份 PDF 里可能有好几张表（分页会重排行位），所以列位要跟着当前表头走。
+7. **誊抄名册**。名单表格版一律用脚本转，不要手工抄：
+   ```powershell
+   node scripts/import-roster.mjs `<系列目录>`/checklist.xlsx `<代码目录>`/roster.ts [工作表序号]
+   ```
+   脚本按「A 列有字、B 列空」认分节标题，按「A/B 两列都有字」认数据行，
+   把 `[Rookie]`（写在人物名后面或单独一列）转成行尾的 `"R"`，
+   最后按官方表里的原始分节标题生成 `ROSTER_SECTIONS`。
+   官方表有重音符号不一致或缺字的情况，代码里统一写正确的全名：
+   改写 `roster.ts` 后必须重跑第 8 步，让脚本逐行对回原件。
 8. **核对名册**。抄完立刻跑核对脚本，它会逐行对回原件：
    ```powershell
    npm run roster:check
@@ -112,6 +166,7 @@ Topps 官网只用人工核对，不写进自动化流程。
 | 发行商官网 / Pack Odds 表 / Checklist / 发行说明 | A 级，直接采信 |
 | 第三方托管的官方原件（镜像、CDN） | B 级，记哈希后可用 |
 | 整理站、卖家的转述与截图 | C 级，只能用来**找** A 级原件 |
+| 技能站指南页的配率转述（Checklist Insider） | D 级，**仅限配率**，且四道手续齐全才可用；名单不适用 |
 | 论坛、社群、AI 生成内容 | 一律不用 |
 | 官方表内部自相矛盾 | 以 PDF 原件为准，必要时在 `SOURCE_DEFECTS` 或 `ROW_PATCHES` 里登记并写明依据 |
 
@@ -130,3 +185,51 @@ Topps 官网只用人工核对，不写进自动化流程。
   不要等事后补。
 - 已归档的 `checklist.pdf` 与 `checklist.xlsx` 内容一致（`npm run roster:check` 同时对上两份），
   所以清单数据本身可用；缺的只是那份 PDF 的出处链接。
+- Checklist Insider 只发布它自己上传过的那几份原件，**没上传的产品就是没有**。
+  2026-09-30 试到 `2025-26 Topps Chrome Black Basketball` 时，配率 PDF 按文件名规律
+  试了 5 种写法 × 6 个月份目录（共 24 个）全部 403。找不到时要回到指南页看
+  Downloads 一节到底列了哪几个附件，**不要**继续猜文件名。
+  正确做法：先把指南页 HTML 下下来，再从 HTML 里正则抽 `xcdn.checklistinsider.com`
+  开头的链接。一轮就能点清该产品到底有哪些附件可下，也顺带拿到这些链接的完整写法。
+  2026-09-30 用这个方法一次点清了 16 个 2025-26 Topps 篮球产品，其中 8 个有官方配率 PDF。
+
+## 六、本机网络可达性（2026-09-30 实测）
+
+本机（Windows / PowerShell 5.1）出网被大量拦截，采集前先按这张表判断走哪条路，
+省得在死路上耗时间。
+
+| 站点 | 可达性 | 说明 |
+| --- | --- | --- |
+| `xcdn.checklistinsider.com` | ✔ | 官方 PDF / 表格的唯一命令行入口 |
+| `www.checklistinsider.com` | ✔ | 指南页带盒型配置、名单与配率转述；`?s=<关键词>` 能枚举产品 |
+| `www.cardboardconnection.com` | ✔ | 附件可用；文章页会返回 404 / 500 / 连接被关闭，重试常能成功 |
+| `www.beckett.com`、`www.blowoutcards.com` | ✔ | 可达，本轮未用于取数 |
+| `www.bing.com` | △ | 首页可达，但搜索结果与关键词不符，**不能当检索依据** |
+| `www.topps.com`（含 `topps.com`） | ✘ 403 | Cloudflare IP 拦截，命令行与真实浏览器都是「you have been blocked」 |
+| `web.archive.org`、`archive.ph` | ✘ | **连不上**，所以 Wayback 这条退路在本机不存在 |
+| `www.google.com`、`duckduckgo.com`、`www.mojeek.com` | ✘ | 不可达或 403 |
+| `www.tcdb.com`、`www.sportscardspro.com`、`www.dacardworld.com`、`www.steelcitycollectibles.com`、`www.fanatics.com` | ✘ 403 | 一律 403 |
+
+### 镜像文件名的规律
+
+```
+https://xcdn.checklistinsider.com/public/<年>/<月>/
+    <产品名>-Checklist-Downloads-<类型>-Checklist-Insider[-new-update].<后缀>
+```
+
+`<产品名>` 与指南页 slug 的大小写形式一致（指南页 `2025-26-topps-chrome-update-series-basketball`
+→ 文件 `2025-26-Topps-Chrome-Update-Series-Basketball-…`），`<月>` 取发布当月。
+已见过的两种：`…-Checklist-Downloads-Odds-Checklist-Insider-new-update.pdf`（配率）、
+`…-Checklist-Downloads-Excel-spreadsheet-Checklist-Insider.xlsx`（名单表格版）。
+
+### 指南页的配率只是转述
+
+Checklist Insider 指南页里的 `Pack odds - …` 行与官方表**不是同一份东西**：
+它把官方 12 列压成 6 列，还用了自家通道名（`Delight` → `Breaker`、
+`Value Box` → `Blaster`）。拿已归档的 `2025-26 Topps Chrome Updates Basketball`
+做交叉验证：89 个不重复数值里 81 个能在官方表里原样找到，对得上的行取的是官方
+各通道的 `-EA` 列（例：`Base Refractors Denim Tears` 的 Hobby 1:6,054 / Jumbo 1:2,415 /
+Delight 1:201 / Value Box EA 1:17,365 / Mega Box EA 1:112,000 / Fanatics 1:8,774
+与指南页逐项一致）；对不上的 8 个集中在少数几行，疑为官方出过修订版
+（归档件文件名带 `new-update`）。**结论：指南页可以用来找方向，按级别仍是 C 级，
+拿它填数之前必须先搞到官方原件对齐。**
