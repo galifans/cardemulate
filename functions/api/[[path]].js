@@ -1192,10 +1192,10 @@ export async function onRequest(context) {
 
         return fail(`未知接口：${method} /api/${path}`, 404);
     } catch (error) {
-        const message = error instanceof Error ? error.message : String(error);
-        if (message.includes("D1 binding")) {
-            return fail("服务端数据库未绑定，请在 Pages 设置里添加变量名为 DB 的 D1 绑定", 503);
-        }
-        return fail(`服务端错误：${message}`, 500);
+        const detail = error instanceof Error ? error.message : String(error);
+        // 实现细节只进日志（Pages 面板的实时日志可见），
+        // 返回给用户的必须是干净的固定文案，见 agent.md 2.1。
+        console.error(`[api] ${method} /api/${path} -> ${detail}`, error instanceof Error ? error.stack : "");
+        return fail("服务暂时不可用，请稍后重试。", 500);
     }
 }

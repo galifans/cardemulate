@@ -18,8 +18,10 @@
 | 部署方式 | Cloudflare Pages：`git push main` 自动触发构建部署（约 1.5～2 分钟） |
 | 构建命令 | `npm run build` → 输出 `dist` |
 | 本地预览 | `npm run dev`（仅前端，端口 5174）/ `npm run dev:cf`（全栈 + 本地 D1） |
-| 数据库 | Cloudflare D1，库名 `cardemulate`，绑定变量名 `DB` |
-| 当前状态 | 骨架完成（篮球 1 个盒型），前后端已在本地 D1 上全链路跑通；待部署上线与内容扩展 |
+| 数据库 | Cloudflare D1，库名 `cardemulate`，绑定变量名 `DB`，
+`database_id = 51265817-c1ed-4e09-98fd-a3d1709fb0c3`（区域 WNAM） |
+| 云端账号 | Cloudflare `2092878237@qq.com`，Account ID `88a2dc4c1e2c8652fd444ea1a65dec76` |
+| 当前状态 | 已上线：Cloudflare Pages + 线上 D1 全链路验证通过；待内容扩展 |
 
 ## 2. 站点定位
 
@@ -210,6 +212,52 @@ schema.sql       D1 建表脚本（维度表 + 事实表分离）
 **修法：去掉 `--d1=DB`，让 `pages dev` 直接读 `wrangler.toml` 的 D1 绑定**；
 另补了 `npm run db:local` 与 `npm run smoke` 两个脚本。
 
+### 2026-09-29（上线 Cloudflare Pages，线上全链路跑通）
+
+- ✓ **wrangler 登录并创建线上 D1**：账号 `2092878237@qq.com`
+  （ID `88a2dc4c1e2c8652fd444ea1a65dec76`）；创建库 `cardemulate`
+  （`database_id = 51265817-c1ed-4e09-98fd-a3d1709fb0c3`，区域 WNAM），
+  已回填 `wrangler.toml`，并对其执行 `schema.sql`（35 条语句 / 12 张表）
+- ✓ **`wrangler.toml` 补 `pages_build_output_dir = "dist"`**：声明本项目是 Pages 项目，
+  构建时 Cloudflare 会读本文件里的绑定，因此 **D1 绑定跟着仓库走**，
+  不需要在面板里手工维护
+- ✓ **Pages 项目 `cardemulate`**（构建命令 `npm run build`、输出 `dist`、生产分支 `main`）
+- ✓ **自定义域名 `cardemulate.wikiandroid.com`** 已添到项目上
+  （`wikiandroid.com` 本就在同一账号下且状态 active，证书签发中）
+- ✓ **线上冒烟全通过**：注册 5 条约束 → 注册 → 重复邮箱 409 → 登录（错/对）→
+  `/api/me` → `/api/break` → `/api/stats`（稀有度 / 子集维度正确）→
+  `/api/breaks`（未登录 401、登录后 total / seed / cardCount / best 正确）→
+  `/api/leaderboard` → `/api/global` → 退出登录
+- ✓ 冒烟脚本现在可指定目标站点：
+  `node scripts/smoke-api.mjs https://cardemulate.pages.dev`
+- ✓ 验证后清空线上测试数据（`DELETE FROM users WHERE email LIKE '%@example.com'`，
+  外键级联带走 sessions / breaks / pull_stats），全站统计回到 0
+
+#### 线上踩坑 1：Cloudflare 的 PBKDF2 迭代次数上限是 100000
+
+- 现象：本地全链路正常，线上 `POST /api/auth/register` 一律 500，
+  返回 Pages 的 `Error 1101` HTML 页；只读接口（`/api/config`、`/api/global`）全部正常
+- 定位过程：
+  1. 用 D1 REST API 以**同样的绑定参数**直接跑注册用的 SQL，
+     `INSERT ... VALUES (?1..?6, ?6) RETURNING ...` 全部成功 → 排除 SQL 与绑定问题
+  2. 再让 API 把异常信息吐出来，拿到真凶：
+     `Pbkdf2 failed: iteration counts above 100000 are not supported (requested 150000).`
+- 根因：**Cloudflare 的 WebCrypto 对 PBKDF2 有 100000 次迭代的硬上限**，
+  超限直接抛异常；本地 miniflare 不做这个校验，所以只在线上暴露。
+  登录接口此前没暴露它，是因为用户不存在会提前返回，根本走不到哈希那一步
+- 修法：`PBKDF2_ITERATIONS` 由 150000 降为 **100000**（平台允许的最大值），
+  `schema.sql` 默认值同步改，并写进 `agent.md` 第 6 节
+
+#### 线上踩坑 2：`try { return handleX() }` 捕不到异常
+
+`onRequest` 里原本是 `return handleRegister(request, env)`，
+返回 Promise 并不会让 `try/catch` 捕获它的拒绝，
+于是任何异步失败都变成未处理异常，线上只看到 `Error 1101` HTML 页，
+统一错误处理完全失效。**修法：全部改成 `return await handleXxx(...)`。**
+同时把 catch 的文案收敛为固定的「服务暂时不可用，请稍后重试。」，
+细节只走 `console.error`（Pages 面板实时日志可见），
+符合 2.1 节「不向用户暴露实现细节」的约束。
+
 ### 关键取舍记录
 
 - **不用 Pinia**：只有一个全局 store，手写 reactive 单例省一个依赖。
@@ -226,12 +274,12 @@ schema.sql       D1 建表脚本（维度表 + 事实表分离）
 ## 5. 待办（TODO）
 
 ### P0 上线前必须完成
-- [ ] 在 Cloudflare 创建 Pages 项目并关联 `galifans/cardemulate`，绑定自定义域名
+- [x] 在 Cloudflare 创建 Pages 项目并关联 `galifans/cardemulate`，绑定自定义域名
       `cardemulate.wikiandroid.com`
-- [ ] 创建 D1 数据库 `cardemulate`（把真实 `database_id` 回填到 `wrangler.toml`），
-      并执行 `schema.sql`（本地已实测通过，线上待执行）
+- [x] 创建 D1 数据库 `cardemulate`（真实 `database_id` 已回填 `wrangler.toml`），
+      并执行 `schema.sql`
 - [x] 本地全栈冒烟：注册 → 登录 → 拆盒 → `/api/breaks` → `/api/stats` 与 `/api/global` 数据正确
-- [ ] 线上冒烟（部署完成后重跑一遍本地那套 `/api/*` 验证）
+- [x] 线上冒烟（已重跑整套 `/api/*` 验证并通过）
 - [x] 首次 `git push -u origin main`（已完成，用 SSH key，无需设备码授权）
 
 ### P1 内容扩展
@@ -251,9 +299,10 @@ schema.sql       D1 建表脚本（维度表 + 事实表分离）
 - 无实物卡图，所有卡面共用一张占位图（按稀有度变色），属**预期行为**。
 - 本地 `npm run dev` 下 `/api/*` 必然失败（无 Functions 运行时），
   控制台会出现一条连接失败的告警，属**预期行为**；要联调后端请用 `npm run dev:cf`。
-- `wrangler.toml` 的 `database_id` 仍是 `local-dev-placeholder`，
-  仅够本地 `--local` 开发使用；Cloudflare Pages **不读**该文件，
-  D1 绑定必须在 Dashboard（或 `wrangler pages` 命令）里单独配置。
+- **本机访问不到 Pages 的预览别名**：`<hash>.cardemulate.pages.dev` 与
+  `diag.cardemulate.pages.dev` 在 TLS 握手阶段就失败（生产域名
+  `cardemulate.pages.dev` 正常）。要在线上验证函数行为，直接推 `main`
+  用生产域名试，别指望预览别名。
 - `esbuild` 的 postinstall 脚本被 npm 的 allow-scripts 策略拦截，会出现一条 warning；
   不影响构建（Vite 6 用 Rollup 打包，esbuild 仅用于依赖预构建）。
 
@@ -269,3 +318,8 @@ schema.sql       D1 建表脚本（维度表 + 事实表分离）
   `ssh -T git@github.com` 返回 `Hi galifans!`）。
   本机网络下 `github.com:443`（即 HTTPS remote）连不上，`git push` 会无限挂起；
   不要改回 `https://` remote。
+- **wrangler 已登录**：凭据在 `%APPDATA%\xdg.config\.wrangler\config\default.toml`；
+  账号与库 ID 见第 1 节表格。远程 SQL 要带 `--remote`：
+  `npx --yes wrangler@latest d1 execute DB --remote --file=schema.sql`
+- **`git push` 在 PowerShell 里即使成功也返回退出码 1**（git 把进度写到 stderr，
+  PowerShell 当成 `NativeCommandError`）。**看输出里有没有 `main -> main`，不看退出码。**
