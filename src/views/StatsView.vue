@@ -1,7 +1,7 @@
 <script setup lang="ts">
-import { computed, onMounted, ref } from "vue";
+import { computed, onBeforeUnmount, onMounted, ref } from "vue";
 import { RouterLink } from "vue-router";
-import { api, backendState, type GlobalStats, type StatsFilter } from "../api/client";
+import { api, backendState, type GlobalStats, type StatsFilter, type UserStats } from "../api/client";
 import { useAppStore } from "../stores/app";
 import { TIER_ORDER, TIERS, GROUP_NAMES } from "../engine/tiers";
 import { allBoxes, CATEGORIES, getBox } from "../catalog";
@@ -31,11 +31,18 @@ const loadPublic = async (): Promise<void> => {
     }
 };
 
+const onDrillKey = (event: KeyboardEvent): void => {
+    if (event.key === "Escape" && drillKey.value) closeDrill();
+};
+
 onMounted(async () => {
+    window.addEventListener("keydown", onDrillKey);
     await loadPublic();
     offline.value = backendState() === false;
     loaded.value = true;
 });
+
+onBeforeUnmount(() => window.removeEventListener("keydown", onDrillKey));
 
 /** 子集 key -> { 名称, 分组 } 查表 */
 const subsetIndex = computed(() => {
@@ -267,6 +274,70 @@ const subsetRows = computed(() =>
 
 const subsetMax = computed(() => Math.max(1, ...subsetRows.value.map((r) => r.count)));
 
+/* ------------------------- 单个盒型的明细 ------------------------- */
+
+/** 打开弹窗的盒型 key；null 表示未打开 */
+const drillKey = ref<string | null>(null);
+const drillStats = ref<UserStats | null>(null);
+const drillLoading = ref(false);
+
+const drillName = computed(() => (drillKey.value ? boxName(drillKey.value) : ""));
+
+const openDrill = async (key: string): Promise<void> => {
+    drillKey.value = key;
+    drillStats.value = null;
+    drillLoading.value = true;
+    try {
+        const result = await api.stats({ box: key });
+        /* 请求回来前弹窗可能已经关掉或换成了别的盒型 */
+        if (drillKey.value !== key) return;
+        drillStats.value = result.stats;
+    } catch {
+        if (drillKey.value === key) drillStats.value = null;
+    } finally {
+        if (drillKey.value === key) drillLoading.value = false;
+    }
+};
+
+const closeDrill = (): void => {
+    drillKey.value = null;
+    drillStats.value = null;
+    drillLoading.value = false;
+};
+
+const drillNumbered = computed(() =>
+    NUMBERED_TIERS.reduce(
+        (sum, tier) => sum + (drillStats.value?.byTier.find((row) => row.tier === tier)?.total ?? 0),
+        0,
+    ),
+);
+
+const drillTierRows = computed(() => {
+    const map = new Map((drillStats.value?.byTier ?? []).map((row) => [row.tier, row.total]));
+    return TIER_ORDER.map((tier) => ({
+        key: tier,
+        name: TIERS[tier].name,
+        color: TIERS[tier].color,
+        count: map.get(tier) ?? 0,
+    }));
+});
+
+const drillTierMax = computed(() => Math.max(1, ...drillTierRows.value.map((r) => r.count)));
+
+const drillSubsetRows = computed(() =>
+    (drillStats.value?.bySubset ?? []).map((row) => {
+        const meta = subsetIndex.value.get(row.subset_key);
+        return {
+            key: row.subset_key,
+            name: meta?.name ?? row.subset_key,
+            groupName: meta ? GROUP_NAMES[meta.group] : "",
+            count: row.total,
+        };
+    }),
+);
+
+const drillSubsetMax = computed(() => Math.max(1, ...drillSubsetRows.value.map((r) => r.count)));
+
 /** 最稀有的 20 张：服务端按 best_odds 倒序给出 */
 const rarestRows = computed(() =>
     (server.value?.rarest ?? []).map((row) => ({
@@ -495,6 +566,7 @@ const globalTotal = computed(() => Math.max(1, globalStats.value?.cards ?? 1));
                             <th>盒子</th>
                             <th>拆盒数</th>
                             <th>出卡数</th>
+                            <th class="ce-col-action" aria-label="操作"></th>
                         </tr>
                     </thead>
                     <tbody>
@@ -502,6 +574,15 @@ const globalTotal = computed(() => Math.max(1, globalStats.value?.cards ?? 1));
                             <td>{{ row.name }}</td>
                             <td class="ce-mono">{{ formatNumber(row.boxes) }}</td>
                             <td class="ce-mono">{{ formatNumber(row.cards) }}</td>
+                            <td class="ce-col-action">
+                                <button
+                                    class="ce-btn ce-btn-sm"
+                                    type="button"
+                                    @click="openDrill(row.key)"
+                                >
+                                    查看统计
+                                </button>
+                            </td>
                         </tr>
                     </tbody>
                 </table>
@@ -695,6 +776,78 @@ const globalTotal = computed(() => Math.max(1, globalStats.value?.cards ?? 1));
                 <p v-else class="ce-faint ce-mt-14">暂无排行数据。</p>
             </div>
         </section>
+
+        <div v-if="drillKey" class="ce-modal" @click.self="closeDrill">
+            <div class="ce-modal-panel" role="dialog" aria-modal="true" aria-labelledby="ce-drill-title">
+                <div class="ce-modal-head">
+                    <h2 id="ce-drill-title" class="ce-section-title">{{ drillName }}</h2>
+                    <button class="ce-modal-close" type="button" @click="closeDrill">关闭</button>
+                </div>
+
+                <p v-if="drillLoading" class="ce-faint ce-mt-14">正在读取…</p>
+                <p v-else-if="!drillStats" class="ce-faint ce-mt-14">
+                    暂时读不到这个盒型的统计，请稍后重试。
+                </p>
+                <template v-else>
+                    <div class="ce-summary-grid ce-mt-16">
+                        <div>
+                            <strong>{{ formatNumber(drillStats.boxes) }}</strong>
+                            <span>拆盒数</span>
+                        </div>
+                        <div>
+                            <strong>{{ formatNumber(drillStats.cards) }}</strong>
+                            <span>出卡数</span>
+                        </div>
+                        <div>
+                            <strong>{{ formatNumber(drillNumbered) }}</strong>
+                            <span>编号卡</span>
+                        </div>
+                    </div>
+
+                    <div class="ce-modal-block">
+                        <h3 class="ce-section-title">稀有度分布</h3>
+                        <ul class="ce-tier-bars">
+                            <li v-for="row in drillTierRows" :key="row.key">
+                                <span class="ce-tier-dot" :style="{ background: row.color }"></span>
+                                <span class="ce-tier-name">{{ row.name }}</span>
+                                <span class="ce-tier-bar">
+                                    <i
+                                        :style="{
+                                            width: `${(row.count / drillTierMax) * 100}%`,
+                                            background: row.color,
+                                        }"
+                                    ></i>
+                                </span>
+                                <span class="ce-mono ce-tier-count">{{ formatNumber(row.count) }}</span>
+                            </li>
+                        </ul>
+                    </div>
+
+                    <div class="ce-modal-block">
+                        <h3 class="ce-section-title">卡种子集</h3>
+                        <ul v-if="drillSubsetRows.length" class="ce-tier-bars">
+                            <li v-for="row in drillSubsetRows" :key="row.key">
+                                <span class="ce-tier-dot" :style="{ background: TIERS.epic.color }"></span>
+                                <span class="ce-tier-name">
+                                    {{ row.name }}
+                                    <span v-if="row.groupName" class="ce-faint">{{ row.groupName }}</span>
+                                </span>
+                                <span class="ce-tier-bar">
+                                    <i
+                                        :style="{
+                                            width: `${(row.count / drillSubsetMax) * 100}%`,
+                                            background: TIERS.epic.color,
+                                        }"
+                                    ></i>
+                                </span>
+                                <span class="ce-mono ce-tier-count">{{ formatNumber(row.count) }}</span>
+                            </li>
+                        </ul>
+                        <p v-else class="ce-faint ce-mt-14">这个盒型还没有出过卡。</p>
+                    </div>
+                </template>
+            </div>
+        </div>
     </div>
 </template>
 
@@ -990,5 +1143,62 @@ const globalTotal = computed(() => Math.max(1, globalStats.value?.cards ?? 1));
 
 .ce-link {
     color: var(--ce-brand);
+}
+
+/* ---------------- 盒型明细弹窗 ---------------- */
+
+.ce-col-action {
+    width: 1%;
+    text-align: right;
+    white-space: nowrap;
+}
+
+.ce-modal {
+    position: fixed;
+    inset: 0;
+    z-index: 60;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    padding: 24px 16px;
+    background: rgba(4, 8, 20, 0.72);
+}
+
+.ce-modal-panel {
+    width: 100%;
+    max-width: 620px;
+    max-height: 86vh;
+    overflow-y: auto;
+    padding: 20px 22px 24px;
+    border-radius: var(--ce-radius-lg);
+    border: 1px solid var(--ce-border);
+    background: var(--ce-panel);
+    box-shadow: var(--ce-shadow);
+}
+
+.ce-modal-head {
+    display: flex;
+    align-items: flex-start;
+    justify-content: space-between;
+    gap: 16px;
+}
+
+.ce-modal-close {
+    flex-shrink: 0;
+    padding: 4px 11px;
+    border-radius: 8px;
+    border: 1px solid var(--ce-border);
+    background: transparent;
+    color: var(--ce-text-dim);
+    font-size: 12.5px;
+}
+
+.ce-modal-close:hover {
+    border-color: var(--ce-brand);
+    color: var(--ce-brand);
+}
+
+.ce-modal-block {
+    margin-top: 22px;
 }
 </style>

@@ -821,13 +821,14 @@ const handleStats = async (request, env) => {
     const filters = readFilters(request);
     if (!user) return json({ ok: true, user: null, filters, stats: null });
 
+    // ?1 = app_key、?2 = user_id，切片条件必须从 ?3 开始，否则会覆盖 user_id
     const breakFilter = compileFilters(
         [
             ["category_key", filters.categoryKey],
             ["maker_key", filters.makerKey],
             ["box_key", filters.boxKey],
         ],
-        2,
+        3,
     );
     const pullFilter = compileFilters(
         [
@@ -835,7 +836,7 @@ const handleStats = async (request, env) => {
             ["maker_key", filters.makerKey],
             ["box_key", filters.boxKey],
         ],
-        2,
+        3,
     );
 
     const byUser = "app_key = ?1 AND user_id = ?2";

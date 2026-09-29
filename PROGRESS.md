@@ -547,6 +547,62 @@ schema.sql       D1 建表脚本（维度表 + 事实表分离）
   回车开拆可用、中途回车不重开；「直接看结果」跳过后同样换了新种子并揭完 28 张
 - ✓ `npm run typecheck` 零错误、`npm run build` 成功（本次未动 `src/data/sets`）
 
+### 2026-09-30（统计页支持按盒型下钻 + 修掉切片参数错位 + 导航角标 / 签字卡）
+
+用户原话：「按盒子 … 后面加一个『查看统计』按钮，点击后弹窗展示当前盒子的统计信息」、
+「实测右上角会有数字图标，不需要展示这个数字，不然用户以为是未读消息。」、
+「value BOX 也是有概率开到签字的吧 … 如果开到签字这些需要展示出来」
+
+#### 1. 统计页「按盒子」表格新增「查看统计」弹窗
+
+- ✓ `src/views/StatsView.vue`
+  - 「按盒子」表补一列按钮，点开弹窗显示**该盒型自己的**拆盒数 / 出卡数 / 编号卡 +
+    稀有度分布 + 卡种子集（复用页面上那两套条形列表的样式）
+  - 数据走已有的 `GET /api/stats?box=<boxKey>`，**没有新增接口**；
+    加锁思路：先置 `drillKey` 再取数，`await` 回来后如果 `drillKey` 已经变了就丢弃结果，
+    避免连点两个盒子时旧响应盖掉新的
+  - 关闭三条路径都接了：右上「关闭」按钮、点遮罩空白处、按 Esc
+    （Esc 走 `window` 的 `keydown` 监听，`onBeforeUnmount` 里摘掉）
+  - 「编号卡」口径与页面一致，复用同一个 `NUMBERED_TIERS`
+
+#### 2. 修一个真 bug：`/api/stats` 带切片条件必然 500
+
+- 现象：不带条件正常，一加 `?box=` / `?category=` / `?maker=` 就
+  `500 D1_ERROR: Wrong number of parameter bindings for SQL query.`
+- 根因（`functions/api/[[path]].js` 的 `handleStats`）：
+  查询前缀是 `app_key = ?1 AND user_id = ?2`，但切片条件是
+  `compileFilters(..., 2)` 编译的 —— 第一个切片被编成 `?2`，
+  **把 `user_id` 覆盖了**，于是 SQL 里最大占位符编号停在 2、却绑了 3 个值
+- 修法：两处 `compileFilters(..., 2)` 改成 `3`，与 `handleBreaks` 的写法对齐
+  （`handleBreaks` 早就写了「?1 = app_key、?2 = user_id，切片条件从 ?3 开始」）
+- 教训：`handleLeaderboard` / `handleGlobal` 的前缀只有 `?1`，用 2 是对的，
+  **照抄它们的起始下标就会错**；起始下标必须数前缀里的占位符个数
+- ✓ 验证：`?box=` / `?category=` 均 200 且数字与页面汇总一致，
+  `?box=does.not.exist` 返回 0 而不是报错
+
+#### 3. 去掉导航栏的数字角标
+
+- ✓ `src/App.vue` 删掉 `boxCount` 计算属性、链接里的角标与 `.ce-nav-count` 样式
+- 原因（用户实测反馈）：数字看起来像「未读消息」，而不是「我的拆盒数」
+
+#### 4. 「本盒概况」补上「签字卡」
+
+- ✓ `src/views/BreakView.vue` 新增 `autographs`（`group === "auto" || group === "relic"`），
+  概况格从 4 格变 5 格（`grid-template-columns` 改 `auto-fit`），
+  开到签字时**整格换成品牌绿**，一眼能看到
+- 数据侧确认不需要改：Value Box 的 `Topps Chrome Autographs` 官方配率是 1:30,619，
+  另有 7 行 Lava Lamp，确实有概率开到
+
+#### 5. 为 Hobby / Jumbo / Mega 预置名册（进行中）
+
+- ✓ `roster.ts` 从「仅 Value Box」改为「Hobby / Jumbo / Value / Mega 四个盒型」
+  的合并名册，按 `checklist.txt` 补进 8 组只在 Hobby / Jumbo 出现的名册：
+  `SHADOW_ETCH`(SE) / `CELEBRACION`(CB) / `CAPTAINS`(SC) / `RADIATING_ROOKIES`(RR) /
+  `HAVOC_MARKS`(HM) / `AUTOGRAPHS_1980_81`(80TBA) / `FUTURE_STARS_AUTOGRAPHS`(FS) /
+  `DRUSKI_AUTOGRAPHS`(DA) + `SPIKE_LEE_AUTOGRAPHS`(SLA)
+- 行格式沿用 `[卡号, 人物, 球队]` / `+ "R"` 标新秀；`box.ts` 的改造（按官方渠道列
+  重映射配率、拆出三盒、`ABSENT_SUBSETS` 改为逐盒推导）**尚未开始**
+
 ### 关键取舍记录
 
 - **不用 Pinia**：只有一个全局 store，手写 reactive 单例省一个依赖。

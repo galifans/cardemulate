@@ -11,8 +11,6 @@ onMounted(() => {
 });
 
 const user = computed(() => store.state.user);
-/** 导航角标用云端记录总数，未登录时后端不返回数据，自然为 0 */
-const boxCount = computed(() => store.state.breakTotal);
 
 const navActive = (prefix: string): boolean => route.path.startsWith(prefix);
 </script>
@@ -33,10 +31,7 @@ const navActive = (prefix: string): boolean => route.path.startsWith(prefix);
                 <RouterLink to="/c/basketball" :class="{ active: navActive('/c/basketball') }">
                     篮球
                 </RouterLink>
-                <RouterLink to="/stats" :class="{ active: navActive('/stats') }">
-                    我的统计
-                    <span v-if="boxCount" class="ce-nav-count">{{ boxCount }}</span>
-                </RouterLink>
+                <RouterLink to="/stats" :class="{ active: navActive('/stats') }">我的统计</RouterLink>
             </nav>
 
             <div class="ce-header-right">
@@ -151,14 +146,6 @@ const navActive = (prefix: string): boolean => route.path.startsWith(prefix);
 .ce-nav a.active {
     color: var(--ce-brand);
     background: var(--ce-brand-soft);
-}
-
-.ce-nav-count {
-    font-size: 11px;
-    padding: 0 6px;
-    border-radius: 999px;
-    background: var(--ce-brand-deep);
-    color: #eafff3;
 }
 
 .ce-header-right {

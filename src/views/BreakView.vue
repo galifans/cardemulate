@@ -138,6 +138,10 @@ const rookies = computed(() => (result.value?.cards ?? []).filter((c) => c.rooki
 const numberedCards = computed(
     () => (result.value?.cards ?? []).filter((c) => c.numbered !== null),
 );
+/** 签名卡：auto 与实物签名（本系列实物卡全部带签） */
+const autographs = computed(
+    () => (result.value?.cards ?? []).filter((c) => c.group === "auto" || c.group === "relic"),
+);
 
 /** 配率表：按子集分组 */
 const oddsGroups = computed(() => {
@@ -314,6 +318,9 @@ const toggleSubset = (key: string): void => {
                                 </div>
                                 <div>
                                     <strong>{{ numberedCards.length }}</strong><span>编号卡</span>
+                                </div>
+                                <div :class="{ 'ce-summary-hot': autographs.length > 0 }">
+                                    <strong>{{ autographs.length }}</strong><span>签字卡</span>
                                 </div>
                                 <div>
                                     <strong>{{ Object.keys(result.bySubset).length }}</strong>
@@ -677,7 +684,7 @@ const toggleSubset = (key: string): void => {
 
 .ce-summary-grid {
     display: grid;
-    grid-template-columns: repeat(4, 1fr);
+    grid-template-columns: repeat(auto-fit, minmax(74px, 1fr));
     gap: 10px;
 }
 
@@ -694,6 +701,12 @@ const toggleSubset = (key: string): void => {
 .ce-summary-grid span {
     font-size: 11.5px;
     color: var(--ce-text-faint);
+}
+
+/* 开到签字卡：整格换成品牌色，一眼能看到 */
+.ce-summary-hot strong,
+.ce-summary-hot span {
+    color: var(--ce-brand);
 }
 
 .ce-seed-note {
