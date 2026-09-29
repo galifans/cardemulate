@@ -13,8 +13,6 @@ import TeamIcon from "./TeamIcon.vue";
 
 const props = defineProps<{
     card: PulledCard;
-    /** 紧凑模式：统计列表里用 */
-    compact?: boolean;
 }>();
 
 const meta = computed(() => TIERS[props.card.tier]);
@@ -31,7 +29,7 @@ const serial = computed(() => {
 </script>
 
 <template>
-    <article class="ce-face" :class="{ compact }" :style="{ '--tier': meta.color, '--glow': meta.glow }">
+    <article class="ce-face" :style="{ '--tier': meta.color, '--glow': meta.glow }">
         <div class="ce-face-art">
             <img
                 src="/card-art.svg"
@@ -40,31 +38,29 @@ const serial = computed(() => {
                 loading="lazy"
             />
             <span class="ce-face-sheen" aria-hidden="true"></span>
+            <div v-if="marks.length" class="ce-face-marks">
+                <span
+                    v-for="mark in marks"
+                    :key="mark.key"
+                    class="ce-mark"
+                    :class="`ce-mark-${mark.kind}`"
+                >
+                    {{ mark.label }}
+                </span>
+            </div>
             <span class="ce-face-tier">{{ meta.name }}</span>
-        </div>
-
-        <div v-if="!compact && marks.length" class="ce-face-marks">
-            <span
-                v-for="mark in marks"
-                :key="mark.key"
-                class="ce-mark"
-                :class="`ce-mark-${mark.kind}`"
-            >
-                {{ mark.label }}
-            </span>
         </div>
 
         <div class="ce-face-body">
             <p class="ce-face-player">{{ card.player }}</p>
             <div class="ce-face-team">
-                <TeamIcon :team="card.team" />
+                <TeamIcon :team="card.team" :size="26" />
             </div>
             <p class="ce-face-name">{{ card.fullName }}</p>
             <div class="ce-face-meta">
                 <span class="ce-badge">#{{ card.no }}</span>
                 <span v-if="serial" class="ce-badge ce-mono">{{ serial }}</span>
                 <span class="ce-badge ce-mono">{{ card.oddsLabel }}</span>
-                <span v-if="!compact" class="ce-badge">第 {{ card.pack }} 包</span>
             </div>
         </div>
     </article>
@@ -127,50 +123,46 @@ const serial = computed(() => {
     position: absolute;
     bottom: 8px;
     left: 8px;
+    color: var(--tier);
+    border-color: color-mix(in srgb, var(--tier) 55%, transparent);
+}
+
+/* 标记堆在卡图左上角：放到卡片下方会随张数换行，不同卡的行高就不齐了 */
+.ce-face-marks {
+    position: absolute;
+    top: 8px;
+    left: 8px;
+    display: flex;
+    flex-direction: column;
+    align-items: flex-start;
+    gap: 4px;
+}
+
+.ce-face-tier,
+.ce-mark {
     font-size: 11px;
+    font-weight: 600;
+    line-height: 1.4;
     padding: 2px 8px;
     border-radius: 7px;
     backdrop-filter: blur(6px);
-    border: 1px solid color-mix(in srgb, var(--tier) 55%, transparent);
-    background: rgba(4, 8, 18, 0.7);
-    color: var(--tier);
-    font-weight: 600;
-}
-
-.ce-face-marks {
-    display: flex;
-    flex-wrap: wrap;
-    justify-content: center;
-    gap: 6px;
-    padding: 9px 12px 0;
-}
-
-.ce-mark {
-    font-size: 10.5px;
-    font-weight: 700;
-    letter-spacing: 0.06em;
-    line-height: 1.6;
-    padding: 1px 9px;
-    border-radius: 999px;
     border: 1px solid;
+    background: rgba(4, 8, 18, 0.72);
 }
 
 .ce-mark-auto {
     color: #ffc870;
-    border-color: rgba(255, 181, 71, 0.55);
-    background: rgba(255, 181, 71, 0.12);
+    border-color: rgba(255, 181, 71, 0.6);
 }
 
 .ce-mark-numbered {
     color: #cbaaff;
-    border-color: rgba(180, 135, 255, 0.55);
-    background: rgba(180, 135, 255, 0.12);
+    border-color: rgba(180, 135, 255, 0.6);
 }
 
 .ce-mark-rookie {
     color: #7dbcff;
-    border-color: rgba(90, 169, 255, 0.55);
-    background: rgba(90, 169, 255, 0.12);
+    border-color: rgba(90, 169, 255, 0.6);
 }
 
 .ce-face-body {
@@ -206,25 +198,6 @@ const serial = computed(() => {
     gap: 5px;
     margin-top: auto;
     padding-top: 8px;
-}
-
-.compact {
-    flex-direction: row;
-    align-items: stretch;
-}
-
-.compact .ce-face-art {
-    width: 84px;
-    aspect-ratio: 5 / 7;
-    flex-shrink: 0;
-}
-
-.compact .ce-face-body {
-    padding: 10px 12px;
-}
-
-.compact .ce-face-name {
-    min-height: 0;
 }
 
 @keyframes ce-pop {

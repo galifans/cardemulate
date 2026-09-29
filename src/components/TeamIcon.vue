@@ -1,43 +1,49 @@
 <script setup lang="ts">
 /**
- * 球队图标：主色色块 + 三字母缩写。
+ * 球队图标：优先显示队标，加载不出来时退化成主色缩写块。
  *
- * 不使用球队徽标图形（商标问题，见 data/teams.ts），
- * 衬字颜色按底色亮度自动在白 / 深之间切换，省得逐队配文字色。
+ * 退化不是可有可无的兜底——历史球队（西雅图超音速）与名册里的非球队值
+ * （Entertainer）本来就没有队标，另外图床偶发失败也不该在卡片上留一个破图标。
  */
-import { computed } from "vue";
-import { teamMeta } from "../data/teams";
+import { computed, ref, watch } from "vue";
+import { teamLogo, teamMeta } from "../data/teams";
 
-const props = defineProps<{ team: string }>();
+const props = withDefaults(
+    defineProps<{
+        team: string;
+        /** 图标边长，像素 */
+        size?: number;
+    }>(),
+    { size: 26 },
+);
 
 const meta = computed(() => teamMeta(props.team));
+const src = computed(() => teamLogo(props.team));
+const failed = ref(false);
 
-/** WCAG 相对亮度 */
-const luminance = (hex: string): number => {
-    const value = Number.parseInt(hex.replace("#", ""), 16);
-    const channel = (raw: number): number => {
-        const c = raw / 255;
-        return c <= 0.03928 ? c / 12.92 : ((c + 0.055) / 1.055) ** 2.4;
-    };
-    return (
-        0.2126 * channel((value >> 16) & 255) +
-        0.7152 * channel((value >> 8) & 255) +
-        0.0722 * channel(value & 255)
-    );
-};
-
-const ink = computed(() => (luminance(meta.value.color) > 0.42 ? "#0b1020" : "#ffffff"));
+/** 换了球队就重新给队标一次机会，否则复用组件时会一直显示上一张的兜底 */
+watch(src, () => {
+    failed.value = false;
+});
 </script>
 
 <template>
     <span
         class="ce-team"
-        :style="{ '--team': meta.color, '--ink': ink }"
         role="img"
         :aria-label="team"
         :title="team"
+        :style="{ '--team': meta.color, width: `${size}px`, height: `${size}px` }"
     >
-        {{ meta.abbr }}
+        <img
+            v-if="src && !failed"
+            class="ce-team-logo"
+            :src="src"
+            alt=""
+            loading="lazy"
+            @error="failed = true"
+        />
+        <span v-else class="ce-team-abbr">{{ meta.abbr }}</span>
     </span>
 </template>
 
@@ -46,21 +52,26 @@ const ink = computed(() => (luminance(meta.value.color) > 0.42 ? "#0b1020" : "#f
     display: inline-flex;
     align-items: center;
     justify-content: center;
-    min-width: 34px;
-    padding: 2px 8px;
-    border-radius: 999px;
-    font-size: 10px;
+    flex-shrink: 0;
+    border-radius: 50%;
+    background: rgba(255, 255, 255, 0.92);
+    /* 队标多为深色描线，浅底圆圈能把轮廓和深色卡面分开 */
+    border: 1px solid rgba(255, 255, 255, 0.35);
+    overflow: hidden;
+}
+
+.ce-team-logo {
+    width: 88%;
+    height: 88%;
+    object-fit: contain;
+    display: block;
+}
+
+.ce-team-abbr {
+    font-size: 9px;
     font-weight: 700;
-    letter-spacing: 0.06em;
-    line-height: 1.5;
-    color: var(--ink);
-    background: linear-gradient(
-        150deg,
-        color-mix(in srgb, var(--team) 88%, #ffffff) 0%,
-        var(--team) 55%,
-        color-mix(in srgb, var(--team) 80%, #000000) 100%
-    );
-    /* 深色球队（篮网、掘金等）在深色卡面上会和背景糊在一起，留一圈亮边 */
-    border: 1px solid rgba(255, 255, 255, 0.22);
+    letter-spacing: 0.04em;
+    line-height: 1;
+    color: #0b1020;
 }
 </style>
