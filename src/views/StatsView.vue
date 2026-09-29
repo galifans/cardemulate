@@ -331,18 +331,6 @@ const breakRows = computed(() =>
 );
 
 /* ------------------------- 全站统计 ------------------------- */
-
-const globalTierRows = computed(() => {
-    const map = new Map((globalStats.value?.byTier ?? []).map((row) => [row.tier, row.total]));
-    return TIER_ORDER.map((tier) => ({
-        key: tier,
-        name: TIERS[tier].name,
-        color: TIERS[tier].color,
-        count: map.get(tier) ?? 0,
-    }));
-});
-
-const globalTotal = computed(() => Math.max(1, globalStats.value?.cards ?? 1));
 </script>
 
 <template>
@@ -622,22 +610,7 @@ const globalTotal = computed(() => Math.max(1, globalStats.value?.cards ?? 1));
                         <span>出卡数</span>
                     </div>
                 </div>
-                <ul v-if="globalStats" class="ce-tier-bars">
-                    <li v-for="row in globalTierRows" :key="row.key">
-                        <span class="ce-tier-dot" :style="{ background: row.color }"></span>
-                        <span class="ce-tier-name">{{ row.name }}</span>
-                        <span class="ce-tier-bar">
-                            <i
-                                :style="{
-                                    width: `${(row.count / globalTotal) * 100}%`,
-                                    background: row.color,
-                                }"
-                            ></i>
-                        </span>
-                        <span class="ce-mono ce-tier-count">{{ formatNumber(row.count) }}</span>
-                    </li>
-                </ul>
-                <p v-else class="ce-faint ce-mt-14">全站数据暂时不可用。</p>
+                <p v-if="!globalStats" class="ce-faint ce-mt-14">全站数据暂时不可用。</p>
             </div>
 
             <div class="ce-card">

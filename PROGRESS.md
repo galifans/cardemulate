@@ -617,11 +617,15 @@ schema.sql       D1 建表脚本（维度表 + 事实表分离）
 - ✓ 顺手清掉后端随之变成死代码的部分（`functions/api/[[path]].js`）：
   `handleStats` 里 `ORDER BY best_odds DESC LIMIT 20` 那条 `rarest` 查询
   —— 每次请求都白跑一次全表扫描排序 —— 连同 `UserStats.rarest` 字段一起删掉
+- ✓ 追问后一并去掉「全站累计」卡片里的全站稀有度条形（口径是全站总量，同样没有可比性），
+  只留收藏家 / 拆盒数 / 出卡数三个数字
 - 页面顺序现在是：本盒概况 → 按盒子 → 拆盒记录 → 全站累计 / 拆盒排行
-- 未动两处，记在这里免得下次疑惑：
-  1. 「全站累计」卡片里那块全站稀有度条形（口径是全站总量而不是个人，去掉与否等用户定）
-  2. `UserStats.recent` 同样没有任何页面在读，属于本次改动之前就存在的死字段
-- ✓ 验证：`npm run typecheck` / `npm run build` 通过（`StatsView` 产物 19.31 kB → 16.11 kB），
+- 有意保留、记在这里免得下次疑惑：
+  1. `UserStats.recent` 没有任何页面在读，属于本次改动之前就存在的死字段
+  2. `/api/global` 仍返回 `byTier` / `bySubset` / `byBox` / `byCategory` / `byMaker`，
+     前端已无人使用 —— 但这是**跨站点对账用的聚合接口**（D1 里那几张维度表存在的理由），
+     别的消费方可能还在读，所以不跟着删
+- ✓ 验证：`npm run typecheck` / `npm run build` 通过（`StatsView` 产物 19.31 kB → 15.85 kB），
   本地登录后实测页面只剩四段，逐盒弹窗（含稀有度分布 / 卡种子集）不受影响
 
 ### 关键取舍记录
