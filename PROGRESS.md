@@ -232,7 +232,7 @@ schema.sql       D1 建表脚本（维度表 + 事实表分离）
       并执行 `schema.sql`（本地已实测通过，线上待执行）
 - [x] 本地全栈冒烟：注册 → 登录 → 拆盒 → `/api/breaks` → `/api/stats` 与 `/api/global` 数据正确
 - [ ] 线上冒烟（部署完成后重跑一遍本地那套 `/api/*` 验证）
-- [ ] 首次 `git push -u origin main`（需在浏览器完成 GitHub 设备码授权）
+- [x] 首次 `git push -u origin main`（已完成，用 SSH key，无需设备码授权）
 
 ### P1 内容扩展
 - [ ] 篮球：补齐 `tcu26-basketball` 的 Hobby Box / Jumbo Box / Mega Box 配率
@@ -264,4 +264,8 @@ schema.sql       D1 建表脚本（维度表 + 事实表分离）
   `$env:Path = [System.Environment]::GetEnvironmentVariable("Path","Machine") + ";" + [System.Environment]::GetEnvironmentVariable("Path","User")`
 - 含 `[` `]` 的路径（`functions/api/[[path]].js`）必须用 `-LiteralPath`
 - git 身份：`galifans <55650639+galifans@users.noreply.github.com>`
-- 首次 push 需要完成 GitHub 设备码授权（Git Credential Manager 打开浏览器）
+- **本机必须用 SSH 推 GitHub**：`remote` 固定为
+  `git@github.com:galifans/cardemulate.git`（本机已配 `~/.ssh/id_ed25519`，
+  `ssh -T git@github.com` 返回 `Hi galifans!`）。
+  本机网络下 `github.com:443`（即 HTTPS remote）连不上，`git push` 会无限挂起；
+  不要改回 `https://` remote。
