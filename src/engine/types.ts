@@ -34,7 +34,7 @@ export interface SubsetDef {
     kind: GroupKind;
     /** 是否有逐卡名册；false 时按「通用卡」展示 */
     detailed: boolean;
-    /** 该子集在 Value Box 中是否可开出 */
+    /** 该子集在本盒中是否可开出 */
     inBox: boolean;
     /** 名册（detailed=false 时为空数组） */
     subjects: Subject[];
@@ -95,7 +95,7 @@ export interface BoxDefinition {
     cardsPerPack: number;
     /** 每盒包数 */
     packsPerBox: number;
-    /** 每箱盒数 */
+    /** 每箱盒数；0 = 官方未公布 */
     boxesPerCase: number;
     /** 是否有签名保证 */
     autoGuaranteed: boolean;
@@ -103,7 +103,7 @@ export interface BoxDefinition {
     boxExclusives: string[];
     /** 备注 */
     notes: string[];
-    /** 本盒不含（属于其他盒型独占）的子集，用于对比说明 */
+    /** 本盒不含（只在其他盒型里出）的子集，用于对比说明 */
     absentSubsets: AbsentEntry[];
     /** 子集表 */
     subsets: SubsetDef[];

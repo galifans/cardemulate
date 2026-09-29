@@ -197,7 +197,9 @@ const toggleSubset = (key: string): void => {
                         <span class="ce-badge">
                             {{ box.packsPerBox * box.cardsPerPack }} 张 / 盒
                         </span>
-                        <span class="ce-badge">{{ box.boxesPerCase }} 盒 / 箱</span>
+                        <span v-if="box.boxesPerCase > 0" class="ce-badge">
+                            {{ box.boxesPerCase }} 盒 / 箱
+                        </span>
                         <span class="ce-badge">
                             {{ box.autoGuaranteed ? "有签名保证" : "无签名保证" }}
                         </span>
@@ -400,7 +402,7 @@ const toggleSubset = (key: string): void => {
             <section v-else-if="tab === 'odds'" class="ce-section">
                 <div class="ce-card ce-odds-intro">
                     <p>
-                        下表为官方 Value Box 配率（1:X 包，一包 {{ box.cardsPerPack }} 张）。
+                        下表为官方本盒配率（1:X 包，一包 {{ box.cardsPerPack }} 张）。
                         「整盒期望」= {{ box.packsPerBox }} / X；「一盒至少 1 张」=
                         1 - (1 - 1/X)<sup>{{ box.packsPerBox }}</sup>；「单张概率」按子集内等概率估算。
                     </p>
@@ -484,7 +486,7 @@ const toggleSubset = (key: string): void => {
                 <div v-if="absentSubsets.length" class="ce-card">
                     <h3 class="ce-card-title">本盒不含的子集</h3>
                     <p class="ce-faint ce-odds-note">
-                        以下子集在官方 Value Box 配率表里为空，属于其他盒型独占。
+                        以下子集不在本盒的官方配率里。
                     </p>
                     <ul class="ce-absent-list">
                         <li v-for="item in absentSubsets" :key="item.name">

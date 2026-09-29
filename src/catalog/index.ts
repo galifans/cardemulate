@@ -38,7 +38,9 @@ const toBoxRef = (box: BoxDefinition): BoxRef => ({
     live: box.live,
     note:
         `${box.cardsPerPack} 张/包 · ${box.packsPerBox} 包/盒 · ` +
-        `${box.cardsPerPack * box.packsPerBox} 张/盒 · 一箱 ${box.boxesPerCase} 盒` +
+        `${box.cardsPerPack * box.packsPerBox} 张/盒` +
+        // 官方没公布装箱数时留空，不在页面上编造
+        (box.boxesPerCase > 0 ? ` · 一箱 ${box.boxesPerCase} 盒` : "") +
         (box.autoGuaranteed ? " · 有签名保证" : ""),
 });
 

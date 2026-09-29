@@ -133,12 +133,8 @@ export const PRODUCT_SEED: ProductSeed[] = [
         maker: "topps",
         order: 1,
         releaseDate: "2026-08-06",
-        note: "该系列首个 NBA 版本，官方 Checklist 共 1,299 张卡、33 个子集、93 种平行。",
-        boxes: [
-            { slug: "hobby-box", name: "Hobby Box", note: "官方配率已收录，拆盒逻辑适配中。" },
-            { slug: "jumbo-box", name: "Jumbo Box", note: "待上线。" },
-            { slug: "mega-box", name: "Mega Box", note: "待上线。" },
-        ],
+        note: "该系列首个 NBA 版本，官方 Checklist 共 1,299 张卡，分 Hobby / Jumbo / Value / Mega 四种盒型发行。",
+        boxes: [],
     },
     {
         key: "topps-chrome-basketball-2526",

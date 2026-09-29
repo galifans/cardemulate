@@ -38,9 +38,13 @@ export function validateBox(box: BoxDefinition): string[] {
     for (const [label, value] of [
         ["cardsPerPack", box.cardsPerPack],
         ["packsPerBox", box.packsPerBox],
-        ["boxesPerCase", box.boxesPerCase],
     ] as const) {
         if (!Number.isInteger(value) || value <= 0) problems.push(`${label} 必须是正整数，当前为 ${value}`);
+    }
+
+    // boxesPerCase 为 0 = 官方未公布，不是错误；负数或小数才是
+    if (!Number.isInteger(box.boxesPerCase) || box.boxesPerCase < 0) {
+        problems.push(`boxesPerCase 必须是非负整数，当前为 ${box.boxesPerCase}`);
     }
 
     for (const [label, value] of [

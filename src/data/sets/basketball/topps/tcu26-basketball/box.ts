@@ -1,15 +1,22 @@
 /**
- * 2025-26 Topps Chrome Updates Basketball —— Value Box 卡盒定义
+ * 2025-26 Topps Chrome Updates Basketball —— 四个盒型的卡盒定义
  *
- * 配率（odds）来源：Topps 官方 Pack Odds 表 Value Box EA 列，单位 **1:X 包**
- * （每包 4 张、每盒 7 包 = 28 张）。
+ * 配率（odds）来源：Topps 官方 Pack Odds 表，单位 **1:X 包**。
+ * 每个盒型取表里对应的一列（Hobby / Jumbo / Value Box EA / Mega Box EA），
+ * 表本身见同目录 pack-odds.generated.ts —— 这里只登记行标签，不抄数字。
+ *
+ * 各盒规格（官方产品资料）：
+ *     Hobby Box   4 张/包 × 20 包 =  80 张，每盒 1 张签名
+ *     Jumbo Box  11 张/包 × 12 包 = 132 张，每盒 3 张签名
+ *     Value Box   4 张/包 ×  7 包 =  28 张，无签名保证
+ *     Mega Box    6 张/包 ×  7 包 =  42 张，无签名保证
  *
  * 拆盒权重模型
  * ------------
  * 官方配率本身是「互斥平均配率」，把一包里所有可出卡种的 1/X 相加即得
- * 「每包预期出的非纯 Base 卡数」，本盒该值约为 0.955。剩余部分由纯 Base 填补：
- *     baseWeight = cardsPerPack - Σ(1/odds)   ≈ 4 - 0.955 = 3.045
- * 于是每包 4 张 = 4 次「按权重抽样」，期望张数与原版官方配率完全一致。
+ * 「每包预期出的非纯 Base 卡数」，剩余部分由纯 Base 填补：
+ *     baseWeight = cardsPerPack - Σ(1/odds)
+ * 于是每包若干张 = 同次数「按权重抽样」，期望张数与原版官方配率完全一致。
  */
 
 import type {
@@ -22,19 +29,26 @@ import type {
     VariantDef,
 } from "@/engine/types";
 import { defineBox } from "@/catalog/define";
+import { PACK_ODDS, PACK_ODDS_COLUMNS, type PackOddsColumn } from "./pack-odds.generated";
 import {
     ACTIVATORS,
     ALTER_EGOS,
+    AUTOGRAPHS_1980_81,
     BASE_NUMBER_REFS,
     BASE_ROSTER,
+    CAPTAINS,
+    CELEBRACION,
     CHROMOGRAPHS,
     CHROME_AUTOGRAPHS,
     CLUTCH_CITY,
     CLUTCH_GENE,
+    DRUSKI_AUTOGRAPHS,
     FANATICAL,
     FORTUNE_15,
+    FUTURE_STARS_AUTOGRAPHS,
     GLASS_CANVAS,
     GO_TIME,
+    HAVOC_MARKS,
     HELIX,
     MINIONFRACTOR,
     MOMENT_IN_TIME,
@@ -43,7 +57,10 @@ import {
     NO_LIMIT,
     PARADOX,
     POWER_PLAYERS,
+    RADIATING_ROOKIES,
     ROOKIE_AUTOGRAPHS_LAVA_LAMP,
+    SHADOW_ETCH,
+    SPIKE_LEE_AUTOGRAPHS,
     STRATOSPHERIC_STARS,
     type RosterRow,
 } from "./roster";
@@ -108,11 +125,41 @@ const TIER_META: Record<string, TierMeta> = {
     "lava-gold-orange": { name: "Lava Lamp Gold/Orange", numbered: null },
     "lava-orange-black": { name: "Lava Lamp Orange/Black", numbered: null },
     "lava-black-red": { name: "Lava Lamp Black/Red", numbered: null },
+
+    /* Hobby / Jumbo 专属 Wave 家族 */
+    prism: { name: "Prism Refractor", numbered: null },
+    negative: { name: "Negative Refractor", numbered: null },
+    wave: { name: "Wave Refractor", numbered: null },
+    "yellow-wave": { name: "Yellow Wave Refractor", numbered: null },
+    "aqua-wave": { name: "Aqua Wave Refractor", numbered: null },
+    "blue-wave": { name: "Blue Wave Refractor", numbered: null },
+    "green-wave": { name: "Green Wave Refractor", numbered: null },
+    "purple-wave": { name: "Purple Wave Refractor", numbered: null },
+    "gold-wave": { name: "Gold Wave Refractor", numbered: null },
+    "orange-wave": { name: "Orange Wave Refractor", numbered: null },
+    "black-wave": { name: "Black Wave Refractor", numbered: null },
+    "red-wave": { name: "Red Wave Refractor", numbered: null },
+
+    /* Mega 专属 */
+    "x-fractor": { name: "X-Fractor", numbered: null },
+    "raywave-yellow": { name: "RayWave Yellow Refractor", numbered: null },
+    "raywave-aqua": { name: "RayWave Aqua Refractor", numbered: null },
+    "raywave-blue": { name: "RayWave Blue Refractor", numbered: null },
+    "raywave-green": { name: "RayWave Green Refractor", numbered: null },
+    "raywave-purple": { name: "RayWave Purple Refractor", numbered: null },
+    "raywave-gold": { name: "RayWave Gold Refractor", numbered: null },
+    "raywave-orange": { name: "RayWave Orange Refractor", numbered: null },
+    "raywave-black": { name: "RayWave Black Refractor", numbered: null },
+    "raywave-red": { name: "RayWave Red Refractor", numbered: null },
+    "raywave-magenta": { name: "RayWave Magenta Refractor", numbered: null },
 };
 
 /* ------------------------------------------------------------------ */
-/* 子集定义（含官方配率）                                                 */
+/* 子集定义（只登记官方表里的行标签，数字一律查表得来）                     */
 /* ------------------------------------------------------------------ */
+
+/** 一个平行：[slug, 官方 Pack Odds 表的行标签]；标签为 null 表示纯 Base，权重由残差决定 */
+type VariantSpec = [slug: string, label: string | null];
 
 interface SubsetSpec {
     key: string;
@@ -120,14 +167,33 @@ interface SubsetSpec {
     code?: string;
     kind: GroupKind;
     detailed: boolean;
-    /** 官方配率：tier slug -> 1:X（base 为 0 表示由残差权重计算） */
-    odds: Record<string, number>;
+    /** 顺序即卡种顺序，同时决定拆盒抽样顺序，重排会改变开盒结果 */
+    variants: VariantSpec[];
+    /** 官方表整行缺失时的补录配率：slug -> 各盒型列的值 */
+    manual?: Record<string, Partial<Record<PackOddsColumn, number>>>;
     /** 直接给名册 */
     roster?: RosterRow[];
     /** 或复用 Base 名册的卡号列表 */
     refs?: string[];
     note?: string;
 }
+
+const ODDS_BY_LABEL = new Map(PACK_ODDS.map((row) => [row.label, row.odds]));
+
+const columnIndex = (column: PackOddsColumn): number => PACK_ODDS_COLUMNS.indexOf(column);
+
+/** 取某个平行在某个盒型列的配率；null 表示本盒没有这个卡种 */
+const oddsAt = (
+    spec: SubsetSpec,
+    slug: string,
+    label: string | null,
+    column: PackOddsColumn,
+): number | null => {
+    const manual = spec.manual?.[slug]?.[column];
+    if (manual !== undefined) return manual;
+    if (label === null) return 0;
+    return ODDS_BY_LABEL.get(label)?.[columnIndex(column)] ?? null;
+};
 
 const SPECS: SubsetSpec[] = [
     {
@@ -136,35 +202,60 @@ const SPECS: SubsetSpec[] = [
         kind: "base",
         detailed: true,
         roster: BASE_ROSTER,
-        odds: {
-            base: 0,
-            refractor: 7,
-            magenta: 218,
-            teal: 291,
-            yellow: 316,
-            aqua: 437,
-            blue: 579,
-            green: 877,
-            purple: 1158,
-            gold: 1737,
-            orange: 3474,
-            black: 8686,
-            red: 17397,
-            frozenfractor: 17397,
-            superfractor: 87481,
-            basketball: 8,
-            "basketball-aqua": 238,
-            "basketball-blue": 211,
-            "basketball-green": 319,
-            "basketball-purple": 421,
-            "basketball-gold": 632,
-            "basketball-orange": 1263,
-            "basketball-black": 3157,
-            "basketball-red": 6313,
-            rwb: 4,
-            raywave: 9,
-        },
-        note: "1-140 现役 / 141-150 名宿 / 151-200 新秀。Basketball 彩虹与 Red White and Blue 为 Value Box 独占。",
+        variants: [
+            ["base", null],
+            ["refractor", "Base Refractors"],
+            ["magenta", "Base Refractors Magenta"],
+            ["teal", "Base Refractors Teal"],
+            ["yellow", "Base Refractors Yellow"],
+            ["aqua", "Base Refractors Aqua"],
+            ["blue", "Base Refractors Blue"],
+            ["green", "Base Refractors Green"],
+            ["purple", "Base Refractors Purple"],
+            ["gold", "Base Refractors Gold"],
+            ["orange", "Base Refractors Orange"],
+            ["black", "Base Refractors Black"],
+            ["red", "Base Refractors Red"],
+            ["frozenfractor", "Base Frozenfractors"],
+            ["superfractor", "Base Superfractors"],
+            ["basketball", "Base Refractors Basketball"],
+            ["basketball-aqua", "Base Refractors Aqua Basketball"],
+            ["basketball-blue", "Base Refractors Blue Basketball"],
+            ["basketball-green", "Base Refractors Green Basketball"],
+            ["basketball-purple", "Base Refractors Purple Basketball"],
+            ["basketball-gold", "Base Refractors Gold Basketball"],
+            ["basketball-orange", "Base Refractors Orange Basketball"],
+            ["basketball-black", "Base Refractors Black Basketball"],
+            ["basketball-red", "Base Refractors Red Basketball"],
+            ["rwb", "Base Refractors Red White and Blue"],
+            ["raywave", "Base Refractors RayWave"],
+            /* Hobby / Jumbo 专属 */
+            ["prism", "Base Refractors Prism"],
+            ["negative", "Base Refractors Negative"],
+            ["wave", "Base Refractors Wave"],
+            ["yellow-wave", "Base Refractors Yellow Wave"],
+            ["aqua-wave", "Base Refractors Aqua Wave"],
+            ["blue-wave", "Base Refractors Blue Wave"],
+            ["green-wave", "Base Refractors Green Wave"],
+            ["purple-wave", "Base Refractors Purple Wave"],
+            ["gold-wave", "Base Refractors Gold Wave"],
+            ["orange-wave", "Base Refractors Orange Wave"],
+            ["black-wave", "Base Refractors Black Wave"],
+            ["red-wave", "Base Refractors Red Wave"],
+            /* Mega 专属 */
+            ["x-fractor", "Base X-Fractors"],
+            ["raywave-yellow", "Base Refractors RayWave Yellow"],
+            ["raywave-aqua", "Base Refractors RayWave Aqua"],
+            ["raywave-blue", "Base Refractors RayWave Blue"],
+            ["raywave-green", "Base Refractors RayWave Green"],
+            ["raywave-purple", "Base Refractors RayWave Purple"],
+            ["raywave-gold", "Base Refractors RayWave Gold"],
+            ["raywave-orange", "Base Refractors RayWave Orange"],
+            ["raywave-black", "Base Refractors RayWave Black"],
+            ["raywave-red", "Base Refractors RayWave Red"],
+            ["raywave-magenta", "Base Refractors RayWave Magenta"],
+        ],
+        note: "1-140 现役 / 141-150 名宿 / 151-200 新秀。Basketball 彩虹与 Red White and Blue 只在 Value Box，Wave 系列只在 Hobby / Jumbo，RayWave 系列与 X-Fractor 只在 Mega。",
     },
     {
         key: "base-image-variation",
@@ -172,15 +263,15 @@ const SPECS: SubsetSpec[] = [
         kind: "base",
         detailed: true,
         refs: BASE_NUMBER_REFS["base-image-variation"],
-        odds: {
-            base: 324,
-            "green-speckle": 3263,
-            "gold-speckle": 6515,
-            "orange-speckle": 13029,
-            "black-speckle": 32230,
-            "red-speckle": 64459,
-            superfractor: 322295,
-        },
+        variants: [
+            ["base", "Base Card Image Variation"],
+            ["green-speckle", "Base Card Image Variation Refractors Green Speckle"],
+            ["gold-speckle", "Base Card Image Variation Refractors Gold Speckle"],
+            ["orange-speckle", "Base Card Image Variation Refractors Orange Speckle"],
+            ["black-speckle", "Base Card Image Variation Refractors Black Speckle"],
+            ["red-speckle", "Base Card Image Variation Refractors Red Speckle"],
+            ["superfractor", "Base Card Image Variation Superfractors"],
+        ],
         note: "官方仅公布 50 张变体卡（1-40 球星 + 151-157 / 161 / 163 / 196 新秀）。",
     },
     {
@@ -189,7 +280,7 @@ const SPECS: SubsetSpec[] = [
         kind: "ssp",
         detailed: true,
         refs: BASE_NUMBER_REFS["base-denim-tear"],
-        odds: { base: 17365 },
+        variants: [["base", "Base Refractors Denim Tears"]],
         note: "Denim Tears 联名超短印（SSP），共 100 张。",
     },
     {
@@ -199,19 +290,19 @@ const SPECS: SubsetSpec[] = [
         kind: "insert",
         detailed: true,
         roster: CLUTCH_CITY,
-        odds: {
-            base: 59,
-            refractor: 592,
-            aqua: 5415,
-            blue: 7188,
-            green: 10897,
-            purple: 14375,
-            gold: 21562,
-            orange: 43430,
-            black: 109350,
-            red: 437400,
-            superfractor: 1224721,
-        },
+        variants: [
+            ["base", "Clutch City"],
+            ["refractor", "Clutch City Refractors"],
+            ["aqua", "Clutch City Refractors Aqua"],
+            ["blue", "Clutch City Refractors Blue"],
+            ["green", "Clutch City Refractors Green"],
+            ["purple", "Clutch City Refractors Purple"],
+            ["gold", "Clutch City Refractors Gold"],
+            ["orange", "Clutch City Refractors Orange"],
+            ["black", "Clutch City Refractors Black"],
+            ["red", "Clutch City Refractors Red"],
+            ["superfractor", "Clutch City Superfractors"],
+        ],
     },
     {
         key: "new-editions",
@@ -220,19 +311,19 @@ const SPECS: SubsetSpec[] = [
         kind: "insert",
         detailed: true,
         roster: NEW_EDITIONS,
-        odds: {
-            base: 41,
-            refractor: 409,
-            aqua: 4061,
-            blue: 5386,
-            green: 8165,
-            purple: 10781,
-            gold: 16158,
-            orange: 32400,
-            black: 218700,
-            red: 612361,
-            superfractor: 874800,
-        },
+        variants: [
+            ["base", "New Edition"],
+            ["refractor", "New Edition Refractors"],
+            ["aqua", "New Edition Refractors Aqua"],
+            ["blue", "New Edition Refractors Blue"],
+            ["green", "New Edition Refractors Green"],
+            ["purple", "New Edition Refractors Purple"],
+            ["gold", "New Edition Refractors Gold"],
+            ["orange", "New Edition Refractors Orange"],
+            ["black", "New Edition Refractors Black"],
+            ["red", "New Edition Refractors Red"],
+            ["superfractor", "New Edition Superfractors"],
+        ],
     },
     {
         key: "stratospheric-stars",
@@ -241,19 +332,19 @@ const SPECS: SubsetSpec[] = [
         kind: "insert",
         detailed: true,
         roster: STRATOSPHERIC_STARS,
-        odds: {
-            base: 33,
-            refractor: 327,
-            aqua: 3223,
-            blue: 4310,
-            green: 6536,
-            purple: 8625,
-            gold: 12947,
-            orange: 25948,
-            black: 81648,
-            red: 130290,
-            superfractor: 680401,
-        },
+        variants: [
+            ["base", "Stratospheric Stars"],
+            ["refractor", "Stratospheric Stars Refractors"],
+            ["aqua", "Stratospheric Stars Refractors Aqua"],
+            ["blue", "Stratospheric Stars Refractors Blue"],
+            ["green", "Stratospheric Stars Refractors Green"],
+            ["purple", "Stratospheric Stars Refractors Purple"],
+            ["gold", "Stratospheric Stars Refractors Gold"],
+            ["orange", "Stratospheric Stars Refractors Orange"],
+            ["black", "Stratospheric Stars Refractors Black"],
+            ["red", "Stratospheric Stars Refractors Red"],
+            ["superfractor", "Stratospheric Stars Superfractors"],
+        ],
     },
     {
         key: "power-players",
@@ -262,19 +353,19 @@ const SPECS: SubsetSpec[] = [
         kind: "insert",
         detailed: true,
         roster: POWER_PLAYERS,
-        odds: {
-            base: 33,
-            refractor: 327,
-            aqua: 3218,
-            blue: 4310,
-            green: 6536,
-            purple: 8625,
-            gold: 12947,
-            orange: 25948,
-            black: 57230,
-            red: 127575,
-            superfractor: 680401,
-        },
+        variants: [
+            ["base", "Power Players"],
+            ["refractor", "Power Players Refractors"],
+            ["aqua", "Power Players Refractors Aqua"],
+            ["blue", "Power Players Refractors Blue"],
+            ["green", "Power Players Refractors Green"],
+            ["purple", "Power Players Refractors Purple"],
+            ["gold", "Power Players Refractors Gold"],
+            ["orange", "Power Players Refractors Orange"],
+            ["black", "Power Players Refractors Black"],
+            ["red", "Power Players Refractors Red"],
+            ["superfractor", "Power Players Superfractors"],
+        ],
     },
     {
         key: "fortune-15",
@@ -283,19 +374,19 @@ const SPECS: SubsetSpec[] = [
         kind: "insert",
         detailed: true,
         roster: FORTUNE_15,
-        odds: {
-            base: 55,
-            refractor: 545,
-            aqua: 5415,
-            blue: 7188,
-            green: 10897,
-            purple: 14375,
-            gold: 21562,
-            orange: 43430,
-            black: 291601,
-            red: 218700,
-            superfractor: 1224721,
-        },
+        variants: [
+            ["base", "Fortune 15"],
+            ["refractor", "Fortune 15 Refractors"],
+            ["aqua", "Fortune 15 Refractors Aqua"],
+            ["blue", "Fortune 15 Refractors Blue"],
+            ["green", "Fortune 15 Refractors Green"],
+            ["purple", "Fortune 15 Refractors Purple"],
+            ["gold", "Fortune 15 Refractors Gold"],
+            ["orange", "Fortune 15 Refractors Orange"],
+            ["black", "Fortune 15 Refractors Black"],
+            ["red", "Fortune 15 Refractors Red"],
+            ["superfractor", "Fortune 15 Superfractors"],
+        ],
     },
     {
         key: "go-time",
@@ -304,19 +395,19 @@ const SPECS: SubsetSpec[] = [
         kind: "insert",
         detailed: true,
         roster: GO_TIME,
-        odds: {
-            base: 55,
-            refractor: 545,
-            aqua: 5415,
-            blue: 7188,
-            green: 10897,
-            purple: 14375,
-            gold: 21562,
-            orange: 43430,
-            black: 109350,
-            red: 204121,
-            superfractor: 1224721,
-        },
+        variants: [
+            ["base", "Go Time"],
+            ["refractor", "Go Time Refractors"],
+            ["aqua", "Go Time Refractors Aqua"],
+            ["blue", "Go Time Refractors Blue"],
+            ["green", "Go Time Refractors Green"],
+            ["purple", "Go Time Refractors Purple"],
+            ["gold", "Go Time Refractors Gold"],
+            ["orange", "Go Time Refractors Orange"],
+            ["black", "Go Time Refractors Black"],
+            ["red", "Go Time Refractors Red"],
+            ["superfractor", "Go Time Superfractors"],
+        ],
     },
     {
         key: "activators",
@@ -325,19 +416,19 @@ const SPECS: SubsetSpec[] = [
         kind: "insert",
         detailed: true,
         roster: ACTIVATORS,
-        odds: {
-            base: 41,
-            refractor: 409,
-            aqua: 4061,
-            blue: 5386,
-            green: 8165,
-            purple: 10781,
-            gold: 16158,
-            orange: 32400,
-            black: 218700,
-            red: 765450,
-            superfractor: 874800,
-        },
+        variants: [
+            ["base", "Activators"],
+            ["refractor", "Activators Refractors"],
+            ["aqua", "Activators Refractors Aqua"],
+            ["blue", "Activators Refractors Blue"],
+            ["green", "Activators Refractors Green"],
+            ["purple", "Activators Refractors Purple"],
+            ["gold", "Activators Refractors Gold"],
+            ["orange", "Activators Refractors Orange"],
+            ["black", "Activators Refractors Black"],
+            ["red", "Activators Refractors Red"],
+            ["superfractor", "Activators Superfractors"],
+        ],
     },
     {
         key: "clutch-gene",
@@ -346,19 +437,19 @@ const SPECS: SubsetSpec[] = [
         kind: "insert",
         detailed: true,
         roster: CLUTCH_GENE,
-        odds: {
-            base: 28,
-            refractor: 273,
-            aqua: 2708,
-            blue: 3592,
-            green: 5444,
-            purple: 7188,
-            gold: 10781,
-            orange: 21562,
-            black: 165503,
-            red: 153091,
-            superfractor: 556691,
-        },
+        variants: [
+            ["base", "Clutch Gene"],
+            ["refractor", "Clutch Gene Refractors"],
+            ["aqua", "Clutch Gene Refractors Aqua"],
+            ["blue", "Clutch Gene Refractors Blue"],
+            ["green", "Clutch Gene Refractors Green"],
+            ["purple", "Clutch Gene Refractors Purple"],
+            ["gold", "Clutch Gene Refractors Gold"],
+            ["orange", "Clutch Gene Refractors Orange"],
+            ["black", "Clutch Gene Refractors Black"],
+            ["red", "Clutch Gene Refractors Red"],
+            ["superfractor", "Clutch Gene Superfractors"],
+        ],
     },
     {
         key: "moment-in-time",
@@ -367,19 +458,19 @@ const SPECS: SubsetSpec[] = [
         kind: "insert",
         detailed: true,
         roster: MOMENT_IN_TIME,
-        odds: {
-            base: 33,
-            refractor: 327,
-            aqua: 3249,
-            blue: 4310,
-            green: 6536,
-            purple: 8625,
-            gold: 12947,
-            orange: 25948,
-            black: 81648,
-            red: 122473,
-            superfractor: 680401,
-        },
+        variants: [
+            ["base", "Moment in Time"],
+            ["refractor", "Moment in Time Refractors"],
+            ["aqua", "Moment in Time Refractors Aqua"],
+            ["blue", "Moment in Time Refractors Blue"],
+            ["green", "Moment in Time Refractors Green"],
+            ["purple", "Moment in Time Refractors Purple"],
+            ["gold", "Moment in Time Refractors Gold"],
+            ["orange", "Moment in Time Refractors Orange"],
+            ["black", "Moment in Time Refractors Black"],
+            ["red", "Moment in Time Refractors Red"],
+            ["superfractor", "Moment in Time Superfractors"],
+        ],
     },
     {
         key: "no-limit",
@@ -388,19 +479,67 @@ const SPECS: SubsetSpec[] = [
         kind: "insert",
         detailed: true,
         roster: NO_LIMIT,
-        odds: {
-            base: 82,
-            refractor: 817,
-            aqua: 6628,
-            blue: 10781,
-            green: 16330,
-            purple: 21562,
-            gold: 32400,
-            orange: 65145,
-            black: 765450,
-            red: 340201,
-            superfractor: 2041200,
-        },
+        variants: [
+            ["base", "No Limit"],
+            ["refractor", "No Limit Refractors"],
+            ["aqua", "No Limit Refractors Aqua"],
+            ["blue", "No Limit Refractors Blue"],
+            ["green", "No Limit Refractors Green"],
+            ["purple", "No Limit Refractors Purple"],
+            ["gold", "No Limit Refractors Gold"],
+            ["orange", "No Limit Refractors Orange"],
+            ["black", "No Limit Refractors Black"],
+            ["red", "No Limit Refractors Red"],
+            ["superfractor", "No Limit Superfractors"],
+        ],
+    },
+    {
+        key: "captains",
+        name: "Captains",
+        code: "SC",
+        kind: "insert",
+        detailed: true,
+        roster: CAPTAINS,
+        variants: [
+            ["base", "Captains"],
+            ["superfractor", "Captains Superfractors"],
+        ],
+    },
+    {
+        key: "celebracion",
+        name: "Celebracion",
+        code: "CB",
+        kind: "insert",
+        detailed: true,
+        roster: CELEBRACION,
+        variants: [
+            ["base", "Celebracion"],
+            ["superfractor", "Celebracion Superfractors"],
+        ],
+    },
+    {
+        key: "radiating-rookies",
+        name: "Radiating Rookies",
+        code: "RR",
+        kind: "insert",
+        detailed: true,
+        roster: RADIATING_ROOKIES,
+        variants: [
+            ["base", "Radiating Rookies"],
+            ["superfractor", "Radiating Rookies Superfractors"],
+        ],
+    },
+    {
+        key: "shadow-etch",
+        name: "Shadow Etch",
+        code: "SE",
+        kind: "insert",
+        detailed: true,
+        roster: SHADOW_ETCH,
+        variants: [
+            ["base", "Shadow Etch"],
+            ["superfractor", "Shadow Etch Superfractors"],
+        ],
     },
     {
         key: "helix",
@@ -409,7 +548,10 @@ const SPECS: SubsetSpec[] = [
         kind: "insert",
         detailed: true,
         roster: HELIX,
-        odds: { base: 6991, superfractor: 746667 },
+        variants: [
+            ["base", "Helix"],
+            ["superfractor", "Helix Superfractors"],
+        ],
         note: "超低概率插入卡，仅有普通版与 Superfractor。",
     },
     {
@@ -419,16 +561,16 @@ const SPECS: SubsetSpec[] = [
         kind: "insert",
         detailed: true,
         roster: CHROMOGRAPHS,
-        odds: {
-            base: 183,
-            refractor: 1150,
-            purple: 2445,
-            gold: 2710,
-            orange: 5208,
-            black: 12223,
-            red: 23828,
-            superfractor: 113401,
-        },
+        variants: [
+            ["base", "Chromographs"],
+            ["refractor", "Chromographs Refractors"],
+            ["purple", "Chromographs Refractors Purple"],
+            ["gold", "Chromographs Refractors Gold"],
+            ["orange", "Chromographs Refractors Orange"],
+            ["black", "Chromographs Refractors Black"],
+            ["red", "Chromographs Refractors Red"],
+            ["superfractor", "Chromographs Superfractors"],
+        ],
         note: "零售独占插入卡，名义上不是签名卡，却收录了大量名宿、教练与解说。",
     },
     {
@@ -438,14 +580,14 @@ const SPECS: SubsetSpec[] = [
         kind: "insert",
         detailed: true,
         roster: FANATICAL,
-        odds: {
-            base: 380,
-            gold: 9195,
-            orange: 18390,
-            black: 46043,
-            red: 91398,
-            superfractor: 437400,
-        },
+        variants: [
+            ["base", "Fanatical"],
+            ["gold", "Fanatical Refractors Gold"],
+            ["orange", "Fanatical Refractors Orange"],
+            ["black", "Fanatical Refractors Black"],
+            ["red", "Fanatical Refractors Red"],
+            ["superfractor", "Fanatical Superfractors"],
+        ],
         note: "零售独占短印。",
     },
     {
@@ -455,7 +597,10 @@ const SPECS: SubsetSpec[] = [
         kind: "insert",
         detailed: true,
         roster: GLASS_CANVAS,
-        odds: { base: 596, superfractor: 437400 },
+        variants: [
+            ["base", "Glass Canvas"],
+            ["superfractor", "Glass Canvas Superfractors"],
+        ],
         note: "零售独占短印。",
     },
     {
@@ -465,7 +610,10 @@ const SPECS: SubsetSpec[] = [
         kind: "insert",
         detailed: true,
         roster: PARADOX,
-        odds: { base: 596, superfractor: 437400 },
+        variants: [
+            ["base", "Paradox"],
+            ["superfractor", "Paradox Superfractors"],
+        ],
         note: "零售独占短印。",
     },
     {
@@ -475,7 +623,12 @@ const SPECS: SubsetSpec[] = [
         kind: "ssp",
         detailed: true,
         roster: ALTER_EGOS,
-        odds: { base: 15386, superfractor: 3034584 },
+        variants: [
+            ["base", "Alter Ego"],
+            ["superfractor", "Alter Ego Superfractors"],
+        ],
+        // 官方表没有 Alter Ego Superfractors 这一行，沿用上线时登记的估值（仅 Value Box）
+        manual: { superfractor: { "value-box-ea": 3034584 } },
         note: "超短印（SSP）。",
     },
     {
@@ -485,7 +638,11 @@ const SPECS: SubsetSpec[] = [
         kind: "ssp",
         detailed: true,
         roster: MINIONFRACTOR,
-        odds: { base: 35073, red: 708750, superfractor: 3402001 },
+        variants: [
+            ["base", "Minionfractor"],
+            ["red", "Minionfractor Red"],
+            ["superfractor", "Minionfractor Superfractors"],
+        ],
         note: "Minions 联名超短印（SSP）。",
     },
     {
@@ -495,19 +652,108 @@ const SPECS: SubsetSpec[] = [
         kind: "auto",
         detailed: true,
         roster: CHROME_AUTOGRAPHS,
-        odds: {
-            base: 30619,
-            refractor: 61237,
-            blue: 61237,
-            green: 67293,
-            purple: 86248,
-            gold: 122473,
-            black: 211159,
-            orange: 278346,
-            red: 1530900,
-            superfractor: 3061800,
-        },
-        note: "Value Box 无签名保证，这是「彩蛋级」概率。",
+        variants: [
+            ["base", "Topps Chrome Autographs"],
+            ["refractor", "Topps Chrome Autographs Refractors"],
+            ["blue", "Topps Chrome Autographs Refractors Blue"],
+            ["green", "Topps Chrome Autographs Refractors Green"],
+            ["purple", "Topps Chrome Autographs Refractors Purple"],
+            ["gold", "Topps Chrome Autographs Refractors Gold"],
+            ["black", "Topps Chrome Autographs Refractors Black"],
+            ["orange", "Topps Chrome Autographs Refractors Orange"],
+            ["red", "Topps Chrome Autographs Refractors Red"],
+            ["superfractor", "Topps Chrome Autographs Superfractors"],
+        ],
+        note: "本系列的主力签名卡。",
+    },
+    {
+        key: "havoc-marks",
+        name: "Havoc Marks",
+        code: "HM",
+        kind: "auto",
+        detailed: true,
+        roster: HAVOC_MARKS,
+        variants: [
+            ["base", "Havoc Marks"],
+            ["refractor", "Havoc Marks Refractors"],
+            ["blue", "Havoc Marks Refractors Blue"],
+            ["green", "Havoc Marks Refractors Green"],
+            ["purple", "Havoc Marks Refractors Purple"],
+            ["gold", "Havoc Marks Refractors Gold"],
+            ["orange", "Havoc Marks Refractors Orange"],
+            ["black", "Havoc Marks Refractors Black"],
+            ["red", "Havoc Marks Refractors Red"],
+            ["superfractor", "Havoc Marks Superfractors"],
+        ],
+    },
+    {
+        key: "autographs-1980-81",
+        name: "1980-81 Topps Basketball Autographs",
+        code: "80TBA",
+        kind: "auto",
+        detailed: true,
+        roster: AUTOGRAPHS_1980_81,
+        variants: [
+            ["base", "1980-81 Topps Basketball Autographs"],
+            ["refractor", "1980-81 Topps Basketball Autographs Refractors"],
+            ["blue", "1980-81 Topps Basketball Autographs Refractors Blue"],
+            ["green", "1980-81 Topps Basketball Autographs Refractors Green"],
+            ["purple", "1980-81 Topps Basketball Autographs Refractors Purple"],
+            ["gold", "1980-81 Topps Basketball Autographs Refractors Gold"],
+            ["orange", "1980-81 Topps Basketball Autographs Refractors Orange"],
+            ["black", "1980-81 Topps Basketball Autographs Refractors Black"],
+            ["red", "1980-81 Topps Basketball Autographs Refractors Red"],
+            ["superfractor", "1980-81 Topps Basketball Autographs Superfractors"],
+        ],
+    },
+    {
+        key: "future-stars-autographs",
+        name: "Future Stars Autographs",
+        code: "FS",
+        kind: "auto",
+        detailed: true,
+        roster: FUTURE_STARS_AUTOGRAPHS,
+        variants: [
+            ["base", "Future Stars Autographs"],
+            ["refractor", "Future Stars Autographs Refractors"],
+            ["blue", "Future Stars Autographs Refractors Blue"],
+            ["green", "Future Stars Autographs Refractors Green"],
+            ["purple", "Future Stars Autographs Refractors Purple"],
+            ["gold", "Future Stars Autographs Refractors Gold"],
+            ["orange", "Future Stars Autographs Refractors Orange"],
+            ["black", "Future Stars Autographs Refractors Black"],
+            ["red", "Future Stars Autographs Refractors Red"],
+            ["superfractor", "Future Stars Autographs Superfractors"],
+        ],
+    },
+    {
+        key: "druski-autographs",
+        name: "Druski Chrome Autographs",
+        code: "DA",
+        kind: "auto",
+        detailed: true,
+        roster: DRUSKI_AUTOGRAPHS,
+        variants: [
+            ["gold", "Topps Chrome Autographs Druski Refractors Gold"],
+            ["orange", "Topps Chrome Autographs Druski Refractors Orange"],
+            ["black", "Topps Chrome Autographs Druski Refractors Black"],
+            ["red", "Topps Chrome Autographs Druski Refractors Red"],
+            ["superfractor", "Topps Chrome Autographs Druski Superfractors"],
+        ],
+    },
+    {
+        key: "spike-lee-autographs",
+        name: "Spike Lee Chrome Autographs",
+        code: "SLA",
+        kind: "auto",
+        detailed: true,
+        roster: SPIKE_LEE_AUTOGRAPHS,
+        variants: [
+            ["orange", "Topps Chrome Autographs Spike Lee Refractors Orange"],
+            ["black", "Topps Chrome Autographs Spike Lee Refractors Black"],
+            ["red", "Topps Chrome Autographs Spike Lee Refractors Red"],
+            ["superfractor", "Topps Chrome Autographs Spike Lee Superfractors"],
+        ],
     },
     {
         key: "rookie-autographs-lava-lamp",
@@ -516,16 +762,16 @@ const SPECS: SubsetSpec[] = [
         kind: "auto",
         detailed: true,
         roster: ROOKIE_AUTOGRAPHS_LAVA_LAMP,
-        odds: {
-            "lava-blue-green": 37340,
-            "lava-green-yellow": 51459,
-            "lava-aqua-blue": 61237,
-            "lava-magenta-purple": 63788,
-            "lava-gold-orange": 95682,
-            "lava-orange-black": 291601,
-            "lava-black-red": 340201,
-        },
-        note: "Rookie Autographs 的 Lava Lamp 平行，Value Box 只出 Lava Lamp 版本。",
+        variants: [
+            ["lava-blue-green", "Rookie Autographs Lava Lamp Blue/Green"],
+            ["lava-green-yellow", "Rookie Autographs Lava Lamp Green/Yellow"],
+            ["lava-aqua-blue", "Rookie Autographs Lava Lamp Aqua/Blue"],
+            ["lava-magenta-purple", "Rookie Autographs Lava Lamp Magenta/Purple"],
+            ["lava-gold-orange", "Rookie Autographs Lava Lamp Gold/Orange"],
+            ["lava-orange-black", "Rookie Autographs Lava Lamp Orange/Black"],
+            ["lava-black-red", "Rookie Autographs Lava Lamp Black/Red"],
+        ],
+        note: "Rookie Autographs 各档 Lava Lamp 平行。",
     },
     {
         key: "nba-debut-patch-autographs",
@@ -534,26 +780,20 @@ const SPECS: SubsetSpec[] = [
         kind: "relic",
         detailed: true,
         roster: NBA_DEBUT_PATCH_AUTOGRAPHS,
-        odds: { base: 448000 },
+        variants: [["base", "NBA Debut Patch Autographs"]],
         note: "93 张全部为 1/1 实物 Patch 签名。官方配率存在争议（可能只统计了约 32 张），实际概率或更高。",
     },
 ];
 
 /* ------------------------------------------------------------------ */
-/* 本盒不含的子集（Value Box 无配率）                                     */
+/* 尚未实现的子集                                                       */
 /* ------------------------------------------------------------------ */
 
-interface AbsentSubset extends AbsentEntry {}
-
-export const ABSENT_SUBSETS: AbsentSubset[] = [
-    { name: "Shadow Etch", code: "SE", count: 15, where: "Hobby / Jumbo / Delight", kind: "insert" },
-    { name: "Captains", code: "SC", count: 20, where: "Hobby / Jumbo / Delight", kind: "insert" },
-    { name: "Celebracion", code: "CB", count: 15, where: "Hobby / Jumbo / Delight", kind: "insert" },
-    { name: "Radiating Rookies", code: "RR", count: 15, where: "Hobby / Jumbo / Delight", kind: "insert" },
-    { name: "Havoc Marks", code: "HM", count: 91, where: "Hobby / Jumbo / Delight", kind: "auto" },
-    { name: "1980-81 Topps Basketball Autographs", code: "80TBA", count: 50, where: "Hobby / Jumbo / Delight", kind: "auto" },
-    { name: "Future Stars Autographs", code: "FS", count: 50, where: "Hobby / Jumbo / Delight", kind: "auto" },
-    { name: "Druski & Spike Lee Chrome Autographs", code: "DA / SLA", count: 2, where: "Hobby", kind: "auto" },
+/**
+ * 官方表里能查到、但属于尚未实现的盒型（Delight / Sapphire / Fanatics）的子集，
+ * 以及官方表没有单列的非签名实物卡。四个盒型都不含，所以挂在每个盒上。
+ */
+const EXTRA_ABSENT: AbsentEntry[] = [
     { name: "Sapphire Selections", code: "SS", count: 20, where: "Sapphire", kind: "insert" },
     { name: "Infinite Sapphire", code: "INF", count: 20, where: "Sapphire", kind: "insert" },
     { name: "NBA Debut Patch（非签名）", code: "DP", count: 6, where: "Hobby / Jumbo / Delight", kind: "relic" },
@@ -562,6 +802,15 @@ export const ABSENT_SUBSETS: AbsentSubset[] = [
 /* ------------------------------------------------------------------ */
 /* 构造逻辑                                                             */
 /* ------------------------------------------------------------------ */
+
+/** 已上线的盒型列，用于推算「某个子集在哪些盒里能开出」 */
+const BOX_COLUMNS: PackOddsColumn[] = ["hobby", "jumbo", "value-box-ea", "mega-box-ea"];
+const COLUMN_NAME: Record<string, string> = {
+    hobby: "Hobby",
+    jumbo: "Jumbo",
+    "value-box-ea": "Value",
+    "mega-box-ea": "Mega",
+};
 
 const toSubjects = (rows: RosterRow[]): Subject[] =>
     rows.map((row) => ({
@@ -588,22 +837,68 @@ const tierOf = (odds: number, numbered: number | null, kind: GroupKind): Tier =>
     return "mythic";
 };
 
-const CARDS_PER_PACK = 4;
-const PACKS_PER_BOX = 7;
+/** 子集名册：直接给名册，或按卡号从 Base 名册里取 */
+const subjectsOf = (spec: SubsetSpec): Subject[] => {
+    const subjects = spec.roster ? toSubjects(spec.roster) : [];
+    if (spec.refs) {
+        const byNo = new Map(BASE_ROSTER.map((row) => [row[0], row]));
+        for (const no of spec.refs) {
+            const row = byNo.get(no);
+            if (row) subjects.push(...toSubjects([row]));
+        }
+    }
+    return subjects;
+};
 
-const build = (): BoxDefinition => {
+/** 某子集在某盒型列能开出的卡种；空数组 = 本盒没有这个子集 */
+const variantsAt = (spec: SubsetSpec, column: PackOddsColumn): [string, number][] => {
+    const rows: [string, number][] = [];
+    for (const [slug, label] of spec.variants) {
+        const odds = oddsAt(spec, slug, label, column);
+        if (odds !== null) rows.push([slug, odds]);
+    }
+    return rows;
+};
+
+interface BoxConfig {
+    slug: string;
+    name: string;
+    /** 官方 Pack Odds 表的列名 */
+    column: PackOddsColumn;
+    cardsPerPack: number;
+    packsPerBox: number;
+    /** 官方未公布时留 0，页面上就不显示「盒 / 箱」 */
+    boxesPerCase: number;
+    autoGuaranteed: boolean;
+    boxExclusives: string[];
+}
+
+const NOTES = [
+    "官方产品名为 Topps Chrome Updates Basketball —— 该系列首个 NBA 版本。",
+    "官方配率是「平均配率」，实际开封结果会有波动，且不保证每个卡人都出现在所有平行里。",
+    "官方不公布逐卡配率，本模拟器按子集内等概率分配球员。",
+];
+
+const build = (config: BoxConfig): BoxDefinition => {
     const subsets: SubsetDef[] = [];
     const variants: VariantDef[] = [];
+    const absent: AbsentEntry[] = [];
     let premiumWeight = 0;
 
     for (const spec of SPECS) {
-        const subjects = spec.roster ? toSubjects(spec.roster) : [];
-        if (spec.refs) {
-            const byNo = new Map(BASE_ROSTER.map((row) => [row[0], row]));
-            for (const no of spec.refs) {
-                const row = byNo.get(no);
-                if (row) subjects.push(...toSubjects([row]));
-            }
+        const rows = variantsAt(spec, config.column);
+
+        if (!rows.length) {
+            absent.push({
+                name: spec.name,
+                code: spec.code ?? "",
+                count: subjectsOf(spec).length,
+                where: BOX_COLUMNS.filter((column) => variantsAt(spec, column).length)
+                    .map((column) => COLUMN_NAME[column])
+                    .join(" / "),
+                kind: spec.kind,
+            });
+            continue;
         }
 
         subsets.push({
@@ -613,11 +908,11 @@ const build = (): BoxDefinition => {
             kind: spec.kind,
             detailed: spec.detailed,
             inBox: true,
-            subjects,
+            subjects: subjectsOf(spec),
             note: spec.note,
         });
 
-        for (const [slug, odds] of Object.entries(spec.odds)) {
+        for (const [slug, odds] of rows) {
             const meta = TIER_META[slug] ?? { name: slug, numbered: null };
             const numbered = meta.numbered;
             // odds === 0 是「普通 Base」占位，权重稍后按残差补
@@ -639,44 +934,94 @@ const build = (): BoxDefinition => {
         }
     }
 
-    const baseVariants = variants.filter((v) => v.odds === 0);
-    const baseWeight = Math.max(0.5, CARDS_PER_PACK - premiumWeight);
-    for (const v of baseVariants) v.weight = baseWeight;
+    const baseWeight = Math.max(0.5, config.cardsPerPack - premiumWeight);
+    for (const v of variants) if (v.odds === 0) v.weight = baseWeight;
 
     return defineBox({
-        slug: "value-box",
-        name: "2025-26 Topps Chrome Updates Basketball Value Box",
+        slug: config.slug,
+        name: config.name,
         category: "basketball",
         maker: "topps",
         productKey: "tcu26-basketball",
         productName: "2025-26 Topps Chrome Updates Basketball",
         live: true,
         releaseDate: "2026-08-06",
-        cardsPerPack: CARDS_PER_PACK,
-        packsPerBox: PACKS_PER_BOX,
-        boxesPerCase: 40,
-        autoGuaranteed: false,
-        boxExclusives: [
-            "Basketball Refractor 彩虹（Value Box 独占）",
-            "Red White and Blue Refractor（1:4）",
-            "零售独占短印：Glass Canvas / Paradox / Fanatical",
-            "零售独占：Chromographs",
-            "追卡：Denim Tears（SSP）/ Alter Egos（SSP）/ Minionfractor（SSP）",
-        ],
-        notes: [
-            "官方产品名为 Topps Chrome Updates Basketball —— 该系列首个 NBA 版本。",
-            "官方配率是「平均配率」，实际开封结果会有波动，且不保证每个卡人都出现在所有平行里。",
-            "官方不公布逐卡配率，本模拟器按子集内等概率分配球员。",
-        ],
-        absentSubsets: ABSENT_SUBSETS,
+        cardsPerPack: config.cardsPerPack,
+        packsPerBox: config.packsPerBox,
+        boxesPerCase: config.boxesPerCase,
+        autoGuaranteed: config.autoGuaranteed,
+        boxExclusives: config.boxExclusives,
+        notes: NOTES,
+        absentSubsets: [...absent, ...EXTRA_ABSENT],
         subsets,
         variants,
         baseWeight,
     });
 };
 
-/**
- * 本系列已实现的全部盒型。
- * 后续把 Hobby / Jumbo / Mega 的配率补上后，写成同目录下的 box 数据再 push 进来即可。
- */
-export const TCU26_BASKETBALL_BOXES: BoxDefinition[] = [build()];
+/** 本系列已实现的四个盒型 */
+const BOX_CONFIGS: BoxConfig[] = [
+    {
+        slug: "hobby-box",
+        name: "2025-26 Topps Chrome Updates Basketball Hobby Box",
+        column: "hobby",
+        cardsPerPack: 4,
+        packsPerBox: 20,
+        boxesPerCase: 0,
+        autoGuaranteed: true,
+        boxExclusives: [
+            "Prism / Negative Refractor（Hobby / Jumbo 专属）",
+            "Wave Refractor 家族（Hobby / Jumbo 专属）",
+            "专属插入：Captains / Celebracion / Radiating Rookies / Shadow Etch",
+            "专属签名：Havoc Marks / 1980-81 Topps Basketball Autographs / Future Stars Autographs / Druski / Spike Lee",
+        ],
+    },
+    {
+        slug: "jumbo-box",
+        name: "2025-26 Topps Chrome Updates Basketball Jumbo Box",
+        column: "jumbo",
+        cardsPerPack: 11,
+        packsPerBox: 12,
+        boxesPerCase: 0,
+        autoGuaranteed: true,
+        boxExclusives: [
+            "Prism / Negative Refractor（Hobby / Jumbo 专属）",
+            "Wave Refractor 家族（Hobby / Jumbo 专属）",
+            "专属插入：Captains / Celebracion / Radiating Rookies / Shadow Etch",
+            "专属签名：Havoc Marks / 1980-81 Topps Basketball Autographs / Future Stars Autographs / Druski / Spike Lee",
+        ],
+    },
+    {
+        slug: "value-box",
+        name: "2025-26 Topps Chrome Updates Basketball Value Box",
+        column: "value-box-ea",
+        cardsPerPack: 4,
+        packsPerBox: 7,
+        boxesPerCase: 40,
+        autoGuaranteed: false,
+        boxExclusives: [
+            "Basketball Refractor 彩虹（Value Box 独占）",
+            "Red White and Blue Refractor（1:4）",
+            "零售共享短印：Glass Canvas / Paradox / Fanatical / Chromographs",
+            "追卡：Denim Tears（SSP）/ Alter Egos（SSP）/ Minionfractor（SSP）",
+        ],
+    },
+    {
+        slug: "mega-box",
+        name: "2025-26 Topps Chrome Updates Basketball Mega Box",
+        column: "mega-box-ea",
+        cardsPerPack: 6,
+        packsPerBox: 7,
+        boxesPerCase: 0,
+        autoGuaranteed: false,
+        boxExclusives: [
+            "X-Fractor（1:1，Mega 独占）",
+            "RayWave 彩虹（Mega 独占）",
+            "零售共享短印：Glass Canvas / Paradox / Fanatical / Chromographs",
+            "追卡：Denim Tears（SSP）/ Alter Egos（SSP）",
+        ],
+    },
+];
+
+/** 本系列已实现的全部盒型 */
+export const TCU26_BASKETBALL_BOXES: BoxDefinition[] = BOX_CONFIGS.map((config) => build(config));

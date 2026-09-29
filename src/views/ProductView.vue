@@ -12,6 +12,14 @@ const productKey = computed(() => String(route.params.product));
 const category = computed(() => findCategory(categoryKey.value));
 const maker = computed(() => findMaker(categoryKey.value, makerKey.value));
 const product = computed(() => findProduct(categoryKey.value, makerKey.value, productKey.value));
+
+/** 已上线盒型，顺序同目录顺序 */
+const liveBoxes = computed(() =>
+    (product.value?.boxes ?? [])
+        .filter((box) => box.live)
+        .map((box) => getBox(box.ref))
+        .filter((box) => box !== undefined),
+);
 </script>
 
 <template>
@@ -66,7 +74,9 @@ const product = computed(() => findProduct(categoryKey.value, makerKey.value, pr
                             <span class="ce-badge">
                                 {{ getBox(box.ref)!.packsPerBox * getBox(box.ref)!.cardsPerPack }} 张 / 盒
                             </span>
-                            <span class="ce-badge">{{ getBox(box.ref)!.boxesPerCase }} 盒 / 箱</span>
+                            <span v-if="getBox(box.ref)!.boxesPerCase > 0" class="ce-badge">
+                                {{ getBox(box.ref)!.boxesPerCase }} 盒 / 箱
+                            </span>
                             <span class="ce-badge">
                                 {{ getBox(box.ref)!.autoGuaranteed ? "有签名保证" : "无签名保证" }}
                             </span>
@@ -75,41 +85,32 @@ const product = computed(() => findProduct(categoryKey.value, makerKey.value, pr
                 </div>
             </section>
 
-            <section v-if="product.boxes.some((b) => b.live)" class="ce-section">
-                <div class="ce-card">
-                    <h2 class="ce-section-title">
-                        {{ getBox(product.boxes.find((b) => b.live)!.ref)!.name }}
-                    </h2>
+            <section v-if="liveBoxes.length" class="ce-section">
+                <div v-for="liveBox in liveBoxes" :key="liveBox.key" class="ce-card">
+                    <h2 class="ce-section-title">{{ liveBox.name }}</h2>
                     <div class="ce-highlights">
                         <div>
                             <h3 class="ce-hl-title">本盒独家内容</h3>
                             <ul>
-                                <li
-                                    v-for="item in getBox(product.boxes.find((b) => b.live)!.ref)!
-                                        .boxExclusives"
-                                    :key="item"
-                                >
-                                    {{ item }}
-                                </li>
-                            </ul>
-                        </div>
-                        <div>
-                            <h3 class="ce-hl-title">注意事项</h3>
-                            <ul>
-                                <li
-                                    v-for="item in getBox(product.boxes.find((b) => b.live)!.ref)!.notes"
-                                    :key="item"
-                                >
-                                    {{ item }}
-                                </li>
+                                <li v-for="item in liveBox.boxExclusives" :key="item">{{ item }}</li>
                             </ul>
                         </div>
                     </div>
                     <p class="ce-faint ce-hl-foot">
-                        共 {{ getBox(product.boxes.find((b) => b.live)!.ref)!.subsets.length }} 个子集、
-                        {{ getBox(product.boxes.find((b) => b.live)!.ref)!.variants.length }} 个卡种。
+                        共 {{ liveBox.subsets.length }} 个子集、{{ liveBox.variants.length }} 个卡种。
                         进入拆盒页可查看完整配率表与 Checklist。
                     </p>
+                </div>
+
+                <div class="ce-card">
+                    <h2 class="ce-section-title">注意事项</h2>
+                    <div class="ce-highlights">
+                        <div>
+                            <ul>
+                                <li v-for="item in liveBoxes[0].notes" :key="item">{{ item }}</li>
+                            </ul>
+                        </div>
+                    </div>
                 </div>
             </section>
         </template>

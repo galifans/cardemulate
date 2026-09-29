@@ -15,18 +15,24 @@
 
 ## 盒型配置
 
-来自官方发行说明，权威值如下。`src/data/sets/basketball/topps/tcu26-basketball/boxes.ts`
-里的参数必须与这张表一致。
+来自官方发行说明，权威值如下。`src/data/sets/basketball/topps/tcu26-basketball/box.ts`
+里 `BOX_CONFIGS` 的参数必须与这张表一致。
 
-| 盒型 | 每包张数 | 每盒包数 | 签名保证 |
-| --- | --- | --- | --- |
-| Hobby | 4 | 20 | 每盒 1 张 |
-| Jumbo | 11 | 12 | 每盒 3 张 |
-| Delight | 12 | 1 | 每盒 2 张 |
-| Value | 4 | 7 | 无 |
-| Mega | 6 | 7 | 无 |
+| 盒型 | 每包张数 | 每盒包数 | 签名保证 | 配率取哪一列 | 状态 |
+| --- | --- | --- | --- | --- | --- |
+| Hobby | 4 | 20 | 每盒 1 张 | `hobby` | 已上线 |
+| Jumbo | 11 | 12 | 每盒 3 张 | `jumbo` | 已上线 |
+| Delight | 12 | 1 | 每盒 2 张 | `delight` | 未上线 |
+| Value | 4 | 7 | 无 | `value-box-ea` | 已上线 |
+| Mega | 6 | 7 | 无 | `mega-box-ea` | 已上线 |
+| Sapphire | — | — | — | `sapphire` | 未上线 |
+| Fanatics | — | — | — | `fanatics-box` | 未上线 |
 
-官方资料没有公布每箱盒数，程序里对应字段留空，不在页面上编造数字。
+同一个盒型在官方表里拆成多个渠道列（Value Box 分 EA/SE/CEE 三种零售渠道，Mega 同理），
+拆包时取本渠道的列；同一盒型的几个渠道列数值一致，只差 PDF 提取误差。
+三列不一致时以 `-ea` 列为准，并用 `SubsetSpec.manual` 单独补齐差异项（如 `Alter Ego`）。
+
+官方资料没有公布每箱盒数，`boxesPerCase` 留 0，页面上就不显示「盒 / 箱」。
 
 ## 配率表的列
 
@@ -35,8 +41,7 @@
 `hobby, jumbo, delight, sapphire, value-box-ea, value-box-se, value-box-cee,
 mega-box-ea, mega-box-se, mega-box-cee, fanatics-box, ascc-promo-pks`
 
-同一个盒型在官方表里拆成多个渠道列（如 Value Box 分 EA/SE/CEE 三种零售渠道），
-拆包时取本渠道的列。
+`box.ts` 里只登记行标签，数值一律从这张表取；某个盒型列为 `null` 就是「本盒不出这个卡种」。
 
 ## 已知问题
 
@@ -44,7 +49,9 @@ mega-box-ea, mega-box-se, mega-box-cee, fanatics-box, ascc-promo-pks`
    `scripts/import-pack-odds.mjs` 里用 `ROW_PATCHES` 按官方原值补齐，改动前必须回看 PDF。
 2. **`Rookie Autographs Lava Lamp` 是 7 个独立行**（`Magenta/Purple` 到 `Black/Red`），
    不是一行加 7 个平行，映射时要注意。
-3. PDF 文本提取对个别符号不稳（例如 `X/hyphen.caseFRACTOR` 实为 `X-FRACTOR`），
+3. **`Base Refractors Yellow Wave` 只有 Hobby 一列有值，`No Limit Superfractors` 的 Jumbo
+   列为空**。两处都是原表如此，没有回填；前者成了 Hobby 独占，后者在 Jumbo 里不出。
+4. PDF 文本提取对个别符号不稳（例如 `X/hyphen.caseFRACTOR` 实为 `X-FRACTOR`），
    涉及数值之外的内容一律回看 PDF。
 
 ## 重新生成派生数据

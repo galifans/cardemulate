@@ -628,6 +628,56 @@ schema.sql       D1 建表脚本（维度表 + 事实表分离）
 - ✓ 验证：`npm run typecheck` / `npm run build` 通过（`StatsView` 产物 19.31 kB → 15.85 kB），
   本地登录后实测页面只剩四段，逐盒弹窗（含稀有度分布 / 卡种子集）不受影响
 
+### 2026-09-30（一个系列四个盒型：Hobby / Jumbo / Mega 上线）
+
+用户原话：「为什么还是没有上 mega hobby jumbo」
+
+前情：官方 Pack Odds 表早就归档（12 列），但 `box.ts` 只实现了 Value Box —— 那一份配率是
+早期按 `value-box-ea` 单列手抄进源码的，其余盒型的数字根本没进代码，所以页面上只有 Value Box。
+
+- 核心改动：`src/data/sets/basketball/topps/tcu26-basketball/box.ts` 从「手抄配率」
+  改成「**按官方表的列投影**」——
+  - 子集定义里的 `odds: { slug: 数字 }` 换成 `variants: [slug, 官方行标签][]`，
+    数字一律 `oddsAt(spec, slug, label, column)` 查 `pack-odds.generated.ts`
+  - `build()` 变成 `build(config: BoxConfig)` 工厂：`column` 决定取哪一列，
+    该列为 `null` 的卡种直接不进本盒；整行都不为本盒出的话，该子集进「本盒不含」清单
+  - `BOX_CONFIGS` 四条：Hobby（4×20，`hobby`）/ Jumbo（11×12，`jumbo`）/
+    Value（4×7，`value-box-ea`）/ Mega（6×7，`mega-box-ea`）。
+    新增第五个盒型以后只要加一条配置，不用再抄一遍数字
+- 新增 9 个 Hobby / Jumbo 专属子集的独立名册（`roster.ts` 里本来就有，只是没接进 `SPECS`）：
+  `captains` / `celebracion` / `radiating-rookies` / `shadow-etch` / `havoc-marks` /
+  `autographs-1980-81` / `future-stars-autographs` / `druski-autographs` / `spike-lee-autographs`
+- 「本盒不含的子集」不再硬编码：`count` 取名册真实长度（旧的 15 / 91 / 50 等是手写的，已换成实数），
+  `where` 由「哪些盒型的列有值」推出来。清单跟着盒型走，不再只对 Value Box 成立
+- `boxesPerCase` 正式支持留 0 = 官方未公布：`validateBox()` 只校验非负整数，
+  `toBoxRef` / `BreakView` / `ProductView` 三处「盒 / 箱」徽章在 0 时都不渲染
+  （Hobby / Jumbo / Mega 官方都没公布装箱数，只有 Value Box 的 40 盒是官方资料里有的）
+- 系列页（`ProductView.vue`）原来假定「只有一个已上线盒型」，用 4 次
+  `product.boxes.find((b) => b.live)` 只展示 Hobby；现在按 `liveBoxes` 逐盒展示独家内容与规模，
+  「注意事项」是全盒型共用的，只留一份
+- 系列简介里的「33 个子集、93 种平行」是官方 Checklist 的全系列口径，跟逐盒的「28 个子集、
+  216 个卡种」并列会让人以为是同一件事，改成「官方 Checklist 共 1,299 张卡，
+  分 Hobby / Jumbo / Value / Mega 四种盒型发行」
+- 配率表抬头原来写死「官方 Value Box 配率」，改成「官方本盒配率」
+- 删掉 `taxonomy.ts` 里 `tcu26-basketball` 的三个占位盒型（`hobby-box` / `jumbo-box` / `mega-box`
+  的「待上线」条目），现在由 `TCU26_BASKETBALL_BOXES` 自动建目录；`ABSENT_SUBSETS` 这个导出
+  随之取消（改成 box 内部按盒推导）
+- **Value Box 行为逐位不变，只有一处文案订正**：`npm run boxes:snapshot` 生成新快照后，
+  用脚本逐字段比对新旧 `value-box` 条目 —— 20 个字段里只有 `boxExclusives` 变了，
+  标量、`baseWeight`、`absentSubsets`、23 个子集、187 个卡种（key / odds / weight / numbered /
+  tier 顺序）、5 个种子的完整 `rips` 全部一致。
+  这处文案改的是「零售独占短印：Glass Canvas / Paradox / Fanatical」——
+  Mega 的官方列里这几个也有值，「独占」是早期只有 Value Box 时的旧说法，现在统一写成「零售共享短印」
+- 有意留着不动的两处，免得下次当成 bug：
+  1. `Base Refractors Yellow Wave` 官方表只有 Hobby 一列有值，`No Limit Superfractors` 的
+     Jumbo 列为空 —— 原表如此，没有回填（Jumbo 因此比 Hobby 少 2 个卡种）
+  2. Value Box 的「Basketball Refractor 彩虹」确实是 Value 专列，Mega 那列是空的，属于真独占
+- 未做，留待以后：Delight / Sapphire / Fanatics 三个盒型（列名已知，缺的是官方包装规格）；
+  `autoGuaranteed` 仍然只是展示用的标签，引擎不会强制「每盒 1 张签名」
+- ✓ 验证：`npm run typecheck` / `npm run build` / `npm run boxes:check`（4 个盒型）通过；
+  本地实测系列页 4 个盒型全部「可拆盒」、拆盒页无「盒 / 箱」徽章、配率表与不含清单按盒变化、
+  Hobby 拆一盒 80 张并正常写入统计页「按盒子」
+
 ### 关键取舍记录
 
 - **不用 Pinia**：只有一个全局 store，手写 reactive 单例省一个依赖。
