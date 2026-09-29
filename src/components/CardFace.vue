@@ -57,12 +57,12 @@ const serial = computed(() => {
         </div>
 
         <div class="ce-face-body">
-            <p class="ce-face-player">{{ card.player }}</p>
-            <p class="ce-face-name">{{ card.fullName }}</p>
+            <p class="ce-face-player" :title="card.player">{{ card.player }}</p>
+            <p class="ce-face-name" :title="card.fullName">{{ card.fullName }}</p>
             <div class="ce-face-meta">
                 <span class="ce-badge">#{{ card.no }}</span>
                 <span v-if="serial" class="ce-badge ce-mono">{{ serial }}</span>
-                <span class="ce-badge ce-mono">{{ card.oddsLabel }}</span>
+                <span class="ce-badge ce-mono" :title="card.oddsLabel">{{ card.oddsLabel }}</span>
             </div>
         </div>
     </article>
@@ -167,6 +167,8 @@ const serial = computed(() => {
 .ce-face-tier {
     color: var(--tier);
     border-color: color-mix(in srgb, var(--tier) 55%, transparent);
+    /* 底栏宽度有限：档位名过长时宁可裁掉，也不能折行把队标挤出去 */
+    overflow: hidden;
 }
 
 /* 标记堆在卡图左上角：放到卡片下方会随张数换行，不同卡的行高就不齐了 */
@@ -190,6 +192,7 @@ const serial = computed(() => {
     backdrop-filter: blur(6px);
     border: 1px solid;
     background: rgba(4, 8, 18, 0.72);
+    white-space: nowrap;
 }
 
 .ce-mark-auto {
@@ -221,11 +224,20 @@ const serial = computed(() => {
     );
 }
 
+/*
+ * 文字区三块都是「固定行数」：球员名 1 行、卡名 2 行、角标 1 行。
+ * 内容长短不一（子集名能差到 33 个字符、拿長名字的球员也有），
+ * 一旦按内容自由换行，同一排卡片的下沿就参差不齐，一眼看过去就是没对齐。
+ * 所以宁可截断也不折行，完整文字走 title 提示。
+ */
 .ce-face-player {
     margin: 0;
     font-weight: 700;
     font-size: 14.5px;
     line-height: 1.3;
+    white-space: nowrap;
+    overflow: hidden;
+    text-overflow: ellipsis;
 }
 
 .ce-face-name {
@@ -234,16 +246,42 @@ const serial = computed(() => {
     /* 卡面底色带上了同一色相，字色必须比主色亮一档才压得住 */
     color: color-mix(in srgb, var(--tier) 55%, #ffffff);
     line-height: 1.35;
+    /* min-height 与行数上限必须对得上，否则短名的卡会变矮 */
     min-height: 2.7em;
+    display: -webkit-box;
+    -webkit-box-orient: vertical;
+    -webkit-line-clamp: 2;
+    line-clamp: 2;
+    overflow: hidden;
 }
 
-/* 信息行按在文字区底部，卡片高度仍然只由文字区决定 */
+/*
+ * 角标行：只占一行，一行高固定。放不下时**统一让最后一个让位**——
+ * 底栏信息本来就是按重要性排的，配率最短的写法也比编号次要，
+ * 所以只有它允许被压窄、用省略号收尾，前面几个不许缩（缩成一排省略号更难看）。
+ */
 .ce-face-meta {
     display: flex;
-    flex-wrap: wrap;
+    flex-wrap: nowrap;
     gap: 5px;
     margin-top: auto;
     padding-top: 8px;
+    overflow: hidden;
+}
+
+/* inline-block 才能让 text-overflow 生效（inline-flex 会把文字包成匿名项） */
+.ce-face-meta .ce-badge {
+    flex: 0 0 auto;
+    display: inline-block;
+    min-width: 0;
+    overflow: hidden;
+    text-overflow: ellipsis;
+    line-height: 1.4;
+    vertical-align: middle;
+}
+
+.ce-face-meta .ce-badge:last-child {
+    flex-shrink: 1;
 }
 
 @keyframes ce-pop {

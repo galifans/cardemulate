@@ -13,6 +13,7 @@ import {
     type RipResult,
 } from "../engine/rip";
 import { randomSeed } from "../engine/rng";
+import { isAutograph } from "../engine/marks";
 import { TIER_ORDER, TIERS, GROUP_NAMES } from "../engine/tiers";
 import { useAppStore } from "../stores/app";
 import type { Tier } from "../engine/types";
@@ -140,7 +141,7 @@ const numberedCards = computed(
 );
 /** 签名卡：auto 与实物签名（本系列实物卡全部带签） */
 const autographs = computed(
-    () => (result.value?.cards ?? []).filter((c) => c.group === "auto" || c.group === "relic"),
+    () => (result.value?.cards ?? []).filter((c) => isAutograph(c.group)),
 );
 
 /** 配率表：按子集分组 */

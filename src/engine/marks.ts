@@ -6,9 +6,15 @@
  * 新秀看 rookie。想加新标记时只改这里，视图不用动。
  */
 
-import type { PulledCard } from "./types";
+import type { GroupKind, PulledCard } from "./types";
 
 export type MarkKind = "auto" | "numbered" | "rookie";
+
+/**
+ * 签字卡口径：auto 子集是签字，relic 子集（本系列的 NBA Debut Patch）实物卡也全部带签。
+ * 卡面标记、拆盒概况、统计页三处都走这个函数，避免各写一套判断。
+ */
+export const isAutograph = (group: GroupKind): boolean => group === "auto" || group === "relic";
 
 export interface CardMark {
     /** 稳定键，供 v-for 使用 */
@@ -21,9 +27,7 @@ export interface CardMark {
 export const cardMarks = (card: PulledCard): CardMark[] => {
     const marks: CardMark[] = [];
 
-    // 本系列的实物卡（NBA Debut Patch Autographs）全部带签，
-    // 与「本盒概况」里签字卡的口径保持一致
-    if (card.group === "auto" || card.group === "relic") {
+    if (isAutograph(card.group)) {
         marks.push({ key: "auto", label: "AUTO", kind: "auto" });
     }
 

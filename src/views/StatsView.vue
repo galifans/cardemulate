@@ -4,6 +4,7 @@ import { RouterLink } from "vue-router";
 import { api, backendState, type GlobalStats, type StatsFilter, type UserStats } from "../api/client";
 import { useAppStore } from "../stores/app";
 import { TIER_ORDER, TIERS, GROUP_NAMES } from "../engine/tiers";
+import { isAutograph } from "../engine/marks";
 import { allBoxes, CATEGORIES, getBox } from "../catalog";
 import type { GroupKind, Tier } from "../engine/types";
 
@@ -95,6 +96,18 @@ const myNumbered = computed(() =>
         0,
     ),
 );
+
+/**
+ * 签字卡：服务端只按子集聚合，而「哪些子集是签字」在本地目录里，
+ * 所以拿 subset_key 回目录查分组再求和（不为了一个计数去动库表）。
+ */
+const autographTotal = (rows: readonly { subset_key: string; total: number }[]): number =>
+    rows.reduce((sum, row) => {
+        const kind = subsetIndex.value.get(row.subset_key)?.group;
+        return kind !== undefined && isAutograph(kind) ? sum + row.total : sum;
+    }, 0);
+
+const myAutographs = computed(() => autographTotal(server.value?.bySubset ?? []));
 
 /** 按盒子聚合，服务端已按 breaks 表算好 */
 const boxRows = computed(() =>
@@ -284,6 +297,8 @@ const drillNumbered = computed(() =>
     ),
 );
 
+const drillAutographs = computed(() => autographTotal(drillStats.value?.bySubset ?? []));
+
 const drillTierRows = computed(() => {
     const map = new Map((drillStats.value?.byTier ?? []).map((row) => [row.tier, row.total]));
     return TIER_ORDER.map((tier) => ({
@@ -374,6 +389,10 @@ const breakRows = computed(() =>
                 <div>
                     <strong>{{ formatNumber(myNumbered) }}</strong>
                     <span>编号卡</span>
+                </div>
+                <div>
+                    <strong>{{ formatNumber(myAutographs) }}</strong>
+                    <span>签字卡</span>
                 </div>
             </div>
             <div class="ce-stats-actions">
@@ -652,6 +671,10 @@ const breakRows = computed(() =>
                         <div>
                             <strong>{{ formatNumber(drillNumbered) }}</strong>
                             <span>编号卡</span>
+                        </div>
+                        <div>
+                            <strong>{{ formatNumber(drillAutographs) }}</strong>
+                            <span>签字卡</span>
                         </div>
                     </div>
 
