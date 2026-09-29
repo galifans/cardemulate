@@ -190,10 +190,7 @@ const globalTotal = computed(() => Math.max(1, globalStats.value?.cards ?? 1));
 
         <section v-if="!signedIn" class="ce-card ce-stats-top">
             <h2 class="ce-section-title">登录后查看我的拆盒统计</h2>
-            <p class="ce-faint">
-                登录后可以看到拆盒数、稀有度分布、卡种子集、最稀有的卡，
-                以及完整的拆盒记录。
-            </p>
+            <p class="ce-faint">登录后可以看到自己的全部拆盒统计与记录。</p>
             <div class="ce-stats-actions">
                 <RouterLink to="/auth" class="ce-btn ce-btn-primary">注册 / 登录</RouterLink>
             </div>
