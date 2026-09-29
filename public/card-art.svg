@@ -1,0 +1,74 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 400 560" width="400" height="560" role="img" aria-label="CardEmulate 占位卡面">
+    <defs>
+        <linearGradient id="bg" x1="0" y1="0" x2="1" y2="1">
+            <stop offset="0%" stop-color="#180f2e" />
+            <stop offset="38%" stop-color="#221a4a" />
+            <stop offset="72%" stop-color="#101a3a" />
+            <stop offset="100%" stop-color="#070c1c" />
+        </linearGradient>
+        <linearGradient id="sheen" x1="-0.2" y1="0" x2="0.9" y2="1">
+            <stop offset="0%" stop-color="#ffffff" stop-opacity="0" />
+            <stop offset="42%" stop-color="#c9d8ff" stop-opacity="0.16" />
+            <stop offset="58%" stop-color="#ffe9c9" stop-opacity="0.12" />
+            <stop offset="100%" stop-color="#ffffff" stop-opacity="0" />
+        </linearGradient>
+        <radialGradient id="glow" cx="0.5" cy="0.34" r="0.62">
+            <stop offset="0%" stop-color="#7d6bff" stop-opacity="0.5" />
+            <stop offset="55%" stop-color="#3b2f8f" stop-opacity="0.18" />
+            <stop offset="100%" stop-color="#000000" stop-opacity="0" />
+        </radialGradient>
+        <pattern id="grid" width="26" height="26" patternUnits="userSpaceOnUse" patternTransform="rotate(16)">
+            <path d="M0 0H26M0 0V26" fill="none" stroke="#8fa6ff" stroke-opacity="0.07" stroke-width="1" />
+        </pattern>
+        <pattern id="dots" width="14" height="14" patternUnits="userSpaceOnUse">
+            <circle cx="1.6" cy="1.6" r="1.1" fill="#cbd8ff" fill-opacity="0.07" />
+        </pattern>
+    </defs>
+
+    <rect width="400" height="560" rx="26" fill="url(#bg)" />
+    <rect width="400" height="560" rx="26" fill="url(#glow)" />
+    <rect width="400" height="560" rx="26" fill="url(#grid)" />
+    <rect width="400" height="560" rx="26" fill="url(#dots)" />
+
+    <g opacity="0.5" stroke="#9fb4ff" stroke-opacity="0.3" fill="none">
+        <circle cx="200" cy="252" r="118" stroke-width="1.4" />
+        <circle cx="200" cy="252" r="86" stroke-width="1" stroke-dasharray="5 7" />
+        <path d="M82 252H318" stroke-width="1.6" />
+        <path d="M200 134V370" stroke-width="1.6" />
+        <path d="M200 252c0-66 52-118 118-118" stroke-width="0" />
+        <path d="M118 188a92 92 0 0 0 0 128" stroke-width="1.2" />
+        <path d="M282 188a92 92 0 0 1 0 128" stroke-width="1.2" />
+        <path d="M150 148c34 30 34 178 0 208" stroke-width="1.2" />
+        <path d="M250 148c-34 30-34 178 0 208" stroke-width="1.2" />
+    </g>
+
+    <g opacity="0.6">
+        <text
+            x="200"
+            y="300"
+            text-anchor="middle"
+            font-family="Arial Black, Arial, Helvetica, sans-serif"
+            font-size="64"
+            font-weight="900"
+            fill="#ffffff"
+            fill-opacity="0.06"
+            letter-spacing="4"
+        >CARD</text>
+        <text
+            x="200"
+            y="356"
+            text-anchor="middle"
+            font-family="Arial Black, Arial, Helvetica, sans-serif"
+            font-size="38"
+            font-weight="900"
+            fill="#ffffff"
+            fill-opacity="0.05"
+            letter-spacing="10"
+        >EMULATE</text>
+    </g>
+
+    <rect x="14" y="14" width="372" height="532" rx="18" fill="none" stroke="#ffffff" stroke-opacity="0.16" stroke-width="1.5" />
+    <rect x="26" y="26" width="348" height="508" rx="12" fill="none" stroke="#ffffff" stroke-opacity="0.07" stroke-width="1" />
+    <rect width="400" height="560" rx="26" fill="url(#sheen)" />
+    <rect x="0" y="0" width="400" height="560" rx="26" fill="none" stroke="#000000" stroke-opacity="0.35" stroke-width="2" />
+</svg>
