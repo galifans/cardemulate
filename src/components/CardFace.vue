@@ -17,7 +17,7 @@ const props = defineProps<{
 
 const meta = computed(() => TIERS[props.card.tier]);
 
-/** 卡图下方那排标记：签字 / 限量编号 / 新秀 */
+/** 卡图左上角的标记：签字 / 限量编号 / 新秀 */
 const marks = computed(() => cardMarks(props.card));
 
 /** 具体到手的那一张：限量卡的流水号 */
@@ -53,14 +53,14 @@ const serial = computed(() => {
 
         <div class="ce-face-body">
             <p class="ce-face-player">{{ card.player }}</p>
-            <div class="ce-face-team">
-                <TeamIcon :team="card.team" :size="26" />
-            </div>
             <p class="ce-face-name">{{ card.fullName }}</p>
-            <div class="ce-face-meta">
-                <span class="ce-badge">#{{ card.no }}</span>
-                <span v-if="serial" class="ce-badge ce-mono">{{ serial }}</span>
-                <span class="ce-badge ce-mono">{{ card.oddsLabel }}</span>
+            <div class="ce-face-foot">
+                <div class="ce-face-meta">
+                    <span class="ce-badge">#{{ card.no }}</span>
+                    <span v-if="serial" class="ce-badge ce-mono">{{ serial }}</span>
+                    <span class="ce-badge ce-mono">{{ card.oddsLabel }}</span>
+                </div>
+                <TeamIcon :team="card.team" :size="26" />
             </div>
         </div>
     </article>
@@ -71,7 +71,7 @@ const serial = computed(() => {
     --tier: #8b95a8;
     --glow: 0;
     background: linear-gradient(165deg, var(--ce-panel) 0%, var(--ce-bg-soft) 100%);
-    border: 1px solid color-mix(in srgb, var(--tier) 40%, var(--ce-border-soft));
+    border: 1px solid color-mix(in srgb, var(--tier) 52%, var(--ce-border-soft));
     border-radius: var(--ce-radius);
     overflow: hidden;
     display: flex;
@@ -171,6 +171,12 @@ const serial = computed(() => {
     flex-direction: column;
     gap: 3px;
     flex: 1;
+    /* 卡面底色跟着稀有度走：金卡一眼是金，红卡一眼是红 */
+    background: linear-gradient(
+        160deg,
+        color-mix(in srgb, var(--tier) 46%, var(--ce-panel)) 0%,
+        color-mix(in srgb, var(--tier) 24%, var(--ce-bg-soft)) 100%
+    );
 }
 
 .ce-face-player {
@@ -180,24 +186,30 @@ const serial = computed(() => {
     line-height: 1.3;
 }
 
-.ce-face-team {
-    display: flex;
-}
-
 .ce-face-name {
     margin: 4px 0 0;
     font-size: 12px;
-    color: var(--tier);
+    /* 卡面底色带上了同一色相，字色必须比主色亮一档才压得住 */
+    color: color-mix(in srgb, var(--tier) 55%, #ffffff);
     line-height: 1.35;
     min-height: 2.7em;
+}
+
+/* 信息行在左、队标在右下角：卡片高度仍然只由文字区决定 */
+.ce-face-foot {
+    display: flex;
+    align-items: flex-end;
+    gap: 8px;
+    margin-top: auto;
+    padding-top: 8px;
 }
 
 .ce-face-meta {
     display: flex;
     flex-wrap: wrap;
     gap: 5px;
-    margin-top: auto;
-    padding-top: 8px;
+    flex: 1 1 auto;
+    min-width: 0;
 }
 
 @keyframes ce-pop {
