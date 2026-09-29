@@ -108,7 +108,7 @@ export interface BreakPayload {
     } | null;
 }
 
-/** 一行拆盒记录（stats 的 recent / rarest 列表使用） */
+/** 一行拆盒记录（stats 的 recent 列表使用） */
 export interface BreakRow {
     box_key: string;
     category_key: string;
@@ -156,7 +156,6 @@ export interface UserStats {
     byTier: { tier: string; total: number }[];
     bySubset: { subset_key: string; total: number }[];
     recent: BreakRow[];
-    rarest: BreakRow[];
 }
 
 export interface GlobalStats {

@@ -841,7 +841,7 @@ const handleStats = async (request, env) => {
 
     const byUser = "app_key = ?1 AND user_id = ?2";
 
-    const [summary, byBox, byCategory, byMaker, byTier, bySubset, recent, rarest] = await Promise.all([
+    const [summary, byBox, byCategory, byMaker, byTier, bySubset, recent] = await Promise.all([
         db
             .prepare(
                 `SELECT COUNT(*) AS boxes, COALESCE(SUM(card_count), 0) AS cards
@@ -899,15 +899,6 @@ const handleStats = async (request, env) => {
             )
             .bind(appKey, user.id, ...breakFilter.binds)
             .all(),
-        db
-            .prepare(
-                `SELECT box_key, category_key, maker_key, seed,
-                        best_player, best_tier, best_variant, best_odds, created_at
-                 FROM breaks WHERE ${byUser}${breakFilter.sql} AND best_odds IS NOT NULL
-                 ORDER BY best_odds DESC LIMIT 20`,
-            )
-            .bind(appKey, user.id, ...breakFilter.binds)
-            .all(),
     ]);
 
     return json({
@@ -923,7 +914,6 @@ const handleStats = async (request, env) => {
             byTier: byTier?.results ?? [],
             bySubset: bySubset?.results ?? [],
             recent: recent?.results ?? [],
-            rarest: rarest?.results ?? [],
         },
     });
 };

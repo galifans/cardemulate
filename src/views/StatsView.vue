@@ -106,18 +106,6 @@ const boxRows = computed(() =>
     })),
 );
 
-const tierRows = computed(() => {
-    const map = new Map((server.value?.byTier ?? []).map((row) => [row.tier, row.total]));
-    return TIER_ORDER.map((tier) => ({
-        key: tier,
-        name: TIERS[tier].name,
-        color: TIERS[tier].color,
-        count: map.get(tier) ?? 0,
-    }));
-});
-
-const maxTier = computed(() => Math.max(1, ...tierRows.value.map((r) => r.count)));
-
 /* ------------------------- 清空拆盒记录 ------------------------- */
 
 /**
@@ -258,22 +246,6 @@ const confirmClear = async (): Promise<void> => {
     await loadPublic();
 };
 
-const subsetRows = computed(() =>
-    (server.value?.bySubset ?? [])
-        .map((row) => {
-            const meta = subsetIndex.value.get(row.subset_key);
-            return {
-                key: row.subset_key,
-                name: meta?.name ?? row.subset_key,
-                groupName: meta ? GROUP_NAMES[meta.group] : "",
-                count: row.total,
-            };
-        })
-        .slice(0, 24),
-);
-
-const subsetMax = computed(() => Math.max(1, ...subsetRows.value.map((r) => r.count)));
-
 /* ------------------------- 单个盒型的明细 ------------------------- */
 
 /** 打开弹窗的盒型 key；null 表示未打开 */
@@ -337,21 +309,6 @@ const drillSubsetRows = computed(() =>
 );
 
 const drillSubsetMax = computed(() => Math.max(1, ...drillSubsetRows.value.map((r) => r.count)));
-
-/** 最稀有的 20 张：服务端按 best_odds 倒序给出 */
-const rarestRows = computed(() =>
-    (server.value?.rarest ?? []).map((row) => ({
-        key: `${row.seed}-${row.created_at}`,
-        player: row.best_player ?? "—",
-        variant: variantLabel(row.box_key, row.best_variant),
-        tierName: row.best_tier ? tierMeta(row.best_tier).name : "—",
-        color: row.best_tier ? tierMeta(row.best_tier).color : "var(--ce-text-dim)",
-        oddsLabel: row.best_odds ? `1:${formatNumber(row.best_odds)}` : "—",
-        boxLabel: boxName(row.box_key),
-        seed: row.seed,
-        date: formatDate(row.created_at),
-    })),
-);
 
 /** 拆盒记录：直接来自 GET /api/breaks（D1 的 breaks 表） */
 const breakRows = computed(() =>
@@ -590,85 +547,6 @@ const globalTotal = computed(() => Math.max(1, globalStats.value?.cards ?? 1));
             <div v-else class="ce-empty">
                 还没有拆过盒。<RouterLink to="/c/basketball" class="ce-link">去拆一盒</RouterLink>
             </div>
-        </section>
-
-        <section class="ce-section ce-grid ce-grid-2">
-            <div class="ce-card">
-                <h2 class="ce-section-title">稀有度分布</h2>
-                <ul class="ce-tier-bars">
-                    <li v-for="row in tierRows" :key="row.key">
-                        <span class="ce-tier-dot" :style="{ background: row.color }"></span>
-                        <span class="ce-tier-name">{{ row.name }}</span>
-                        <span class="ce-tier-bar">
-                            <i
-                                :style="{
-                                    width: `${(row.count / maxTier) * 100}%`,
-                                    background: row.color,
-                                }"
-                            ></i>
-                        </span>
-                        <span class="ce-mono ce-tier-count">{{ row.count }}</span>
-                    </li>
-                </ul>
-            </div>
-
-            <div class="ce-card">
-                <h2 class="ce-section-title">卡种子集 Top 24</h2>
-                <ul v-if="subsetRows.length" class="ce-tier-bars">
-                    <li v-for="row in subsetRows" :key="row.key">
-                        <span class="ce-tier-dot" :style="{ background: TIERS.epic.color }"></span>
-                        <span class="ce-tier-name">
-                            {{ row.name }}
-                            <span v-if="row.groupName" class="ce-faint">{{ row.groupName }}</span>
-                        </span>
-                        <span class="ce-tier-bar">
-                            <i
-                                :style="{
-                                    width: `${(row.count / subsetMax) * 100}%`,
-                                    background: TIERS.epic.color,
-                                }"
-                            ></i>
-                        </span>
-                        <span class="ce-mono ce-tier-count">{{ row.count }}</span>
-                    </li>
-                </ul>
-                <p v-else class="ce-faint ce-mt-14">暂无数据。</p>
-            </div>
-        </section>
-
-        <section class="ce-section">
-            <div class="ce-section-head">
-                <h2 class="ce-section-title">最稀有的 20 张</h2>
-                <span class="ce-section-desc">从最稀有开始</span>
-            </div>
-
-            <div v-if="rarestRows.length" class="ce-card ce-table-wrap">
-                <table class="ce-table">
-                    <thead>
-                        <tr>
-                            <th>球员</th>
-                            <th>卡种</th>
-                            <th>稀有度</th>
-                            <th>配率</th>
-                            <th>盒子</th>
-                            <th>种子</th>
-                            <th>时间</th>
-                        </tr>
-                    </thead>
-                    <tbody>
-                        <tr v-for="row in rarestRows" :key="row.key">
-                            <td>{{ row.player }}</td>
-                            <td class="ce-faint">{{ row.variant }}</td>
-                            <td :style="{ color: row.color }">{{ row.tierName }}</td>
-                            <td class="ce-mono">{{ row.oddsLabel }}</td>
-                            <td class="ce-faint">{{ row.boxLabel }}</td>
-                            <td class="ce-mono">{{ row.seed }}</td>
-                            <td class="ce-faint">{{ row.date }}</td>
-                        </tr>
-                    </tbody>
-                </table>
-            </div>
-            <p v-else class="ce-faint ce-mt-14">还没有记录。</p>
         </section>
 
         <section class="ce-section">
