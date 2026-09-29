@@ -324,7 +324,7 @@ const toggleSubset = (key: string): void => {
                                 </div>
                                 <div>
                                     <strong>{{ Object.keys(result.bySubset).length }}</strong>
-                                    <span>涉及子集</span>
+                                    <span>涉及卡种</span>
                                 </div>
                             </div>
                             <p class="ce-faint ce-seed-note">
