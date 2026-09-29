@@ -286,7 +286,14 @@ export const api = {
             breaks: BreakRecord[];
         }>(`breaks${queryString(filter, { limit, offset })}`),
 
-    clearBreaks: () => request<{ ok: true }>("break", { method: "DELETE" }),
+    /**
+     * 清空我的拆盒记录（需登录）。
+     * 传 filter 只清空对应范围（品类 / 发行商 / 盒型），不传才是清空全部。
+     */
+    clearBreaks: (filter?: StatsFilter) =>
+        request<{ ok: true; removed: number }>(`break${queryString(filter)}`, {
+            method: "DELETE",
+        }),
 
     leaderboard: (filter?: StatsFilter) =>
         request<{

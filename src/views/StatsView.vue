@@ -1,10 +1,10 @@
 <script setup lang="ts">
 import { computed, onMounted, ref } from "vue";
 import { RouterLink } from "vue-router";
-import { api, backendState, type GlobalStats } from "../api/client";
+import { api, backendState, type GlobalStats, type StatsFilter } from "../api/client";
 import { useAppStore } from "../stores/app";
 import { TIER_ORDER, TIERS, GROUP_NAMES } from "../engine/tiers";
-import { allBoxes, getBox } from "../catalog";
+import { allBoxes, CATEGORIES, getBox } from "../catalog";
 import type { GroupKind, Tier } from "../engine/types";
 
 const store = useAppStore();
@@ -20,7 +20,8 @@ const signedIn = computed(() => Boolean(store.state.user));
 /** 编号卡口径：中高稀有度（编号平行 / 签名 / 实物） */
 const NUMBERED_TIERS = ["epic", "legendary", "mythic"] as const;
 
-onMounted(async () => {
+/** 全站累计与排行榜不随拆盒记录自动变化，清空后需要单独重取 */
+const loadPublic = async (): Promise<void> => {
     try {
         const [global, board] = await Promise.all([api.global(), api.leaderboard()]);
         globalStats.value = global.global;
@@ -28,6 +29,10 @@ onMounted(async () => {
     } catch {
         /* 后端不可用时保持空数据 */
     }
+};
+
+onMounted(async () => {
+    await loadPublic();
     offline.value = backendState() === false;
     loaded.value = true;
 });
@@ -105,6 +110,146 @@ const tierRows = computed(() => {
 });
 
 const maxTier = computed(() => Math.max(1, ...tierRows.value.map((r) => r.count)));
+
+/* ------------------------- 清空拆盒记录 ------------------------- */
+
+/**
+ * 为什么不做成一键清空：拆盒记录删掉就没了。这里先把范围摊开让用户自己挑，
+ * 再单独走一步确认，确认页会重述将要消失的条数并要求明确勾选。
+ */
+const clearOpen = ref(false);
+/** pick = 挑范围；confirm = 二次确认 */
+const clearStage = ref<"pick" | "confirm">("pick");
+const pickedBoxes = ref<string[]>([]);
+const acknowledged = ref(false);
+
+interface ClearOption {
+    key: string;
+    name: string;
+    boxes: number;
+    cards: number;
+    categoryKey: string;
+    categoryName: string;
+}
+
+/** 只列出「确有记录」的盒型 —— 没有记录的盒子没什么可清空的 */
+const clearOptions = computed<ClearOption[]>(() =>
+    (server.value?.byBox ?? []).map((row) => {
+        const box = getBox(row.box_key);
+        const category = CATEGORIES.find((item) => item.key === box?.category);
+        return {
+            key: row.box_key,
+            name: box?.name ?? row.box_key,
+            boxes: row.boxes,
+            cards: row.cards,
+            categoryKey: box?.category ?? "",
+            categoryName: category?.name ?? "其他",
+        };
+    }),
+);
+
+/** 按品类分组，方便整类勾选 */
+const clearGroups = computed(() => {
+    const groups = new Map<string, { key: string; name: string; items: ClearOption[]; boxes: number }>();
+    for (const option of clearOptions.value) {
+        const group = groups.get(option.categoryKey) ?? {
+            key: option.categoryKey,
+            name: option.categoryName,
+            items: [],
+            boxes: 0,
+        };
+        group.items.push(option);
+        group.boxes += option.boxes;
+        groups.set(option.categoryKey, group);
+    }
+    return [...groups.values()];
+});
+
+const pickedOptions = computed(() => clearOptions.value.filter((item) => pickedBoxes.value.includes(item.key)));
+const isPicked = (key: string): boolean => pickedBoxes.value.includes(key);
+const isAllPicked = computed(
+    () => pickedBoxes.value.length > 0 && pickedBoxes.value.length === clearOptions.value.length,
+);
+const pickedBoxCount = computed(() => pickedOptions.value.reduce((sum, item) => sum + item.boxes, 0));
+
+const isGroupPicked = (groupKey: string): boolean => {
+    const items = clearGroups.value.find((group) => group.key === groupKey)?.items ?? [];
+    return items.length > 0 && items.every((item) => isPicked(item.key));
+};
+
+/** 勾选状态一变就退回第一步，避免在旧确认页上提交新范围 */
+const resetToPick = (): void => {
+    clearStage.value = "pick";
+    acknowledged.value = false;
+};
+
+const toggleBox = (key: string): void => {
+    pickedBoxes.value = isPicked(key)
+        ? pickedBoxes.value.filter((item) => item !== key)
+        : [...pickedBoxes.value, key];
+    resetToPick();
+};
+
+const toggleGroup = (groupKey: string): void => {
+    const keys = clearGroups.value.find((group) => group.key === groupKey)?.items.map((item) => item.key) ?? [];
+    if (!keys.length) return;
+    pickedBoxes.value = keys.every((key) => isPicked(key))
+        ? pickedBoxes.value.filter((key) => !keys.includes(key))
+        : [...new Set([...pickedBoxes.value, ...keys])];
+    resetToPick();
+};
+
+const pickAll = (): void => {
+    pickedBoxes.value = clearOptions.value.map((option) => option.key);
+    resetToPick();
+};
+
+const pickNone = (): void => {
+    pickedBoxes.value = [];
+    resetToPick();
+};
+
+const toggleClearPanel = (): void => {
+    if (clearOpen.value) closeClearPanel();
+    else clearOpen.value = true;
+};
+
+const closeClearPanel = (): void => {
+    clearOpen.value = false;
+    pickedBoxes.value = [];
+    resetToPick();
+};
+
+const onAcknowledge = (event: Event): void => {
+    acknowledged.value = (event.target as HTMLInputElement).checked;
+};
+
+/**
+ * 把勾选结果收敛成尽量少的下发次数：
+ * 整品类都被选中就按品类下发，全部盒型都被选中就按「全部」下发。
+ */
+const clearScopes = computed<StatsFilter[]>(() => {
+    if (!pickedBoxes.value.length) return [];
+    if (isAllPicked.value) return [{}];
+
+    const scopes: StatsFilter[] = [];
+    for (const group of clearGroups.value) {
+        const keys = group.items.map((item) => item.key);
+        const chosen = keys.filter((key) => isPicked(key));
+        if (!chosen.length) continue;
+        if (chosen.length === keys.length) scopes.push({ category: group.key });
+        else for (const key of chosen) scopes.push({ box: key });
+    }
+    return scopes;
+});
+
+const confirmClear = async (): Promise<void> => {
+    if (!acknowledged.value || !clearScopes.value.length) return;
+    const done = await store.clearBreaks(clearScopes.value);
+    if (!done) return;
+    closeClearPanel();
+    await loadPublic();
+};
 
 const subsetRows = computed(() =>
     (server.value?.bySubset ?? [])
@@ -218,21 +363,123 @@ const globalTotal = computed(() => Math.max(1, globalStats.value?.cards ?? 1));
             </div>
             <div class="ce-stats-actions">
                 <button
-                    class="ce-btn"
-                    type="button"
-                    :disabled="store.state.busy"
-                    @click="store.loadServerStats(); store.loadBreaks()"
-                >
-                    刷新数据
-                </button>
-                <button
                     class="ce-btn ce-btn-danger"
                     type="button"
                     :disabled="store.state.busy || myBoxes === 0"
-                    @click="store.clearBreaks()"
+                    @click="toggleClearPanel"
                 >
-                    清空拆盒记录
+                    {{ clearOpen ? "收起" : "清空拆盒记录" }}
                 </button>
+            </div>
+
+            <div v-if="clearOpen" class="ce-clear">
+                <template v-if="clearStage === 'pick'">
+                    <div class="ce-clear-head">
+                        <h3 class="ce-section-title">选择要清空的盒型</h3>
+                        <span class="ce-section-desc">可以单品盒，也可以整个品类</span>
+                    </div>
+
+                    <ul class="ce-clear-list">
+                        <li v-for="group in clearGroups" :key="group.key" class="ce-clear-group">
+                            <label class="ce-clear-row ce-clear-row-group">
+                                <input
+                                    type="checkbox"
+                                    :checked="isGroupPicked(group.key)"
+                                    @change="toggleGroup(group.key)"
+                                />
+                                <span class="ce-clear-name">{{ group.name }}</span>
+                                <span class="ce-faint">
+                                    {{ group.items.length }} 个盒型 ·
+                                    {{ formatNumber(group.boxes) }} 条
+                                </span>
+                            </label>
+                            <ul class="ce-clear-sub">
+                                <li v-for="option in group.items" :key="option.key">
+                                    <label class="ce-clear-row">
+                                        <input
+                                            type="checkbox"
+                                            :checked="isPicked(option.key)"
+                                            @change="toggleBox(option.key)"
+                                        />
+                                        <span class="ce-clear-name">{{ option.name }}</span>
+                                        <span class="ce-faint">
+                                            {{ formatNumber(option.boxes) }} 条 ·
+                                            {{ formatNumber(option.cards) }} 张
+                                        </span>
+                                    </label>
+                                </li>
+                            </ul>
+                        </li>
+                    </ul>
+
+                    <div class="ce-stats-actions ce-mt-16">
+                        <button class="ce-btn ce-btn-sm" type="button" @click="pickAll">全选</button>
+                        <button
+                            class="ce-btn ce-btn-sm"
+                            type="button"
+                            :disabled="!pickedBoxes.length"
+                            @click="pickNone"
+                        >
+                            取消选择
+                        </button>
+                        <button class="ce-btn ce-btn-sm" type="button" @click="closeClearPanel">
+                            关闭
+                        </button>
+                        <button
+                            class="ce-btn ce-btn-sm ce-btn-danger"
+                            type="button"
+                            :disabled="!pickedBoxes.length"
+                            @click="clearStage = 'confirm'"
+                        >
+                            清空选中的 {{ formatNumber(pickedBoxCount) }} 条
+                        </button>
+                    </div>
+                </template>
+
+                <template v-else>
+                    <h3 class="ce-section-title">确认清空</h3>
+                    <p class="ce-alert ce-alert-warn">
+                        <template v-if="isAllPicked">
+                            即将清空全部 {{ formatNumber(pickedBoxCount) }} 条拆盒记录。
+                        </template>
+                        <template v-else>
+                            即将清空 {{ pickedBoxes.length }} 个盒型的
+                            {{ formatNumber(pickedBoxCount) }} 条拆盒记录。
+                        </template>
+                        清空后这些记录会立刻消失，无法恢复。
+                    </p>
+
+                    <ul class="ce-clear-summary">
+                        <li v-for="option in pickedOptions" :key="option.key">
+                            <span class="ce-clear-name">{{ option.name }}</span>
+                            <span class="ce-faint">{{ formatNumber(option.boxes) }} 条</span>
+                        </li>
+                    </ul>
+
+                    <label class="ce-clear-row ce-clear-ack">
+                        <input type="checkbox" :checked="acknowledged" @change="onAcknowledge" />
+                        <span>我明白这些记录无法恢复</span>
+                    </label>
+
+                    <div class="ce-stats-actions ce-mt-16">
+                        <button
+                            class="ce-btn ce-btn-sm"
+                            type="button"
+                            :disabled="store.state.busy"
+                            @click="clearStage = 'pick'"
+                        >
+                            返回选择
+                        </button>
+                        <button
+                            class="ce-btn ce-btn-sm ce-btn-danger"
+                            type="button"
+                            :disabled="!acknowledged || store.state.busy"
+                            @click="confirmClear"
+                        >
+                            确认清空
+                        </button>
+                    </div>
+                </template>
             </div>
         </section>
 
@@ -484,6 +731,93 @@ const globalTotal = computed(() => Math.max(1, globalStats.value?.cards ?? 1));
     display: flex;
     gap: 10px;
     flex-wrap: wrap;
+}
+
+/* ---------------- 清空拆盒记录 ---------------- */
+
+.ce-clear {
+    margin-top: 18px;
+    padding-top: 18px;
+    border-top: 1px solid var(--ce-border);
+}
+
+.ce-clear-head {
+    display: flex;
+    align-items: baseline;
+    justify-content: space-between;
+    gap: 12px;
+    flex-wrap: wrap;
+}
+
+.ce-clear-list,
+.ce-clear-sub,
+.ce-clear-summary {
+    list-style: none;
+    margin: 12px 0 0;
+    padding: 0;
+}
+
+.ce-clear-group + .ce-clear-group {
+    margin-top: 12px;
+}
+
+.ce-clear-sub {
+    margin: 4px 0 0 24px;
+}
+
+.ce-clear-row {
+    display: flex;
+    align-items: center;
+    gap: 10px;
+    padding: 7px 10px;
+    border-radius: 9px;
+    cursor: pointer;
+    font-size: 13.5px;
+    color: var(--ce-text);
+}
+
+.ce-clear-row:hover {
+    background: rgba(255, 255, 255, 0.045);
+}
+
+.ce-clear-row input {
+    width: 15px;
+    height: 15px;
+    flex-shrink: 0;
+    accent-color: var(--ce-danger);
+}
+
+.ce-clear-row-group {
+    font-weight: 600;
+    background: rgba(255, 255, 255, 0.035);
+}
+
+.ce-clear-name {
+    flex: 1;
+    min-width: 0;
+}
+
+.ce-clear-ack {
+    margin-top: 14px;
+    border: 1px solid var(--ce-border);
+}
+
+.ce-clear-summary {
+    display: flex;
+    flex-direction: column;
+    gap: 2px;
+    font-size: 13px;
+    max-height: 186px;
+    overflow-y: auto;
+}
+
+.ce-clear-summary li {
+    display: flex;
+    align-items: center;
+    gap: 10px;
+    padding: 5px 10px;
+    border-radius: 8px;
+    background: rgba(255, 255, 255, 0.03);
 }
 
 .ce-mt-14 {

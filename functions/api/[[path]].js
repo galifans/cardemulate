@@ -16,7 +16,8 @@
  *   拆盒与统计
  *     POST /api/break               记录一次拆盒（需登录）
  *     GET  /api/breaks              我的拆盒记录（需登录，分页）
- *     DELETE /api/break             清空我的拆盒记录（需登录）
+ *     DELETE /api/break             清空我的拆盒记录（需登录；可按 category/maker/box 限定范围，
+ *                                   不带条件才是清空全部）
  *     GET  /api/stats               我的统计（需登录，可按 category/maker/box 过滤）
  *     GET  /api/leaderboard         排行榜
  *     GET  /api/global              全站统计（可按 category/maker/box 过滤）
@@ -150,7 +151,11 @@ const passwordProblem = (password) => {
     return "";
 };
 
-/** 维度 key：小写 slug，允许 . 与 : 以容纳 app.category.maker.product.box */
+/**
+ * 维度 key 白名单：小写 slug，允许 . 与 :
+ * 以容纳 app.category.maker.product.box；末尾的 - 是字面量（不是区间），
+ * 所以形如 tcu26-basketball / value-box 的 key 都能通过。
+ */
 const isSafeKey = (value) =>
     typeof value === "string" &&
     value.length > 0 &&
@@ -536,16 +541,43 @@ const handleRecordBreak = async (request, env) => {
     return json({ ok: true });
 };
 
+/**
+ * 清空我的拆盒记录（需登录）。
+ *
+ * 支持三种范围：不带条件 = 全部；?category=xxx = 该品类；?box=xxx = 该盒型。
+ * 三者作用在同一套维度字段上，所以直接复用 compileFilters。
+ *
+ * 【重要】维度参数一旦出现就必须合法。softKey 会把非法值吞成空字符串，
+ * 条件被跳过就静默变成「清空全部」—— 删除不可逆，这里宁可报错也不能猜。
+ */
 const handleDeleteBreaks = async (request, env) => {
     const db = requireDb(env);
     const appKey = appKeyOf(env);
     const user = await currentUser(db, request);
     if (!user) return fail("请先登录", 401);
+
+    const url = new URL(request.url);
+    const filters = [];
+    for (const dimension of ["category", "maker", "box"]) {
+        const raw = url.searchParams.get(dimension);
+        if (raw === null || raw === "") continue;
+        if (!isSafeKey(raw)) return fail("清空范围不合法，请重新选择");
+        filters.push([`${dimension}_key`, raw]);
+    }
+
+    const where = compileFilters(filters, 3);
+    const scope = `WHERE app_key = ?1 AND user_id = ?2${where.sql}`;
+    const binds = [appKey, user.id, ...where.binds];
+
+    const counted = await db.prepare(`SELECT COUNT(*) AS total FROM breaks ${scope}`).bind(...binds).first();
+
+    // 两张事实表都要删：只删 breaks 会让统计页的累计数字与记录列表对不上
     await db.batch([
-        db.prepare("DELETE FROM breaks WHERE app_key = ?1 AND user_id = ?2").bind(appKey, user.id),
-        db.prepare("DELETE FROM pull_stats WHERE app_key = ?1 AND user_id = ?2").bind(appKey, user.id),
+        db.prepare(`DELETE FROM breaks ${scope}`).bind(...binds),
+        db.prepare(`DELETE FROM pull_stats ${scope}`).bind(...binds),
     ]);
-    return json({ ok: true });
+
+    return json({ ok: true, removed: counted?.total ?? 0 });
 };
 
 /** 安全地把库里存的 JSON 文本解析成对象，脏数据一律当空对象 */

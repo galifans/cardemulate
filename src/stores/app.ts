@@ -225,22 +225,40 @@ const recordBreak = async (box: BoxDefinition, result: RipResult): Promise<boole
     }
 };
 
-/** 清空我的云端拆盒记录（需登录） */
-const clearBreaks = async (): Promise<void> => {
+/**
+ * 清空我的拆盒记录（需登录）。
+ *
+ * scopes 里的每一项是一个范围（品类 / 发行商 / 盒型），为空表示清空全部。
+ * 范围逐个下发、最后汇总一次提示：界面上的确认只走一次，不该冒出好几条提示。
+ *
+ * 记录一旦清空无法恢复，确认流程在界面上完成，这里只负责执行与回报条数。
+ */
+const clearBreaks = async (scopes: StatsFilter[] = []): Promise<boolean> => {
     clearMessages();
     if (!state.user) {
         state.error = "请先登录。";
-        return;
+        return false;
     }
     state.busy = true;
+    let removed = 0;
+    let failed = false;
     try {
-        await api.clearBreaks();
-        state.breaks = [];
-        state.breakTotal = 0;
-        await loadServerStats();
-        state.info = "已清空拆盒记录。";
-    } catch (error) {
-        state.error = error instanceof ApiError ? error.message : "清空失败，请稍后重试。";
+        for (const scope of scopes.length ? scopes : [{}]) {
+            try {
+                const result = await api.clearBreaks(scope);
+                removed += result.removed;
+            } catch {
+                // 继续把剩下的范围清完，最后统一回报，避免删了一半却什么都不说
+                failed = true;
+            }
+        }
+        await syncAfterAuth();
+        if (failed) {
+            state.error = `已清空 ${removed} 条拆盒记录，其余未能清空，请稍后重试。`;
+        } else {
+            state.info = removed > 0 ? `已清空 ${removed} 条拆盒记录。` : "没有需要清空的记录。";
+        }
+        return !failed;
     } finally {
         state.busy = false;
     }
