@@ -75,7 +75,27 @@
 - `defineBox()` 在开发环境校验失败会直接抛错（配率、编号、子集引用、卡号重复都会被拦），
   **不要**为了让数据通过而放宽 `validateBox()` 的规则，应修数据。
 
-## 6. 数据库约束
+## 6. 账号与注册约束
+
+- 注册方式**只有一种**：邮箱 + 密码。不采集昵称、手机号、生日等任何其他信息。
+- **严禁**引入第三方登录（OAuth / 微信 / 手机验证码等），也不做邮箱验证流程；
+  用户已明确表示本站不需要其他注册方式，后续也不要主动添加。
+- 密码长度：`MIN_PASSWORD_LENGTH = 6`、`MAX_PASSWORD_LENGTH = 200`。
+  前端 `AuthView.vue` 的 `MIN_PASSWORD` 必须与后端常量保持一致。
+- 展示名由服务端从邮箱前缀派生（`email.split("@")[0].slice(0, 24)`），不单独采集；
+  因此**不要**在前端恢复昵称输入框。
+- 密码存储：PBKDF2-SHA256，`PBKDF2_ITERATIONS = 150000`，每用户独立 16 字节随机盐，
+  用 base64 存入 `users.password_hash`。**禁止**降级为 MD5 / SHA1 / 无盐哈希。
+- 会话：`ce_session` Cookie 存**原始** token，数据库 `sessions` 表只存它的 SHA-256；
+  比对必须用 `safeEqual()` 常量时间比较。排查登录问题时注意这个方向——
+  拿去查库的是哈希，Cookie 里发出去的是原始 token，两者不能混用。
+- Cookie 属性固定为 `Path=/api; HttpOnly; Secure; SameSite=Lax; Max-Age=<秒>`，
+  站点无 HTTPS 的本地环境做接口测试时，需手动带上 Cookie 头（浏览器/HTTP 客户端
+  不会自动回传 `Secure` Cookie）。
+- 错误文案统一走 `fail("中文提示")`，且**不要**区分「邮箱不存在」与「密码错误」，
+  一律返回「邮箱或密码不正确」，避免账号枚举。
+
+## 7. 数据库约束
 
 - Cloudflare D1，绑定变量名**必须**是 `DB`，不可改名。
 - 表结构变更必须同时更新 `schema.sql`（全为 `CREATE TABLE IF NOT EXISTS` /
@@ -88,8 +108,12 @@
 - 写批量 upsert 时用 `INSERT ... ON CONFLICT (...) DO UPDATE SET col = excluded.col`，
   **严禁** `INSERT OR REPLACE`——它是先删后插，会触发子表的 `ON DELETE CASCADE`。
 - 前端渲染永远不依赖数据库；数据库不可用时自动降级为「本机统计」。
+- **卡种上报必须带维度**：`byVariant` 的每一项是
+  `{ count, subsetKey, tier }`，不能只给张数。`pull_stats.subset_key / tier`
+  依赖这两个字段，缺失会导致「按稀有度 / 按子集」统计恒为空。
+  严禁再用 `variantKey.split(":")` 这类从 key 里猜维度的写法。
 
-## 7. 质量与验证（每次修改必做）
+## 8. 质量与验证（每次修改必做）
 
 ```bash
 npm run typecheck   # vue-tsc --noEmit，必须零错误
@@ -104,7 +128,7 @@ npm run build       # 必须 Success，且 dist/_routes.json 存在
 - PowerShell 5.1 用 `;` 串联命令，不要用 `&&`；输出中文前先 `chcp 65001`。
 - 含 `[` `]` 的路径（如 `functions/api/[[path]].js`）必须用 `-LiteralPath`。
 
-## 8. Git 与发布
+## 9. Git 与发布
 
 - commit message 格式：`type(scope): 描述`，如 `feat(basketball): 新增 Mega Box 配率`、
   `fix(engine): 修正最优卡比较`。type ∈ `feat / fix / docs / chore / refactor / perf / test`。
@@ -114,7 +138,7 @@ npm run build       # 必须 Success，且 dist/_routes.json 存在
 - 严禁提交任何密钥、token、敏感配置；`CE_SYNC_TOKEN` 只放 Cloudflare Pages 环境变量。
 - 不提交 `node_modules/`、`dist/`、`.wrangler/`、`.dev.vars`。
 
-## 9. 技术栈约束（勿随意升级）
+## 10. 技术栈约束（勿随意升级）
 
 - 保持现有大版本，**不要**引入新框架：
   - Vue 3.5 / Vite 6 / TypeScript 5.7 / Vue Router 4
@@ -123,7 +147,7 @@ npm run build       # 必须 Success，且 dist/_routes.json 存在
 - 不新增运行时依赖前先确认能否用现有工具实现；新增依赖需在 `PROGRESS.md` 记录理由。
 - 别名 `@` 指向 `src`（`vite.config.ts` 与 `tsconfig.json` 各配一份，改一处要同步另一处）。
 
-## 10. 文档同步（强制）
+## 11. 文档同步（强制）
 
 - **任何改动完成后必须更新 `PROGRESS.md`**（进展时间线 + 待办），格式见该文件顶部说明。
 - 新增品类 / 发行商 / 盒型后，同步更新 `README.md` 的「扩展约定」示例。

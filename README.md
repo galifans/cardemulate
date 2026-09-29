@@ -155,12 +155,22 @@ curl -X POST https://cardemulate.wikiandroid.com/api/catalog/sync \
 
 `catalog.json` 由 `buildCatalogPayload()`（`src/catalog/db.ts`）生成。
 
+## 账号与注册
+
+- **只支持一种注册方式：邮箱 + 密码**。不采集昵称、手机号等任何其他信息，
+  **不提供**第三方登录，也不做邮箱验证流程。
+- 密码长度 **6 ～ 200 位**；展示名由服务端取邮箱前缀自动生成。
+- 密码以 **PBKDF2-SHA256（150,000 次迭代 + 每用户随机盐）** 哈希存储，不保存明文。
+- 登录态用一个 `ce_session` Cookie（`HttpOnly` + `Secure` + `SameSite=Lax`，30 天），
+  数据库只存其 SHA-256；登录失败不区分「邮箱不存在 / 密码错误」，避免账号枚举。
+- **未登录也能拆卡**，数据存在浏览器本地；登录后才同步到云端用于排行榜与统计。
+
 ## 接口一览
 
 | 方法 | 路径 | 说明 |
 | --- | --- | --- |
 | GET | `/api/config` | 站点元信息与功能开关 |
-| POST | `/api/auth/register` | 注册 |
+| POST | `/api/auth/register` | 注册（仅需 `email` + `password`，密码至少 6 位） |
 | POST | `/api/auth/login` | 登录 |
 | POST | `/api/auth/logout` | 退出 |
 | GET | `/api/me` | 当前用户 |

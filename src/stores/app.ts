@@ -6,7 +6,14 @@
  */
 
 import { computed, reactive, readonly } from "vue";
-import { api, ApiError, type ApiUser, type StatsFilter, type UserStats } from "../api/client";
+import {
+    api,
+    ApiError,
+    type ApiUser,
+    type StatsFilter,
+    type UserStats,
+    type VariantTally,
+} from "../api/client";
 import type { BoxDefinition } from "../engine/types";
 import type { RipResult } from "../engine/rip";
 
@@ -24,7 +31,7 @@ export interface LocalBreak {
     cardCount: number;
     byTier: Record<string, number>;
     bySubset: Record<string, number>;
-    byVariant: Record<string, number>;
+    byVariant: Record<string, VariantTally>;
     best: { variantKey: string; fullName: string; player: string; tier: string; odds: number } | null;
     createdAt: string;
 }
@@ -84,11 +91,11 @@ const refreshSession = async (): Promise<void> => {
     }
 };
 
-const register = async (email: string, password: string, displayName?: string): Promise<boolean> => {
+const register = async (email: string, password: string): Promise<boolean> => {
     clearMessages();
     state.busy = true;
     try {
-        const result = await api.register(email, password, displayName);
+        const result = await api.register(email, password);
         state.user = result.user;
         state.info = "注册成功，拆盒记录将自动同步到云端。";
         await loadServerStats();
@@ -145,9 +152,16 @@ const loadServerStats = async (filter?: StatsFilter): Promise<void> => {
 
 /** 把一次拆盒结果写进本地历史，并在登录状态下同步到云端 */
 const recordBreak = async (box: BoxDefinition, result: RipResult): Promise<void> => {
-    const byVariant: Record<string, number> = {};
+    // 卡种带上子集与稀有度：服务端 pull_stats 靠这两个字段做维度切片
+    const byVariant: Record<string, VariantTally> = {};
     for (const card of result.cards) {
-        byVariant[card.variantKey] = (byVariant[card.variantKey] ?? 0) + 1;
+        const tally = byVariant[card.variantKey] ?? {
+            count: 0,
+            subsetKey: card.subsetKey,
+            tier: card.tier,
+        };
+        tally.count += 1;
+        byVariant[card.variantKey] = tally;
     }
 
     const entry: LocalBreak = {

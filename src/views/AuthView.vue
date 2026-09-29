@@ -10,8 +10,10 @@ const mode = ref<"login" | "register">("register");
 const email = ref("");
 const password = ref("");
 const confirm = ref("");
-const displayName = ref("");
 const localError = ref("");
+
+/** 与后端 MIN_PASSWORD_LENGTH 保持一致 */
+const MIN_PASSWORD = 6;
 
 onMounted(() => {
     store.clearMessages();
@@ -33,8 +35,8 @@ const submit = async (): Promise<void> => {
         localError.value = "请输入有效的邮箱地址。";
         return;
     }
-    if (password.value.length < 8) {
-        localError.value = "密码至少 8 位。";
+    if (password.value.length < MIN_PASSWORD) {
+        localError.value = `密码至少 ${MIN_PASSWORD} 位。`;
         return;
     }
     if (isRegister.value && password.value !== confirm.value) {
@@ -43,11 +45,7 @@ const submit = async (): Promise<void> => {
     }
 
     const ok = isRegister.value
-        ? await store.register(
-              email.value.trim(),
-              password.value,
-              displayName.value.trim() || undefined,
-          )
+        ? await store.register(email.value.trim(), password.value)
         : await store.login(email.value.trim(), password.value);
 
     if (ok) {
@@ -109,17 +107,6 @@ const logout = async (): Promise<void> => {
             </div>
 
             <form class="ce-auth-form" @submit.prevent="submit">
-                <label v-if="isRegister" class="ce-field">
-                    <span>昵称（可选，默认使用邮箱前缀）</span>
-                    <input
-                        v-model="displayName"
-                        type="text"
-                        maxlength="24"
-                        autocomplete="nickname"
-                        placeholder="卡牌收藏家"
-                    />
-                </label>
-
                 <label class="ce-field">
                     <span>邮箱</span>
                     <input
@@ -132,12 +119,12 @@ const logout = async (): Promise<void> => {
                 </label>
 
                 <label class="ce-field">
-                    <span>密码（至少 8 位）</span>
+                    <span>密码（至少 {{ MIN_PASSWORD }} 位）</span>
                     <input
                         v-model="password"
                         type="password"
                         :autocomplete="isRegister ? 'new-password' : 'current-password'"
-                        placeholder="至少 8 位字符"
+                        placeholder="至少 6 位字符"
                         required
                     />
                 </label>
@@ -167,8 +154,9 @@ const logout = async (): Promise<void> => {
             </form>
 
             <p class="ce-faint ce-auth-note">
-                我们只存储邮箱、昵称与密码的 PBKDF2 哈希（SHA-256，150,000 次迭代，随机盐），
-                不保存明文密码，也不收集任何其他个人信息。
+                注册只需要邮箱与密码，密码至少 6 位；我们只存储密码的 PBKDF2 哈希
+                （SHA-256，150,000 次迭代，随机盐），不保存明文密码，也不收集任何其他个人信息。
+                本站不提供也不计划提供第三方登录。
             </p>
         </section>
     </div>

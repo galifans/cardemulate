@@ -82,6 +82,13 @@ const queryString = (filter?: StatsFilter): string => {
     return text ? `?${text}` : "";
 };
 
+/** 一个卡种的本次拆出情况；subsetKey / tier 用于服务端按维度切片 */
+export interface VariantTally {
+    count: number;
+    subsetKey: string;
+    tier: string;
+}
+
 export interface BreakPayload {
     boxKey: string;
     /** 维度冗余字段，便于服务端在任意维度上做切片统计 */
@@ -92,7 +99,7 @@ export interface BreakPayload {
     cardCount: number;
     byTier: Record<string, number>;
     bySubset: Record<string, number>;
-    byVariant: Record<string, number>;
+    byVariant: Record<string, VariantTally>;
     best: {
         variantKey: string;
         player: string;
@@ -216,10 +223,10 @@ export interface CatalogPayload {
 }
 
 export const api = {
-    register: (email: string, password: string, displayName?: string) =>
+    register: (email: string, password: string) =>
         request<{ ok: true; user: ApiUser }>("auth/register", {
             method: "POST",
-            body: JSON.stringify({ email, password, displayName }),
+            body: JSON.stringify({ email, password }),
         }),
 
     login: (email: string, password: string) =>

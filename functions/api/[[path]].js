@@ -8,7 +8,7 @@
  *     GET  /api/catalog             从 D1 读回目录镜像（用于对账 / 外部工具）
  *
  *   账号
- *     POST /api/auth/register       注册
+ *     POST /api/auth/register       注册（仅「邮箱 + 密码」，密码至少 6 位）
  *     POST /api/auth/login          登录
  *     POST /api/auth/logout         退出
  *     GET  /api/me                  当前登录用户
@@ -29,6 +29,9 @@
 const SESSION_COOKIE = "ce_session";
 const SESSION_TTL_DAYS = 30;
 const PBKDF2_ITERATIONS = 150000;
+/** 注册方式只有「邮箱 + 密码」一种，密码长度约束前后端保持同一套数字 */
+const MIN_PASSWORD_LENGTH = 6;
+const MAX_PASSWORD_LENGTH = 200;
 /** 单次上报的卡种上限，防止伪造超大 payload */
 const MAX_VARIANTS_PER_BREAK = 600;
 /** 批量写库时每条 SQL 拼多少行 */
@@ -260,14 +263,12 @@ const handleRegister = async (request, env) => {
 
     const email = normalizeEmail(body.email);
     const password = typeof body.password === "string" ? body.password : "";
-    const displayName =
-        typeof body.displayName === "string" && body.displayName.trim()
-            ? body.displayName.trim().slice(0, 24)
-            : email.split("@")[0].slice(0, 24);
+    // 注册只需要账号 + 密码，昵称不单独采集，直接取邮箱前缀做展示名
+    const displayName = email.split("@")[0].slice(0, 24) || "收藏家";
 
     if (!isEmail(email)) return fail("邮箱格式不正确");
-    if (password.length < 8) return fail("密码至少 8 位");
-    if (password.length > 200) return fail("密码过长");
+    if (password.length < MIN_PASSWORD_LENGTH) return fail(`密码至少 ${MIN_PASSWORD_LENGTH} 位`);
+    if (password.length > MAX_PASSWORD_LENGTH) return fail("密码过长");
 
     const exists = await db.prepare("SELECT id FROM users WHERE email = ?1").bind(email).first();
     if (exists) return fail("该邮箱已注册，请直接登录", 409);
@@ -313,6 +314,7 @@ const handleLogin = async (request, env) => {
     const email = normalizeEmail(body.email);
     const password = typeof body.password === "string" ? body.password : "";
     if (!email || !password) return fail("请输入邮箱与密码");
+    if (password.length > MAX_PASSWORD_LENGTH) return fail("密码过长");
 
     const user = await db
         .prepare(
@@ -389,9 +391,30 @@ const sanitizeBreak = (body, appKey) => {
         return out;
     };
 
+    // 卡种不能只带张数：pull_stats 还要按子集与稀有度切片，
+    // 所以每个卡种都随带上报它的 subsetKey / tier。【重要】
+    const cleanVariants = (raw, limit) => {
+        const out = [];
+        if (!raw || typeof raw !== "object") return out;
+        for (const [key, value] of Object.entries(raw)) {
+            if (!isSafeKey(key)) continue;
+            const item = value && typeof value === "object" ? value : { count: value };
+            const n = Number(item.count);
+            if (!Number.isFinite(n) || n <= 0) continue;
+            out.push({
+                variantKey: key.slice(0, 160),
+                subsetKey: softKey(item.subsetKey) || null,
+                tier: typeof item.tier === "string" ? item.tier.slice(0, 20) : null,
+                count: Math.min(Math.round(n), 2000),
+            });
+            if (out.length >= limit) break;
+        }
+        return out;
+    };
+
     const byTier = cleanMap(body.byTier, 12);
     const bySubset = cleanMap(body.bySubset, 120);
-    const byVariant = cleanMap(body.byVariant, MAX_VARIANTS_PER_BREAK);
+    const byVariant = cleanVariants(body.byVariant, MAX_VARIANTS_PER_BREAK);
 
     let best = null;
     if (body.best && isSafeKey(body.best.variantKey)) {
@@ -456,8 +479,7 @@ const handleRecordBreak = async (request, env) => {
             ),
     ];
 
-    for (const [variantKey, count] of Object.entries(record.byVariant)) {
-        const [subsetKey, tier] = variantKey.split(":");
+    for (const item of record.byVariant) {
         statements.push(
             db
                 .prepare(
@@ -466,6 +488,8 @@ const handleRecordBreak = async (request, env) => {
                      VALUES (?1, ?2, ?3, ?4, ?5, ?6, ?7, ?8, ?9, ?10, ?11, ?11)
                      ON CONFLICT (app_key, user_id, box_key, variant_key) DO UPDATE SET
                          count = pull_stats.count + excluded.count,
+                         subset_key = excluded.subset_key,
+                         tier = excluded.tier,
                          last_at = excluded.last_at`,
                 )
                 .bind(
@@ -475,10 +499,10 @@ const handleRecordBreak = async (request, env) => {
                     record.categoryKey,
                     record.makerKey,
                     record.productKey,
-                    variantKey,
-                    subsetKey ?? null,
-                    tier ?? null,
-                    count,
+                    item.variantKey,
+                    item.subsetKey,
+                    item.tier,
+                    item.count,
                     now,
                 ),
         );
