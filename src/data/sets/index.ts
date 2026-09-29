@@ -16,7 +16,11 @@
 import { registerBoxes } from "@/catalog/registry";
 import type { BoxDefinition } from "@/engine/types";
 
+import { TCCJ26_BASKETBALL_BOXES } from "./basketball/topps/tccj26-basketball";
 import { TCU26_BASKETBALL_BOXES } from "./basketball/topps/tcu26-basketball";
 
 /** 全部已实现的盒型 */
-export const REGISTERED_BOXES: BoxDefinition[] = registerBoxes([...TCU26_BASKETBALL_BOXES]);
+export const REGISTERED_BOXES: BoxDefinition[] = registerBoxes([
+    ...TCU26_BASKETBALL_BOXES,
+    ...TCCJ26_BASKETBALL_BOXES,
+]);

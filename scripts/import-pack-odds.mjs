@@ -37,8 +37,12 @@ const ROW_PATCHES = {
 };
 
 const PAGE_RE = /^=+ PAGE \d+ =+$/;
+/**
+ * 官方声明，整段按版面折行，所以逐行匹配时要把折出来的半句也认出来，
+ * 否则每次生成都会多出几条「没有配率」的无用提醒。
+ */
 const DISCLAIMER_RE =
-    /checklists? and odds provided by topps|actual contents and odds may vary|does not guarantee that it will appear/i;
+    /checklists? and odds provided by topps|actual contents and odds may vary|does not guarantee|configuration of that product|time of production|will appear in every (parallel|variation)|inclusion of a subject|^\*+$/i;
 
 /** 一个配率令牌：`-`（空）、`1:X`、`A:B`、或者没有冒号的数字（异常，必须人工看） */
 const VALUE_RE = /^(?:-|\d+\s*:\s*[\d,.]+|\d+\.\d+)$/;
@@ -76,7 +80,7 @@ const valueTokens = (line) => {
 
 /** 表头行：请求的渠道名都能按从左到右的顺序在里面找到；返回各列的起始位 */
 const headerOffsets = (line, columns) => {
-    if (columns.length < 2) return null;
+    if (!columns.length) return null;
     let from = 0;
     const offsets = [];
     for (const name of columns) {
@@ -96,7 +100,8 @@ const findHeader = (lines, columns) => {
     return null;
 };
 
-const looksLikeHeader = (line, columns) => columns.filter((name) => line.includes(name)).length >= 2;
+const looksLikeHeader = (line, columns) =>
+    columns.filter((name) => line.includes(name)).length >= Math.min(2, columns.length);
 
 /**
  * 把数值归到某一列。

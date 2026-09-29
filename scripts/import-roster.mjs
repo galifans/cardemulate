@@ -57,7 +57,6 @@ const parse = (xlsxPath, sheetIndex) => {
 
     const sections = [];
     let current = null;
-    let title = "";
 
     for (const row of rows) {
         const hasA = Boolean(row.A);
@@ -66,7 +65,6 @@ const parse = (xlsxPath, sheetIndex) => {
         if (hasA && !hasB) {
             // 分隔行 / 标题行：先记下来，等确认后面有数据行再算一个分节
             current = { title: String(row.A).trim(), rows: [] };
-            if (sections.length === 0 && !title) title = current.title;
             sections.push(current);
             continue;
         }
@@ -79,20 +77,18 @@ const parse = (xlsxPath, sheetIndex) => {
         current.rows.push(entry);
     }
 
-    return { title, sections: sections.filter((section) => section.rows.length > 0) };
+    return { sections: sections.filter((section) => section.rows.length > 0) };
 };
 
-const render = (parsed, xlsxName) => {
+const render = (parsed, xlsxName, productName) => {
     const used = new Map();
     const lines = [];
 
-    const product = parsed.title.replace(/\s*checklist\s*$/i, "").trim();
-
     lines.push("/**");
-    lines.push(` * ${product || xlsxName} 名册（自动生成，请勿手工编辑）。`);
+    lines.push(` * ${productName} 名册（自动生成，请勿手工编辑）。`);
     lines.push(" *");
     lines.push(` * 来源：${xlsxName}（官方 Checklist 表格版，B 级官方镜像）。`);
-    lines.push(` * 重新生成：node scripts/import-roster.mjs <${xlsxName}> <本文件>`);
+    lines.push(` * 重新生成：node scripts/import-roster.mjs <${xlsxName}> <本文件> [工作表序号] [产品名]`);
     lines.push(" *");
     lines.push(" * 分节标题与顺序与官方表格版一致，`ROSTER_SECTIONS` 的键就是表里的原始标题；");
     lines.push(" * `box.ts` 按标题取子集，不要按下标取。");
@@ -134,9 +130,11 @@ const render = (parsed, xlsxName) => {
 };
 
 const main = () => {
-    const [source, target, sheetArg] = process.argv.slice(2);
+    const [source, target, sheetArg, nameArg] = process.argv.slice(2);
     if (!source || !target) {
-        console.error("用法：node scripts/import-roster.mjs <checklist.xlsx> <输出 roster.ts> [工作表序号]");
+        console.error(
+            "用法：node scripts/import-roster.mjs <checklist.xlsx> <输出 roster.ts> [工作表序号] [产品名]",
+        );
         process.exit(1);
     }
 
@@ -146,9 +144,12 @@ const main = () => {
         process.exit(1);
     }
 
+    // 表头注释里的产品名不用表里的行去猜：官方表的头几行有的是产品名、
+    // 有的是一句免责声明，猜错会写进注释。默认退回系列目录名。
+    const productName = nameArg || basename(dirname(resolve(source)));
     const outputPath = resolve(target);
     mkdirSync(dirname(outputPath), { recursive: true });
-    writeFileSync(outputPath, render(parsed, basename(source)), "utf8");
+    writeFileSync(outputPath, render(parsed, basename(source), productName), "utf8");
 
     const total = parsed.sections.reduce((sum, section) => sum + section.rows.length, 0);
     console.log(`已生成 ${outputPath}`);

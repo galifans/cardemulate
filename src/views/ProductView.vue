@@ -179,7 +179,7 @@ const closeConfig = () => {
                     <button class="ce-modal-close" type="button" @click="closeConfig">关闭</button>
                 </div>
 
-                <div class="ce-modal-block">
+                <div v-if="configDetail.exclusives.length" class="ce-modal-block">
                     <h3 class="ce-section-title">本盒独家内容</h3>
                     <ul class="ce-config-list">
                         <li v-for="item in configDetail.exclusives" :key="item">{{ item }}</li>
