@@ -262,6 +262,21 @@ DA Card World 都是等十几秒就进去了），挡住 `fetch` 不等于挡住
 `2026-27-topps-flagship-basketball` 两份指南页（前者没找到名单表格版，
 后者属于下一个赛季，都不在本次补录范围里）。
 
+### 非产品类归档
+
+有些数据不属于任何系列产品，但卡价模型要用，同样按「原文 + 出处 + 哈希」归档：
+
+| 品类 | 发布方 | 资料 | 目录 | 采集日期 | 级别 | 采集记录 |
+| --- | --- | --- | --- | --- | --- | --- |
+| 篮球 | NBA（nba.com） | 2025 年 NBA 选秀顺位（59 个） | `basketball/nba/2025-draft-order/` | 2026-09-30 | B | [记录](./basketball/nba/2025-draft-order/README.md) |
+
+这一份进仓是因为 `src/data/prices/draft.ts` 的顺位阶梯要靠它：
+名册里 2025 届新秀一场 NBA 正式比赛都没打过，没有成交历史可以进球员档位表，
+只能按选秀顺位定价。派生数据由 `npm run draft:import` 从 `draft-order.txt` 生成
+（`src/data/prices/draft-order.generated.ts`，带「不要手改」标头）。
+**不要**拿整理站、截图或记忆填顺位 —— 试过的其它来源全部不可达或拒绝访问，
+实测表写在那一份 README 里。
+
 ## 五、待办
 
 - `checklist.pdf` 的确切镜像链接没能记下来。2026-09-30 复查时发现该镜像站已关闭目录列表

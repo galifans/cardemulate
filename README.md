@@ -55,6 +55,10 @@ npm run roster:check     # 名册对回归档的官方 Checklist，有出入退�
 npm run boxes:snapshot   # 记录当前所有盒型的完整拆盒行为
 npm run boxes:check      # 比对差异，有差异退出码 1
 npm run prices:check     # 盒价登记完整性 + 球员分级拼写 + 回本率区间
+npm run prices:audit     # 模型隐含的维度倍数 vs 卡淘成交样本的实测倍数
+npm run prices:fit       # 从成交样本量各维度系数 + 留出集误差
+npm run sales:scrape     # 重采卡淘已售出成交样本（耗时较长）
+npm run draft:import     # 从归档原文生成选秀顺位表
 npm run prices:probe     # 重新穿刺查价站点可用性（调研用，约 30 秒）
 ```
 
@@ -66,7 +70,10 @@ npm run prices:probe     # 重新穿刺查价站点可用性（调研用，约 3
 > 还要跑 `npm run boxes:check`：它锁住已有盒型的拆盒结果（含 5 个固定种子的逐卡输出），
 > 重构共享逻辑时能立刻发现有没有把老盒型改坏。
 > 动了 `roster.ts` 则另外跑 `npm run roster:check`，它锁的是名册与官方名单的一致性。
-> 动了 `src/data/prices/` 下任何东西则跑 `npm run prices:check`。
+> 动了 `src/data/prices/` 下任何东西则跑 `npm run prices:check`；
+> 动了维度系数（基准价 / 限量 / 人物 / 顺位 / 年份）则另外跑 `npm run prices:audit`，
+> 它对着成交样本校，能发现「改错了但内部仍然自洽」那一类问题。
+> 成交样本不入仓（`.snapshot/card-sales.jsonl`），新 clone 上先跑 `npm run sales:scrape`。
 
 > **价格不走联网查价**：候选行情站本机基本进不来，且逐张实时查价会让同一盒两次打开
 > 算出不同金额。价格登记在 `src/data/prices/` 里、计算是纯函数，

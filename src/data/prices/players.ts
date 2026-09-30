@@ -43,6 +43,9 @@ export const SUPERSTARS: string[] = [
  * 实测：利拉德 ￥545（n=8）、安东尼戴维斯 ￥613（n=26）、恩比德 ￥887（n=3）、
  * 米切尔 ￥927（n=10）、布克 ￥963（n=3）、欧文 ￥1,117（n=4）、
  * 布伦森 ￥2,881（n=2）、约基奇 ￥2,153（n=8）。
+ *
+ * 2025 届新秀按同一条规则从签字卡市场补进来：哈珀 ￥3,369（n=38）、
+ * 克努佩尔 ￥1,400（n=45）都在这一档 —— 他们的卡上市不久，价完全由市场预期定。
  */
 export const ELITES: string[] = [
     "Joel Embiid",
@@ -71,6 +74,8 @@ export const ELITES: string[] = [
     "Alperen Sengun",
     "Pascal Siakam",
     "Kristaps Porzingis",
+    "Dylan Harper",
+    "Kon Knueppel",
 ];
 
 /**
@@ -138,6 +143,7 @@ export const ALL_STARS: string[] = [
     "Tari Eason",
     "Ausar Thompson",
     "Derik Queen",
+    "Ace Bailey",
 ];
 
 /**
@@ -153,8 +159,16 @@ export const SUPERSTAR_TIER = 30;
 export const ELITE_TIER = 7;
 export const ALL_STAR_TIER = 2.5;
 
-/** 新秀卡的额外系数（与上面三档叠乘） */
-export const ROOKIE_FACTOR = 1.4;
+/**
+ * 新秀卡的额外系数（与上面三档叠乘）。
+ *
+ * 这一项曾经是 1.4，按「新秀卡就是贵卡」的直觉定的。两万条成交样本抛光后
+ * （抵消系列、人物、卡类、印量四个维度）实测：新秀 ×1.052、非新秀 ×0.975，
+ * 只差 ×1.08；分卡类看也一致（普卡 ×1.12、签字 ×1.07）。也就是说新秀这两个字
+ * 本身值的不多 —— 贵的是「同一个人手里的新秀卡」那个人，不是卡上那个 RC。
+ * 所以改成 1.08，不再叠乘 1.4。
+ */
+export const ROOKIE_FACTOR = 1.08;
 
 /** 首编（1/N）的额外系数 */
 export const FIRST_SERIAL_FACTOR = 1.5;
@@ -185,6 +199,9 @@ export function playerTier(player: string): number {
  * 样本量差异很大（内姆哈德 102 条、布伦森 2 条），所以只看量级，不要抠小数。
  */
 export const TIER_EVIDENCE: { player: string; tier: string; autoMedian: number; baseMedian: number; n: number }[] = [
+    { player: "Dylan Harper", tier: "巨星", autoMedian: 3368.99, baseMedian: 50.8, n: 38 },
+    { player: "Kon Knueppel", tier: "巨星", autoMedian: 1400, baseMedian: 25.5, n: 45 },
+    { player: "Ace Bailey", tier: "球星", autoMedian: 626.01, baseMedian: 37.02, n: 45 },
     { player: "Cooper Flagg", tier: "超巨", autoMedian: 9034, baseMedian: 62, n: 5 },
     { player: "Stephen Curry", tier: "超巨", autoMedian: 8711, baseMedian: 35, n: 7 },
     { player: "Anthony Edwards", tier: "超巨", autoMedian: 8228, baseMedian: 11, n: 4 },

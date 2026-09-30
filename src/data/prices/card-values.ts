@@ -11,6 +11,10 @@
  * 模型必须保持纯函数（无随机、无时间依赖），否则同一个种子重算会得到不同的钱，
  * 「复现这一盒」和「老记录回填」都会失真。
  *
+ * 各维度的系数不是拍脑袋定的：卡淘「已售出」成交样本（两万条量级）抛光电系列 /
+ * 人物 / 卡类 / 印量五个维度后再标定，量法与校验分别在 scripts/fit-sales-model.ts
+ * 与 scripts/check-sales-fit.ts。改系数前先看那边的实测值。
+ *
  * 调参方式
  * --------
  * 基准价与系数改动后跑 `npm run prices:check`，它会把每个盒型拆若干盒，
@@ -18,6 +22,7 @@
  */
 
 import type { GroupKind, PulledCard, Tier } from "@/engine/types";
+import { draftFactor } from "./draft";
 import { FIRST_SERIAL_FACTOR, LAST_SERIAL_FACTOR, ROOKIE_FACTOR, playerTier } from "./players";
 import { productValueFactor } from "./products";
 import type { CardValueBreakdown } from "./types";
@@ -28,14 +33,19 @@ export const FLOOR_VALUE = 0.01;
 /**
  * 档位基准价（RMB）：口径是「普通轮换球员、非编号」的一张卡。
  * 表按 大类 × 档位 展开；缺的格子由 fallbackBaseline 逐级兜底。
+ *
+ * 各大类的相对高低不是拍的：`npm run prices:audit` 会把「签字卡 ÷ 普卡」这类
+ * 倍数在模型侧和实测侧并排打印。曾经实物卡的基准价定在签字卡之上（30 vs 22），
+ * 实测却是签字 ×7.9、实物 ×2.4 —— 一张球衣卡比一张签字卡贵，市场里不存在这种事，
+ * 那一栏整整高了 5.8 倍。签字卡本身也偏高约 2 倍，一并按实测收下来了。
  */
 const BASELINE: Record<GroupKind, Partial<Record<Tier, number>>> = {
-    base: { common: 0.35, uncommon: 1.4, rare: 3.5, epic: 9, legendary: 24, mythic: 70 },
-    parallel: { common: 0.5, uncommon: 1.7, rare: 4.2, epic: 11, legendary: 28, mythic: 80 },
-    insert: { common: 0.35, uncommon: 1.2, rare: 3, epic: 7, legendary: 18, mythic: 55 },
-    auto: { common: 22, uncommon: 30, rare: 40, epic: 60, legendary: 100, mythic: 450 },
-    relic: { common: 30, uncommon: 38, rare: 52, epic: 75, legendary: 130, mythic: 420 },
-    ssp: { common: 45, uncommon: 60, rare: 85, epic: 120, legendary: 200, mythic: 900 },
+    base: { common: 0.44, uncommon: 1.75, rare: 4.4, epic: 11.3, legendary: 30, mythic: 88 },
+    parallel: { common: 0.63, uncommon: 2.13, rare: 5.3, epic: 13.8, legendary: 35, mythic: 100 },
+    insert: { common: 0.44, uncommon: 1.5, rare: 3.8, epic: 8.8, legendary: 22.5, mythic: 69 },
+    auto: { common: 13.8, uncommon: 19, rare: 25, epic: 37.5, legendary: 62.5, mythic: 280 },
+    relic: { common: 6.5, uncommon: 8.3, rare: 11.3, epic: 16.3, legendary: 27.5, mythic: 90 },
+    ssp: { common: 26, uncommon: 36, rare: 50, epic: 71, legendary: 119, mythic: 540 },
 };
 
 /** 兜底链：本大类本档位 -> 本大类普卡 -> base 同档位 -> base 普卡 */
@@ -50,20 +60,29 @@ function fallbackBaseline(group: GroupKind, tier: Tier): number {
 }
 
 /**
- * 限量系数：编号越小越贵。刻意压平了尾部 —— 现实中 /1 不会比非编号贵出一百倍，
- * 倍率滚得太快会让每个盒型的期望值都被一两张超级卡带飞。
+ * 限量系数：编号越小越贵。
+ *
+ * 数是从成交样本里量出来的：把系列、人物、卡类、印量四个维度抛光后，/50-99 相对
+ * 非编号约 ×3.7、/25-49 约 ×8、/10-24 约 ×17、/2-9 约 ×36、/1 约 ×148。
+ * 但这里不能照搬 —— 目录给编号平行卡分配的档位（/150~/399 归 epic、/50~/99 归
+ * legendary、/25 以下归 mythic）本身已经带了一大截印量溢价，两处叠起来才是市场价。
+ * 所以有效值要从「实测值 ÷ 档位已经给过的那一截」倒算，这也让 /100~/399 这两档算出了
+ * 小于 1 的数 —— 它们的档位（epic / legendary）比非编号那整池的均值高得多，实测却
+ * 只比非编号贵 1.6~1.7 倍，超出部分要在这里收回去。**这不是「编号越大越便宜」。**
+ *
+ * 有效值怎么核：`npm run prices:audit` 会把模型隐含的印量阶梯与实测阶梯并列打印。
  */
 function scarcityFactor(numbered: number | null): number {
     if (!numbered || numbered <= 0) return 1;
-    if (numbered <= 1) return 7.5;
-    if (numbered <= 9) return 5.8;
-    if (numbered <= 24) return 4.2;
-    if (numbered <= 49) return 3.1;
-    if (numbered <= 99) return 2.4;
-    if (numbered <= 199) return 1.8;
-    if (numbered <= 299) return 1.45;
-    if (numbered <= 399) return 1.2;
-    return 1.1;
+    if (numbered <= 1) return 52;
+    if (numbered <= 9) return 17;
+    if (numbered <= 24) return 4.6;
+    if (numbered <= 49) return 4;
+    if (numbered <= 99) return 1.7;
+    if (numbered <= 199) return 0.62;
+    if (numbered <= 299) return 0.55;
+    if (numbered <= 399) return 0.45;
+    return 0.4;
 }
 
 /** 吃满人物倍率的大类：签名卡 / 实物卡 / 超短印 */
@@ -82,11 +101,20 @@ const CARD_GROUP_SPREAD = 0.15;
  * 库里签名卡中位 ￥8,711 而普卡中位 ￥35（相差 250 倍），普通球员签名卡 ￥140
  * 而普卡 ￥11（相差 13 倍）。也就是说「人物」这个变量本身就被卡的档次放大了。
  * 上一版用一个倍率同时算两类卡，结果是签名卡那一头错得离谱。
+ *
+ * 没进档位表的球员（主要是当年新秀）改看**选秀顺位**，见 draft.ts。两套只在
+ * 其中一套上计价：档位表里已经有这个人的话，他的顺位价值已经写在档位倍率里了，
+ * 再乘一遍就是同一件事计两次。
  */
 function playerFactor(card: PulledCard): number {
     const tier = playerTier(card.player);
-    const spread = PREMIUM_GROUPS.has(card.group) ? 1 : CARD_GROUP_SPREAD;
-    let factor = 1 + (tier - 1) * spread;
+    let factor: number;
+    if (tier === 1) {
+        factor = draftFactor(card.player);
+    } else {
+        const spread = PREMIUM_GROUPS.has(card.group) ? 1 : CARD_GROUP_SPREAD;
+        factor = 1 + (tier - 1) * spread;
+    }
     if (card.rookie) factor *= ROOKIE_FACTOR;
     return factor;
 }

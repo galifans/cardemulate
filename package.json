@@ -18,6 +18,10 @@
         "boxes:check": "esbuild scripts/snapshot-boxes.ts --bundle --platform=node --format=esm --tsconfig=tsconfig.json --outfile=.snapshot/snapshot-boxes.mjs --log-level=warning && node .snapshot/snapshot-boxes.mjs check",
         "prices:check": "esbuild scripts/check-prices.ts --bundle --platform=node --format=esm --tsconfig=tsconfig.json --outfile=.snapshot/check-prices.mjs --log-level=warning && node .snapshot/check-prices.mjs",
         "prices:probe": "node scripts/probe-price-sites.mjs",
+        "prices:fit": "esbuild scripts/fit-sales-model.ts --bundle --platform=node --format=esm --tsconfig=tsconfig.json --outfile=.snapshot/fit-sales-model.mjs --log-level=warning && node .snapshot/fit-sales-model.mjs",
+        "prices:audit": "esbuild scripts/check-sales-fit.ts --bundle --platform=node --format=esm --tsconfig=tsconfig.json --outfile=.snapshot/check-sales-fit.mjs --log-level=warning && node .snapshot/check-sales-fit.mjs",
+        "sales:scrape": "node scripts/scrape-card-sales.mjs",
+        "draft:import": "node scripts/import-draft-order.mjs",
         "print:check": "esbuild scripts/check-print-runs.ts --bundle --platform=node --format=esm --tsconfig=tsconfig.json --outfile=.snapshot/check-print-runs.mjs --log-level=warning && node .snapshot/check-print-runs.mjs"
     },
     "dependencies": {

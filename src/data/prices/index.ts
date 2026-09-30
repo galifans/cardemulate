@@ -7,10 +7,14 @@
 import type { BoxDefinition } from "@/engine/types";
 import { BOX_PRICES, PRICE_AS_OF, PRICE_SOURCES, USD_CNY } from "./boxes";
 import { sumValueRmb } from "./card-values";
+import { eraFactor, seasonStartYear } from "./eras";
 import type { BoxPriceEntry, PriceSourceInfo } from "./types";
 
 export { BOX_PRICES, PRICE_AS_OF, PRICE_SOURCES, USD_CNY };
 export { cardValueBreakdown, cardValueRmb, FLOOR_VALUE, sumValueRmb } from "./card-values";
+export { ERA_FACTORS, ERA_FACTOR_AS_OF, eraFactor, eraOfYear, seasonStartYear } from "./eras";
+export { PLAYER_TIERS_AS_OF, ROOKIE_FACTOR } from "./players";
+export { DRAFT_FACTOR_AS_OF, PICK_LADDER } from "./draft";
 export { PRODUCT_VALUE_FACTORS, productValueFactor } from "./products";
 export type { BoxPriceBasis, BoxPriceEntry, CardValueBreakdown, PriceConfidence, PriceSourceInfo } from "./types";
 
@@ -26,9 +30,16 @@ export const boxCostRmb = (boxKey: string): number => BY_BOX.get(boxKey)?.cost ?
 /** 按盒型定义取购入价 */
 export const boxCostOf = (box: BoxDefinition): number => boxCostRmb(box.key);
 
-/** 按盒型定义算一盒的实际售出额 */
+/**
+ * 按盒型定义算一盒的实际售出额。
+ *
+ * 逐张卡的值由 card-values.ts 算（那里不认年份，纯函数），年份这一层在这里补：
+ * 同一个系列在不同赛季的年是同一个产品线的不同年，盒型的 year 是赛季标签
+ * （`"2025-26"`），取起始年查 eras.ts 的表。在册产品全落在 2025 那一档（= 1 倍），
+ * 所以当前对所有盒型都没有影响。
+ */
 export const boxValueOf = (box: BoxDefinition, cards: Parameters<typeof sumValueRmb>[0]): number =>
-    sumValueRmb(cards, box.productKey);
+    sumValueRmb(cards, box.productKey) * eraFactor(seasonStartYear(box.year));
 
 /** 价格来源站点 */
 export const priceSource = (key: string): PriceSourceInfo | undefined =>
