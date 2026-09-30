@@ -364,7 +364,7 @@ export const THOOPS26_BASKETBALL_BOXES = assembleBoxes({
     boxes: [
         {
             slug: "thoops26-hobby",
-            name: "Hobby",
+            name: "2025-26 Topps NBA Hoops Basketball Hobby Box",
             column: "hobby",
             cardsPerPack: 8,
             packsPerBox: 20,
@@ -377,7 +377,7 @@ export const THOOPS26_BASKETBALL_BOXES = assembleBoxes({
         },
         {
             slug: "thoops26-hobby-jumbo",
-            name: "Hobby Jumbo",
+            name: "2025-26 Topps NBA Hoops Basketball Hobby Jumbo Box",
             column: "hobby-jumbo",
             cardsPerPack: 20,
             packsPerBox: 10,
@@ -390,7 +390,7 @@ export const THOOPS26_BASKETBALL_BOXES = assembleBoxes({
         },
         {
             slug: "thoops26-value-box",
-            name: "Value Blaster",
+            name: "2025-26 Topps NBA Hoops Basketball Value Blaster Box",
             column: "value-box",
             cardsPerPack: 8,
             packsPerBox: 7,
@@ -403,7 +403,7 @@ export const THOOPS26_BASKETBALL_BOXES = assembleBoxes({
         },
         {
             slug: "thoops26-hanger",
-            name: "Hanger",
+            name: "2025-26 Topps NBA Hoops Basketball Hanger Box",
             column: "hanger-box",
             cardsPerPack: 25,
             packsPerBox: 1,
@@ -417,7 +417,7 @@ export const THOOPS26_BASKETBALL_BOXES = assembleBoxes({
         },
         {
             slug: "thoops26-fanatics",
-            name: "Fanatics",
+            name: "2025-26 Topps NBA Hoops Basketball Fanatics Box",
             column: "fanatics-box",
             cardsPerPack: 8,
             packsPerBox: 8,

@@ -857,7 +857,7 @@ export const TBB26_BASKETBALL_BOXES = assembleBoxes({
     boxes: [
         {
             slug: "tbb26-hobby",
-            name: "Hobby",
+            name: "2025-26 Topps Basketball Hobby Box",
             column: "hobby",
             cardsPerPack: 20,
             packsPerBox: 12,
@@ -871,7 +871,7 @@ export const TBB26_BASKETBALL_BOXES = assembleBoxes({
         },
         {
             slug: "tbb26-hobby-jumbo",
-            name: "Hobby Jumbo",
+            name: "2025-26 Topps Basketball Hobby Jumbo Box",
             column: "hta-jumbo",
             cardsPerPack: 40,
             packsPerBox: 10,
@@ -885,7 +885,7 @@ export const TBB26_BASKETBALL_BOXES = assembleBoxes({
         },
         {
             slug: "tbb26-mega",
-            name: "Mega",
+            name: "2025-26 Topps Basketball Mega Box",
             column: "mega-box-ea",
             cardsPerPack: 14,
             packsPerBox: 16,
@@ -899,7 +899,7 @@ export const TBB26_BASKETBALL_BOXES = assembleBoxes({
         },
         {
             slug: "tbb26-value-box",
-            name: "Value Blaster",
+            name: "2025-26 Topps Basketball Value Blaster Box",
             column: "value-box-ea",
             cardsPerPack: 12,
             packsPerBox: 12,

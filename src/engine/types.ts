@@ -77,7 +77,10 @@ export interface BoxDefinition {
     key: string;
     /** 盒型 slug，如 "value-box" / "hobby-box" */
     slug: string;
-    /** 展示名 */
+    /**
+     * 展示名，写成「产品全名 + 盒型 + Box」，如 "2025-26 Topps Basketball Value Blaster Box"。
+     * 统计页只拿这一条区分盒型，光写 "Value Blaster" 会看不出是哪个系列。
+     */
     name: string;
     /** 品类 key，如 "basketball" */
     category: string;

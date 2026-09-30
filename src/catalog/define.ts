@@ -64,6 +64,12 @@ export function validateBox(box: BoxDefinition): string[] {
         problems.push(`year 必须是 2026 或 2025-26 这样的年份，当前为 "${box.year}"`);
     }
 
+    // 盒型名是「产品全名 + 盒型 + Box」，因此一定以年份开头；
+    // 只写 "Hobby" 这种短名会让统计页看不出是哪个系列
+    if (!box.name.startsWith(box.year)) {
+        problems.push(`name 要以年份开头（产品全名 + 盒型），当前为 "${box.name}"`);
+    }
+
     if (box.key !== boxKey(box.category, box.maker, box.productKey, box.slug)) {
         problems.push(`key 与命名约定不一致：${box.key}`);
     }
