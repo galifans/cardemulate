@@ -1342,6 +1342,36 @@ migrations/      增量迁移（线上只跑增量，`schema.sql` 是新库的�
   thoops26-hobby ×2）逐一核对：概况金额、卡面估值、拆盒记录列、弹窗累计全部正确
   （例：4 盒 tbb26-hobby 累计购入 ¥4320.00 = 4 × 1080，累计售出 ¥1290.25 与四条记录逐条相加一致）
 
+### 2026-10-01（新系列盒型名补全：统计页不再只显示「Hobby」「Value Blaster」）
+
+- **问题**：`thoops26` / `tbb26` 两个系列的盒型 `name` 只写了盒型本身
+  （`Hobby` / `Hobby Jumbo` / `Mega` / `Value Blaster` / `Hanger` / `Fanatics`），
+  而 `tcu26` 等七个系列写的是「产品全名 + 盒型 + Box」。
+  盒型名是全站唯一一处用来区分盒型的展示文本，统计页「按盒子」与「拆盒记录」
+  两张表都直接显示它，于是一屏里七个完整名和七个「Hobby」混在一起
+- **成因**：`name` 只是数据里的一个字符串，既没有约定也没有检查。
+  补录系列时按「盒型名」的字面意思填了短名，而 `snapshots/boxes.json` 又是在填错
+  **之后**才建的基线 —— 快照只能发现「改没改」，发现不了「对不对」，
+  于是把它锁成了预期值
+- **修法**：九个盒型的 `name` 补成「产品全名 + 盒型 + Box」，例如
+  `2025-26 Topps Basketball Value Blaster Box`、
+  `2025-26 Topps NBA Hoops Basketball Value Blaster Box`，
+  与 `tsig26` 已有的 `2025-26 Topps Signature Class Basketball Value Blaster Box` 写法对齐
+- **补了一道数据自检**：`defineBox()` 新增一条 —— `name` 必须以年份开头
+  （即「产品全名 + 盒型」），只写 `Hobby` 这种短名在 `npm run dev` 启动时直接抛错。
+  放在数据自检里而不是快照里，是因为快照保证不了「对」，自检才能
+- **全量核对方式**：`Select-String -Pattern 'slug:\s*"' -Context 0,2` 把 22 个盒型的
+  `slug` 与紧跟的 `name` 一起打出来逐条看，确认除这九个之外都合规
+- 盒型快照重刷：`snapshots/boxes.json` 用 `git diff --unified=0` 逐行核对，
+  **只动了 9 行 `name`**，配率 / 权重 / 拆盒结果一点没变
+- **D1 的 `boxes` 镜像表里还是旧名**：那张表只是对账用的副本，页面不读它，
+  所以线上显示已经是对的；下次跑目录同步（`POST /api/catalog/sync`）会自动覆盖掉
+  （`buildCatalogPayload()` 生成的盒型负载带的就是新名）
+- ✓ 验证：`npm run typecheck`、`npm run build`、`npm run boxes:check`、
+  `npm run prices:check` 全通过；本地 `npx wrangler pages dev dist --port 8788`
+  里给统计页造了四条覆盖五个新盒型的记录，实测「按盒子」与「拆盒记录」都显示完整名，
+  产品页盒型卡与拆盒页标题同步更新，320 / 390px 下无横向溢出、文字不截断
+
 ### 关键取舍记录
 
 - **不用 Pinia**：只有一个全局 store，手写 reactive 单例省一个依赖。
@@ -1577,6 +1607,9 @@ migrations/      增量迁移（线上只跑增量，`schema.sql` 是新库的�
       不跑的话新开的盒写不进去）；跑完可选执行一次老记录回填（见下一条）
 - [ ] 线上回填 `breaks` 的金额：`npm run db:backfill -- --remote`
       （本地已跑过，18 条；线上跑之前先将 `breaks` 导出一份留底，虽然脚本幂等且只写金额）
+- [ ] 线上重推一次目录镜像（`POST /api/catalog/sync`）：`boxes.name` 里
+      `tbb26` / `thoops26` 九个盒型还是旧的短名（`Hobby`、`Value Blaster`…）。
+      页面不读这张表，不影响显示，只是对账口径对不上
 
 ### P1 定价表维护
 - [ ] 盒价复核：22 条都是发行商零售参考价，价格变动时需要人工更新

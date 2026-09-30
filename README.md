@@ -172,12 +172,20 @@ sources/prices/       价格来源登记册（站点可达性实测 + 定价口�
 发行商页按它分组，新的年份在前。同一个系列的所有盒型必须填一致的值 ——
 `validateBox()` 会检查格式，填错（比如写成 `"2025-2026"`）会直接抛错。
 
+### 盒型显示名
+
+`name` 固定写成「产品全名 + 盒型 + Box」，例如
+`2025-26 Topps Basketball Value Blaster Box`。
+统计页的「按盒子」与「拆盒记录」两张表只显示这一个字段，产品名不会跟在旁边，
+所以只写 `Hobby`、`Value Blaster` 这种短名会看不出属于哪个系列。
+`validateBox()` 会检查它是否以年份开头，写短名直接抛错。
+
 ### 新增一个盒型
 
 1. 在 `src/data/sets/<品类>/<发行商>/<系列>/` 下新建 `roster.ts` 与 `box.ts`，
    参考 `basketball/topps/tcu26-basketball/`。
 2. `box.ts` 里用 `defineBox({...})` 产出定义；它会自动执行 `validateBox()`，
-   开发环境下校验失败直接抛错（配率、编号、子集引用、卡号重复都会被拦住）。
+   开发环境下校验失败直接抛错（配率、编号、子集引用、卡号重复、盒型名格式都会被拦住）。
 3. 在该系列目录的 `index.ts` 里导出数组，并在 `src/data/sets/index.ts` 的
    `registerBoxes([...])` 中追加。
 4. 如果这是一个全新的系列，在 `src/catalog/taxonomy.ts` 的 `PRODUCT_SEED`
