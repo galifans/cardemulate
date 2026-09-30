@@ -60,6 +60,26 @@ const ROSTER_PATCHES = {
     ],
 };
 
+/**
+ * 官方表格版**漏掉**的行。
+ *
+ * 官方表格版偶尔整行缺失（导表时丢了一行），指南页与官方 Checklist 正文里却有。
+ * 用「分节标题 + 插在哪一号之前 + 整行内容」定位；先用 `ROSTER_PATCHES` 改完卡号，
+ * 再按这里的先后关系插入，所以 `before` 写的是改完之后的卡号。
+ */
+const INSERT_PATCHES = {
+    "tsig26-basketball": [
+        {
+            section: "BASE CARDS I",
+            before: "69",
+            row: ["68", "Anthony Edwards", "Minnesota Timberwolves"],
+            why:
+                "官方表格版漏了 68 号；指南页的老将普卡列表（100 张）与逐卡索引" +
+                "（Base - Anthony Edwards (68)）都记着这一号",
+        },
+    ],
+};
+
 const ROOKIE_RE = /\[?\s*rookie\s*\]?/i;
 
 /** 把一个单元格里的新秀标记剥掉，返回 `[干净的人物名, 是否新秀]` */
@@ -114,7 +134,24 @@ const applyPatches = (parsed, patches) => {
     return applied;
 };
 
-const render = (parsed, xlsxName, productName, patches = []) => {
+/** 按补行表把官方表格版漏掉的行插回去；定位不到或卡号已存在就直接报错 */
+const applyInserts = (parsed, patches) => {
+    const applied = [];
+    for (const patch of patches) {
+        const section = parsed.sections.find((item) => item.title === patch.section);
+        if (!section) throw new Error(`补行补丁找不到分节：${patch.section}`);
+        if (section.rows.some((item) => item[0] === patch.row[0])) {
+            throw new Error(`补行补丁想插的 ${patch.section} ${patch.row[0]} 号已经在表里了`);
+        }
+        const at = section.rows.findIndex((item) => item[0] === patch.before);
+        if (at < 0) throw new Error(`补行补丁找不到 ${patch.section} 的 ${patch.before} 号`);
+        section.rows.splice(at, 0, [...patch.row]);
+        applied.push(patch);
+    }
+    return applied;
+};
+
+const render = (parsed, xlsxName, productName, patches = [], inserts = []) => {
     const used = new Map();
     const lines = [];
 
@@ -131,6 +168,15 @@ const render = (parsed, xlsxName, productName, patches = []) => {
         lines.push(" * 已修正官方原件的笔误（改在 import-roster.mjs 的补丁表里，不在本文件手改）：");
         for (const patch of patches) {
             lines.push(` *   ${patch.section} ${patch.no} ${patch.player} → ${patch.to}：${patch.why}`);
+        }
+    }
+    if (inserts.length) {
+        lines.push(" *");
+        lines.push(" * 已补入官方表格版漏掉的行（补在 import-roster.mjs 的补行表里，不在本文件手改）：");
+        for (const patch of inserts) {
+            lines.push(
+                ` *   ${patch.section} ${patch.row[0]} ${patch.row[1]}（插在 ${patch.before} 前）：${patch.why}`,
+            );
         }
     }
     lines.push(" */");
@@ -187,19 +233,23 @@ const main = () => {
 
     const productKey = basename(dirname(resolve(source)));
     const patches = applyPatches(parsed, ROSTER_PATCHES[productKey] ?? []);
+    const inserts = applyInserts(parsed, INSERT_PATCHES[productKey] ?? []);
 
     // 表头注释里的产品名不用表里的行去猜：官方表的头几行有的是产品名、
     // 有的是一句免责声明，猜错会写进注释。默认退回系列目录名。
     const productName = nameArg || productKey;
     const outputPath = resolve(target);
     mkdirSync(dirname(outputPath), { recursive: true });
-    writeFileSync(outputPath, render(parsed, basename(source), productName, patches), "utf8");
+    writeFileSync(outputPath, render(parsed, basename(source), productName, patches, inserts), "utf8");
 
     const total = parsed.sections.reduce((sum, section) => sum + section.rows.length, 0);
     console.log(`已生成 ${outputPath}`);
     console.log(`共 ${parsed.sections.length} 个分节、${total} 行`);
     for (const patch of patches) {
         console.log(`   已修正笔误：${patch.section} ${patch.no} ${patch.player} → ${patch.to}`);
+    }
+    for (const patch of inserts) {
+        console.log(`   已补入漏行：${patch.section} ${patch.row[0]} ${patch.row[1]}（插在 ${patch.before} 前）`);
     }
     for (const section of parsed.sections) {
         console.log(`    ${section.title}（${section.rows.length} 行）`);

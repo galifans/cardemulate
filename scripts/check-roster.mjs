@@ -21,6 +21,8 @@
  * - 官方表里同一卡号出现多次时（源表自己贴重了），任意一条命中即算通过。
  * - 新秀标记按官方表的 `Rookie` 列核对：有标记必须是新秀，反之亦然。
  * - 官方原表自身的缺陷登记在 `SOURCE_DEFECTS` 里，命中时只提示不判失败。
+ *   其中 `absentFromSheet` 表示官方表里根本没有这一行（指南页才有），
+ *   核对时跳过官方表那一轮。
  *
  * 退出码：有出入返回 1。
  */
@@ -59,6 +61,16 @@ const SOURCE_DEFECTS = {
             player: "Chaney Johnson",
             sheetNo: "DPA-CJ",
             reason: "同上一处重复段，卡号 DPA-CJ 被前一段占用",
+        },
+    ],
+    "basketball/topps/tsig26-basketball": [
+        {
+            no: "68",
+            player: "Anthony Edwards",
+            absentFromSheet: true,
+            reason:
+                "官方表格版整行漏了老将普卡的 68 号；指南页的老将普卡列表（100 张）" +
+                "与逐卡索引（Base - Anthony Edwards (68)）都记着这一号",
         },
     ],
 };
@@ -177,8 +189,16 @@ async function main() {
                 checked++;
                 // 源表缺陷的条目：代码里的卡号是加过后缀的，核对时按官方表的原卡号走。
                 const defect = defects.find((d) => fold(d.no) === fold(no) && fold(d.player) === fold(player));
-                const sourceNo = defect ? defect.sheetNo : no;
-                if (defect) known.push(`${name} ${no} ${player} —— 官方表里此人是 ${sourceNo}（${defect.reason}）`);
+                const sourceNo = defect?.sheetNo ?? no;
+                if (defect) {
+                    known.push(
+                        defect.absentFromSheet
+                            ? `${name} ${no} ${player} —— 官方表里没有这一行（${defect.reason}）`
+                            : `${name} ${no} ${player} —— 官方表里此人是 ${sourceNo}（${defect.reason}）`,
+                    );
+                }
+                // 官方表里根本没有这一行，核完指南页那一轮就跳过，不去表里找
+                if (defect?.absentFromSheet) continue;
 
                 const lines = textIndex?.get(fold(sourceNo)) ?? [];
                 if (textIndex && !lines.some((rest) => rest === fold(player) || rest.startsWith(`${fold(player)} `))) {

@@ -29,7 +29,7 @@ export interface PackOddsRow {
 }
 
 export const PACK_ODDS: PackOddsRow[] = [
-    { label: "Veteran Class Base", odds: [0.5, 0.5, null, null] },
+    { label: "Veteran Class Base", odds: [0.5, 0.5, 0.2, 0.16666666666666666] },
     { label: "Veteran Class Base Blue & Orange", odds: [null, null, 5, 4] },
     { label: "Veteran Class Base Bronze", odds: [null, null, 9, 8] },
     { label: "Veteran Class Base Coral", odds: [null, null, 407, 120] },

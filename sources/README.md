@@ -57,6 +57,8 @@ sources/<品类>/<品牌>/<系列产品>/
 而官方产品页在本机是 403。限量数不是名单，且能用一条算术恒等式交叉验证——
 **张数 × 编号 × 配率 ≈ 本系列总印量（包）**，同一个系列里十几个互不相干的小节会算出同一个数，
 交叉验证的强度比逐字比对还高。各系列的验算过程写在该系列的 `README.md` 里。
+核对命令：`npm run print:check -- <产品 key 片段>`（报告式，不判定失败；
+同一批平行算出来的包数会聚在一起，散得太开的档位单独标出来）。
 
 这条是对「允许用指南页配率转述」那次授权的顺延，**如需收紧、改回只认配率**，
 代价是 8 个只有名册的系列不能给平行加编号标记（`tbb26` / `tccj26` 等有官方表的系列不受影响）。
@@ -163,6 +165,15 @@ Topps 官网只用人工核对，不写进自动化流程。逐站实测结果�
    对不上的行登记到 `scripts/import-pack-odds.mjs` 的 `ROW_PATCHES` 里并写明依据，
    **不要**改归列口径去凑：「按数值中心」与「按离列头最近」两套口径都试过，
    各自都会在别的行上错。
+
+   两类需要额外开关的情况（Signature Class 都遇到了）：两端对齐的页面里数值与标签
+   会被拉开，这时加 `--relaxed`（只认连续两个以上空格当格子边界）与
+   `--labels=<系列目录>/pack-odds-plain.txt`——最后一个是同一份 PDF 的**普通模式**
+   提取件，当词典把被拉开的标签还原；一格里的数字被双空格切成两格的，
+   脚本用 `joinValues` 先合回一格再归列。
+   `scripts/verify-odds-columns.py` 碰到聚不出列位的页面会整页 `SKIP`
+   （Signature Class 的第一页就是这样），现在它在这些页面按行退路逐格比对，
+   结论仍要报「不一致 0 格」才箿过。
 7. **誊抄名册**。名单表格版一律用脚本转，不要手工抄：
    ```powershell
    node scripts/import-roster.mjs `<系列目录>`/checklist.xlsx `<代码目录>`/roster.ts [工作表序号]
@@ -172,6 +183,12 @@ Topps 官网只用人工核对，不写进自动化流程。逐站实测结果�
    最后按官方表里的原始分节标题生成 `ROSTER_SECTIONS`。
    官方表有重音符号不一致或缺字的情况，代码里统一写正确的全名：
    改写 `roster.ts` 后必须重跑第 8 步，让脚本逐行对回原件。
+   官方表格版**整行漏掉某张卡**时（Signature Class 漏了老将普卡的 68 号），
+   在 `scripts/import-roster.mjs` 的 `INSERT_PATCHES` 里登记「分节标题 + 插在哪一号之前
+   + 整行内容」（定位不到分节或该号已存在会直接报错），同时在 `check-roster.mjs` 的
+   `SOURCE_DEFECTS` 里用 `absentFromSheet: true` 登记同一条，
+   两处都要写明依据（指南页列表、逐卡索引或官方 PDF 正文），
+   核对脚本会把它单独列成「已知源表缺陷」而不算失败。
 8. **核对名册**。抄完立刻跑核对脚本，它会逐行对回原件：
    ```powershell
    npm run roster:check
@@ -224,7 +241,7 @@ Topps 官网只用人工核对，不写进自动化流程。逐站实测结果�
 | 篮球 | Topps | 2025-26 Topps NBA Hoops Basketball | `thoops26-basketball` | 2026-09-30 | B | ✔ | — | 待补 |
 | 篮球 | Topps | 2025-26 Topps NBL Basketball | `tnbl26-basketball` | 2026-09-30 | D | ✔ | — | 待补 |
 | 篮球 | Topps | 2025-26 Topps Pristine Basketball | `tpristine26-basketball` | 2026-09-30 | D | ✔ | — | 待补 |
-| 篮球 | Topps | 2025-26 Topps Signature Class Basketball | `tsig26-basketball` | 2026-09-30 | B | ✔ | — | 待补 |
+| 篮球 | Topps | 2025-26 Topps Signature Class Basketball | `tsig26-basketball` | 2026-09-30 | B | ✔ | Hobby、Hobby Jumbo、Value Blaster、Mega | [记录](./basketball/topps/tsig26-basketball/README.md) |
 | 篮球 | Topps | 2025-26 Topps 3 Basketball | `tthree26-basketball` | 2026-09-30 | B | ✔ | Hobby | [记录](./basketball/topps/tthree26-basketball/README.md) |
 | 篮球 | Topps | 2025 Topps Chrome McDonald's All American Basketball | `tmcd26-basketball` | 2026-09-30 | D | ✔ | — | 待补 |
 
@@ -280,6 +297,9 @@ https://xcdn.checklistinsider.com/public/<年>/<月>/
 → 文件 `2025-26-Topps-Chrome-Update-Series-Basketball-…`），`<月>` 取发布当月。
 已见过的两种：`…-Checklist-Downloads-Odds-Checklist-Insider-new-update.pdf`（配率）、
 `…-Checklist-Downloads-Excel-spreadsheet-Checklist-Insider.xlsx`（名单表格版）。
+Signature Class 那一批还有第三种写法：`…-Checklist-Downloads-Odds.pdf` 与
+`…-Checklist-Downloads-Excel-spreadsheet.xlsx`，少一层 `-Checklist-Insider`。
+文件名不能靠拼，必须从指南页 HTML 里抽 `xcdn.checklistinsider.com` 开头的链接。
 
 ### 指南页的配率只是转述
 

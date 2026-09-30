@@ -29,6 +29,8 @@
  * 个别 PDF 的**标签列是两端对齐的**（Signature Class 就是这样）：排版器会在字符之间
  * 塞进单空格，把 `Veteran` 拉成 `Ve t e r a n`，连数值都被塞成 `1: 407`。这种文件加
  * `--relaxed`：只用「连续两个以上空格」当格子边界，格子内部的单空格一律丢掉。
+ * 数值里被塞进两个以上空格时（`5:  1`）这条边界会把数值切成两半，所以分词前先按
+ * `joinValues` 把数值内部的空格抹掉，那一行再按「令牌数等于列数」的顺序路归列。
  * 表头同样被拉开，所以宽松模式下的表头匹配也先去掉空格再找。
  * 标签这么处理会得到 `VeteranClassBaseRedLava` 这种连成一串的东西——不是能写进代码的
  * 名字，所以还要用 `--labels=<plain.txt>` 拿同样这份 PDF 的**普通模式**提取件当词典：
@@ -154,6 +156,21 @@ const relaxedTokens = (line) => {
 const tokensOf = (line, relaxed) =>
     relaxed ? relaxedTokens(line).filter((cell) => VALUE_RE.test(cell.text)) : valueTokens(line);
 
+/**
+ * 官方提取件在数值**内部**也会塞空格：`1: 407`、`2. 1`，个别行甚至塞了两个以上
+ * （Signature Class 的 `Veteran Class Base` 印成了 `5:  1`）。宽松模式拿「连续两个
+ * 以上空格」当格子边界，这种格子会被切成两半，其中一半不是数值、直接丢掉，后面的
+ * 数值跟着左移，而且一声不响——Signature Class 的普卡配率就是这么丢掉两列的。
+ * 所以在分词之前先把「数字 - 冒号 - 数字」和「数字 - 点 - 数字」中间的空格抹掉，
+ * 让一个配率永远是一个格子。
+ *
+ * 必须在分词**之前**对整行做，表头与正文用同一份处理过的行算下标，否则字符位与列位
+ * 会对不上。只认「冒号或小数点紧跟在数字后面」这一种形状，官方表里没有别的场合会
+ * 出现它，所以对其他几套提取件是空操作。
+ */
+const joinValues = (line) =>
+    line.replace(/(\d)\s*:\s*([\d,.]+)/g, "$1:$2").replace(/(\d)\.\s+(\d)/g, "$1.$2");
+
 /** 去掉全部空格并记下每个字符在原文里的位置，便于把「挤掉空格后」的下标映射回原下标 */
 const compact = (line) => {
     const map = [];
@@ -276,7 +293,8 @@ const parse = (text, columns, options = {}) => {
     const unknownLabels = new Set();
     let lastLabel = null;
 
-    for (const line of lines) {
+    for (const rawLine of lines) {
+        const line = joinValues(rawLine);
         if (!line.trim()) continue;
         if (PAGE_RE.test(line.trim()) || /^PAGES:/.test(line)) continue;
         if (relaxed ? DISCLAIMER_TIGHT_RE.test(compact(line).text) : DISCLAIMER_RE.test(line)) continue;

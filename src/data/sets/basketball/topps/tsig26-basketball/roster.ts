@@ -6,13 +6,16 @@
  *
  * 分节标题与顺序与官方表格版一致，`ROSTER_SECTIONS` 的键就是表里的原始标题；
  * `box.ts` 按标题取子集，不要按下标取。
+ *
+ * 已补入官方表格版漏掉的行（补在 import-roster.mjs 的补行表里，不在本文件手改）：
+ *   BASE CARDS I 68 Anthony Edwards（插在 69 前）：官方表格版漏了 68 号；指南页的老将普卡列表（100 张）与逐卡索引（Base - Anthony Edwards (68)）都记着这一号
  */
 
 const R = "R" as const;
 
 export type RosterRow = [no: string, player: string, team: string] | [no: string, player: string, team: string, typeof R];
 
-/** BASE CARDS I（99 行） */
+/** BASE CARDS I（100 行） */
 export const BASE_CARDS_I: RosterRow[] = [
     ["1", "Bronny James Jr.", "Los Angeles Lakers"],
     ["2", "Chris Paul", "San Antonio Spurs"],
@@ -81,6 +84,7 @@ export const BASE_CARDS_I: RosterRow[] = [
     ["65", "Jamal Murray", "Denver Nuggets"],
     ["66", "Alex Sarr", "Washington Wizards"],
     ["67", "Jalen Green", "Houston Rockets"],
+    ["68", "Anthony Edwards", "Minnesota Timberwolves"],
     ["69", "Cam Whitmore", "Houston Rockets"],
     ["70", "Anfernee Simons", "Portland Trail Blazers"],
     ["71", "Tyrese Haliburton", "Indiana Pacers"],

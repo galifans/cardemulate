@@ -13,9 +13,9 @@
 
 - 横坐标能聚出列数的页面，逐格与生成文件比对；
 - 聚不出列位的页面报 `SKIP`：一张纸印好几张表、列数太多、标签被两端对齐撑开的页面都会这样。
-  这类页面改看导入脚本的「贴着列边界」报告——没有一格贴着列边界，位置判断就是稳的。
+  这类页面上**每列都有值**的行仍按令牌顺序核对（令牌数等于列数，位置没有别的可能），
+  其余行改看导入脚本的「贴着列边界」报告——没有一格贴着列边界，位置判断就是稳的。
 
-整页每行令牌数都等于列数的（空格写成 `-` 的表）另按令牌顺序核对，结论行里会写明页数。
 结论行给出核到的格数与不一致数；有不一致时退出码为 1。
 """
 import re
@@ -128,22 +128,24 @@ def compare(mismatches, pageno, name, index, token, columns, odds):
 
 
 def verify_by_order(mismatches, pageno, rows, columns, generated):
-    """整页每行令牌数都等于列数时，按令牌顺序逐格核对
+    """聚不出列位的页面上的退路：一行里令牌数等于列数时，按令牌顺序逐格核对
 
     整张表把空格都写成了 `-` 的页面就是这样：空位也有令牌，列位不需要从横坐标推，
-    导入脚本也是按顺序摆的。返回核到的格数，本页不适用时返回 None。
+    导入脚本也是按顺序摆的。两端对齐的页面（Signature Class）只有一部分行凑巧
+    每列都有值，所以退路按**行**走而不是按页走：令牌数少于列数的行没有顺序可言，
+    而本页横坐标又不可信，只能跳过。返回核到的格数，一行都核不了时返回 None。
     """
-    if not rows or any(len(values) != len(columns) for _, values in rows):
-        return None
     count = 0
     for label, values in rows:
+        if len(values) != len(columns):
+            continue
         key = normalize(label)
         if key not in generated:
             continue
         name, odds = generated[key]
         for index, (_, token) in enumerate(values):
             count += compare(mismatches, pageno, name, index, token, columns, odds)
-    return count
+    return count or None
 
 
 def main() -> int:
@@ -193,8 +195,9 @@ def main() -> int:
         print(line)
     if order_pages:
         print(
-            f"（第 {'、'.join(str(item) for item in order_pages)} 页按令牌顺序核对："
-            "这几页每行令牌数等于列数，空格都写成了 `-`）"
+            f"（第 {'、'.join(str(item) for item in order_pages)} 页里，每列都有值的行按令牌顺序核对："
+            "空格写成 `-` 的表整页都是这样；两端对齐的页面只有一部分行凑巧如此，"
+            "其余行没做坐标核对）"
         )
     for pageno in skipped_pages:
         print(
