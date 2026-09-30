@@ -158,6 +158,11 @@ for (const [bucket, measured] of printMeasured) {
     const model = median(values);
     console.log(`    ${bucket.padEnd(12)}×${measured.toFixed(2).padStart(9)}×${model.toFixed(2).padStart(9)}   ×${(model / measured).toFixed(2)}`);
 }
+console.log("    读法：这一列以「非编号」为 1，而模型的非编号普卡是**故意低于成交中位**的");
+console.log("    （理由与第四节相同：挂出来卖的都是有人要的球员），所以低编号那几档的");
+console.log("    模型 ÷ 实测天生偏小，不能照这一列把 /2-9 的 scarcityFactor 调回去。");
+console.log("    判单张对不对，要在**同一个球员、同一个系列**下逐格比 —— 两边锚在同一个人身上，");
+console.log("    那时 /1 与 /2-9 都落在 ×0.8~×1.2，而只有非编号那一格偏低。");
 
 /* ---------------------------------------------------------- 三、维度覆盖 */
 

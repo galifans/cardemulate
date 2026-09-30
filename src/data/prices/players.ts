@@ -16,6 +16,8 @@
  * 这一层是必须的，因为真实市场里人物溢价本来就随卡的档次放大。
  */
 
+import { PLAYER_FACTORS } from "./player-factors.generated";
+
 /** 分档所依据的样本采集日期（卡淘「已售出」成交价，见 TIER_EVIDENCE） */
 export const PLAYER_TIERS_AS_OF = "2026-10-01";
 
@@ -147,13 +149,19 @@ export const ALL_STARS: string[] = [
 ];
 
 /**
- * 档位倍率。倍率只在**签名卡/实物卡/超短印**上吃满，普卡类会被 card-values.ts
- * 压到七分之一左右 —— 真实市场里「库里普卡 vs 普通球员普卡」只差 3~5 倍，
- * 「库里签字 vs 普通球员签字」差 50 倍以上，同一个倍率不可能同时说对两头。
+ * 档位倍率。倍率只在**签名卡 / 实物卡 / 超短印**上吃满，普卡类会被 card-values.ts
+ * 压到五分之一以下 —— 真实市场里「球星普卡 vs 普通球员普卡」只差几倍，
+ * 「球星签字 vs 普通球员签字」差几十倍，同一个倍率不可能同时说对两头。
  *
- * 三个数字是一组，改动前先看 TIER_EVIDENCE 的实测值；改完跑 `npm run prices:check`，
- * 它会核算档位之间的比值有没有落在实测区间内。档位整体抬高会把每个盒型的平均
- * 售出额一起抬高，多出来的部分由 products.ts 的系列系数收回 —— 两处不要分开调。
+ * 这张表只是**没量到的人**的兜底：`PLAYER_FACTORS` 量到了 41 个人（直接实测），
+ * 量不到才落到这里。三个数字是一组，改动前先看 TIER_EVIDENCE 的实测值；
+ * 改完跑 `npm run prices:check`，它会核算档位之间的比值有没有落在实测区间内。
+ * 档位整体抬高会把每个盒型的平均售出额一起抬高，多出来的部分由 products.ts
+ * 的系列系数收回 —— 两处不要分开调。
+ *
+ * 为什么保留这套粗档位、不把它换成量到的那张细表：量到的只有 41 人，而卡背名册上
+ * 有六百多人。剩下的人（尤其是从不进成交样本的老将）还是得有个按凭人定的倍率，
+ * 不然就只能一律按 1 算 —— 那等于把「巨星普卡比角色球员普卡贵几倍」这件事删掉。
  */
 export const SUPERSTAR_TIER = 30;
 export const ELITE_TIER = 7;
@@ -189,6 +197,24 @@ export function playerTier(player: string): number {
         if (level.names.includes(player)) return level.tier;
     }
     return 1;
+}
+
+/**
+ * 量出来的球员倍率；没量到返回 null。
+ *
+ * 为什么要加这一层：档位是把球员归成几档、一档一个数字，归错的代价看不见。
+ * 同一个「巨星」档里，实测签字卡倍率从 × 5.36（贝利）到 × 30.78（哈珀）差五倍多，
+ * 而谁归哪一档全靠人看名单。`PLAYER_FACTORS` 是拿两万条成交按（系列 / 球员 /
+ * 印量 / 新秀）抛光直接量出来的，量得到就没有理由再猜。
+ *
+ * 两个口径与 card-values.ts 的卡类分组对齐：签名卡 / 实物卡 / 超短印用 `premium`，
+ * 普卡 / 平行卡 / 插入卡用 `plain`。1.0 = 卡淘上一张认不出主角的卡的价位，
+ * 与 `playerTier()` 返回 1 的「未列入」是同一个参照点。
+ */
+export function measuredFactor(player: string): { premium: number; plain: number } | null {
+    if (!Object.hasOwn(PLAYER_FACTORS, player)) return null;
+    const row = PLAYER_FACTORS[player];
+    return { premium: row.premium, plain: row.plain };
 }
 
 /**

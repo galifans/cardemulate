@@ -20,6 +20,7 @@
         "prices:probe": "node scripts/probe-price-sites.mjs",
         "prices:fit": "esbuild scripts/fit-sales-model.ts --bundle --platform=node --format=esm --tsconfig=tsconfig.json --outfile=.snapshot/fit-sales-model.mjs --log-level=warning && node .snapshot/fit-sales-model.mjs",
         "prices:audit": "esbuild scripts/check-sales-fit.ts --bundle --platform=node --format=esm --tsconfig=tsconfig.json --outfile=.snapshot/check-sales-fit.mjs --log-level=warning && node .snapshot/check-sales-fit.mjs",
+        "prices:players": "esbuild scripts/import-player-factors.ts --bundle --platform=node --format=esm --tsconfig=tsconfig.json --outfile=.snapshot/import-player-factors.mjs --log-level=warning && node .snapshot/import-player-factors.mjs",
         "sales:scrape": "node scripts/scrape-card-sales.mjs",
         "draft:import": "node scripts/import-draft-order.mjs",
         "print:check": "esbuild scripts/check-print-runs.ts --bundle --platform=node --format=esm --tsconfig=tsconfig.json --outfile=.snapshot/check-print-runs.mjs --log-level=warning && node .snapshot/check-print-runs.mjs"

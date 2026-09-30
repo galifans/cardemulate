@@ -23,7 +23,7 @@
 
 import type { GroupKind, PulledCard, Tier } from "@/engine/types";
 import { draftFactor } from "./draft";
-import { FIRST_SERIAL_FACTOR, LAST_SERIAL_FACTOR, ROOKIE_FACTOR, playerTier } from "./players";
+import { FIRST_SERIAL_FACTOR, LAST_SERIAL_FACTOR, ROOKIE_FACTOR, measuredFactor, playerTier } from "./players";
 import { productValueFactor } from "./products";
 import type { CardValueBreakdown } from "./types";
 
@@ -62,20 +62,26 @@ function fallbackBaseline(group: GroupKind, tier: Tier): number {
 /**
  * 限量系数：编号越小越贵。
  *
- * 数是从成交样本里量出来的：把系列、人物、卡类、印量四个维度抛光后，/50-99 相对
- * 非编号约 ×3.7、/25-49 约 ×8、/10-24 约 ×17、/2-9 约 ×36、/1 约 ×148。
+ * 数是从成交样本里量出来的 —— 把系列、人物、印量、新秀四个维度抛光后，相对非编号：
+ * 普卡 /50-99 ×3.0、/25-49 ×7.4、/10-24 ×22.7、/2-9 ×36.7、/1 ×214；
+ * 签字卡 /50-99 ×2.0、/25-49 ×3.1、/10-24 ×4.0、/2-9 ×8.1（/1 样本不足）。
+ *
  * 但这里不能照搬 —— 目录给编号平行卡分配的档位（/150~/399 归 epic、/50~/99 归
  * legendary、/25 以下归 mythic）本身已经带了一大截印量溢价，两处叠起来才是市场价。
  * 所以有效值要从「实测值 ÷ 档位已经给过的那一截」倒算，这也让 /100~/399 这两档算出了
  * 小于 1 的数 —— 它们的档位（epic / legendary）比非编号那整池的均值高得多，实测却
- * 只比非编号贵 1.6~1.7 倍，超出部分要在这里收回去。**这不是「编号越大越便宜」。**
+ * 只比非编号贵几倍，超出部分要在这里收回去。**这不是「编号越大越便宜」。**
+ *
+ * /2-9 那一档从 17 收到 7：抛光之后，模型在 /2-9 上比实测高 2.4 倍，而 /10-24、
+ * /25-49 都在 ×0.9~1.1，/50-99 已经对齐 —— 也就是说写错的只是这一格，
+ * 不是整条阶梯的斜率。同类修正对签字卡也是 ÷2.4，所以这一格不是普卡专属。
  *
  * 有效值怎么核：`npm run prices:audit` 会把模型隐含的印量阶梯与实测阶梯并列打印。
  */
 function scarcityFactor(numbered: number | null): number {
     if (!numbered || numbered <= 0) return 1;
-    if (numbered <= 1) return 52;
-    if (numbered <= 9) return 17;
+    if (numbered <= 1) return 42;
+    if (numbered <= 9) return 7;
     if (numbered <= 24) return 4.6;
     if (numbered <= 49) return 4;
     if (numbered <= 99) return 1.7;
@@ -94,26 +100,36 @@ const CARD_GROUP_SPREAD = 0.15;
 /**
  * 人物系数。
  *
- * 档位倍率不是整份乘上去的，而是先按卡的大类打折：签名卡/实物卡/超短印吃满，
- * 普卡/平行卡/插入卡只吃 CARD_GROUP_SPREAD 那一小份。
+ * 两条路：
  *
- * 为什么必须打折：真实市场里同一位球员在不同档次卡上的溢价差一个数量级 ——
+ * 1. 实测表里有这个人（41 人）—— 直接用 `PLAYER_FACTORS` 的倍率，签名卡/
+ *    实物卡/超短印用 `premium`，普卡/平行卡/插入卡用 `plain`。两个口径是分开量的，
+ *    所以这里**不再打折**。为什么不接着用梯队：同一个「巨星」档里实测签字卡倍率
+ *    从 × 5.36（贝利）到 × 30.78（哈珀）差五倍多，一个数字就表示不了。
+ * 2. 没量到 —— 回落到梯队倍率，且只按卡的大类打折：签名卡/实物卡/超短印吃满，
+ *    普卡/平行卡/插入卡只吃 CARD_GROUP_SPREAD 那一小份。
+ *
+ * 为什么要打折：真实市场里同一位球员在不同档次卡上的溢价差一个数量级 ——
  * 库里签名卡中位 ￥8,711 而普卡中位 ￥35（相差 250 倍），普通球员签名卡 ￥140
  * 而普卡 ￥11（相差 13 倍）。也就是说「人物」这个变量本身就被卡的档次放大了。
- * 上一版用一个倍率同时算两类卡，结果是签名卡那一头错得离谱。
  *
- * 没进档位表的球员（主要是当年新秀）改看**选秀顺位**，见 draft.ts。两套只在
- * 其中一套上计价：档位表里已经有这个人的话，他的顺位价值已经写在档位倍率里了，
+ * 梯表与顺位表都查不到的人（主要是当年新秀）改看**选秀顺位**，见 draft.ts。两套只在
+ * 其中一套上计价：梯表里已经有这个人的话，他的顺位价值已经写在档位倍率里了，
  * 再乘一遍就是同一件事计两次。
  */
 function playerFactor(card: PulledCard): number {
-    const tier = playerTier(card.player);
+    const measured = measuredFactor(card.player);
     let factor: number;
-    if (tier === 1) {
-        factor = draftFactor(card.player);
+    if (measured !== null) {
+        factor = PREMIUM_GROUPS.has(card.group) ? measured.premium : measured.plain;
     } else {
-        const spread = PREMIUM_GROUPS.has(card.group) ? 1 : CARD_GROUP_SPREAD;
-        factor = 1 + (tier - 1) * spread;
+        const tier = playerTier(card.player);
+        if (tier === 1) {
+            factor = draftFactor(card.player);
+        } else {
+            const spread = PREMIUM_GROUPS.has(card.group) ? 1 : CARD_GROUP_SPREAD;
+            factor = 1 + (tier - 1) * spread;
+        }
     }
     if (card.rookie) factor *= ROOKIE_FACTOR;
     return factor;

@@ -1,6 +1,6 @@
 /**
- * 价格表核对：盒价是否登记齐全、球员分级有没有拼错、人物档位的比值是否还贴着
- * 卡淘实测区间，以及最重要的 —— 回本率是否合理。
+ * 价格表核对：盒价是否登记齐全、球员倍率有没有量错、绝对价锚点还在不在，
+ * 以及最重要的 —— 回本率是否合理。
  *
  * 前三项是硬校验（不通过就退出码 1）；回本率只做区间提醒，因为它是模型参数调出来的
  * 结果，不是一个「官方数字」，看见区间外的行就去 card-values.ts 调基准价。
@@ -10,7 +10,7 @@
  */
 import { REGISTERED_BOXES } from "../src/data/sets";
 import { ripBox } from "../src/engine/rip";
-import type { GroupKind, PulledCard } from "../src/engine/types";
+import type { GroupKind, PulledCard, VariantDef } from "../src/engine/types";
 import {
     ALL_STARS,
     ELITES,
@@ -186,18 +186,24 @@ if (warned > 0) console.log(`  有 ${warned} 个盒型回本率在中位数区�
 /* ---------------------------------------------------------------- */
 /* 4. 人物档位比值                                                    */
 /* ---------------------------------------------------------------- */
-console.log(`\n### 人物档位比值（分档实测日期 ${PLAYER_TIERS_AS_OF}）`);
+console.log(`\n### 人物倍率（分档实测日期 ${PLAYER_TIERS_AS_OF}）`);
 
 /*
  * 单张卡的绝对价对不上可以有很多原因（系列系数、盒型构成、名册组成），
- * 但「档位之间的比值」只由分档表与加权方式决定。所以这里不比绝对价、只比比值，
- * 区间取卡淘实测那一列。
+ * 但「人物之间的比值」只由人物表与加权方式决定。所以这里不比绝对价、只比比值。
  *
- * 这一条存在的意义是防回归：上一版把签名卡的档位倍率压在 6 倍、弗拉格还在全明星档
- * （×1.5），而实测的超巨 / 未分级在签名卡上是 47~65 倍 —— 库珀弗拉格一张 10 编
- * 新秀签字真实成交 ￥24,250，旧模型对同口径的卡只给 ￥701，差距 35 倍。
+ * 这一节以前查的是「档位倍率落在卡淘实测区间」。那时人物只有三档，比的是档位本身；
+ * 现在量到的球员直接用 PLAYER_FACTORS 的实测倍率，分子分母同出一张表，
+ * 再比区间就是自证。换成三件真会坏掉的事：
+ *
+ *   一、量级 —— 量到的超巨在签名卡口径上必须远高于未分级。太小只可能是没量到、
+ *       静默回落到了粗档位，而那正是本节要防的那个回归（旧版把弗拉格放在
+ *       ×1.5 的档上，一张 10 编新秀签字真实成交 ￥24,250，模型只给 ￥701）。
+ *   二、次序 —— 同一个梯队内部的实测倍率必须保持名次，次序颠倒基本只有一个原因：
+ *       名字对错了人（卡淘上有两个 Harper，名册里一个是迪伦一个是罗恩）。
+ *   三、兜底 —— 没量到的球员仍然走粗档位，那里的比值还得贴着市场，继续查区间。
  */
-const probe = (player: string, group: GroupKind, rookie = false): PulledCard => ({
+const probe = (player: string, group: GroupKind, rookie = false, numbered: number | null = 10): PulledCard => ({
     id: "probe",
     variantKey: "probe",
     fullName: "probe",
@@ -210,8 +216,8 @@ const probe = (player: string, group: GroupKind, rookie = false): PulledCard => 
     team: "—",
     no: "—",
     rookie,
-    numbered: 10,
-    serial: 3,
+    numbered,
+    serial: numbered ?? 1,
     oddsLabel: "—",
     odds: 1,
     pack: 1,
@@ -227,16 +233,31 @@ const ratio = (player: string, group: GroupKind): number =>
 const checkRatio = (label: string, value: number, min: number, max: number): void => {
     const ok = value >= min && value <= max;
     if (!ok) failed += 1;
-    console.log(`  ${ok ? "    " : "[!] "}${label.padEnd(22)} ×${value.toFixed(2).padStart(7)}   实测区间 ×${min}~×${max}`);
+    console.log(`  ${ok ? "    " : "[!] "}${label.padEnd(26)} ×${value.toFixed(2).padStart(7)}   实测区间 ×${min}~×${max}`);
 };
 
-checkRatio("签名卡 超巨 / 未分级", ratio("Cooper Flagg", "auto"), 15, 60);
-checkRatio("签名卡 巨星 / 未分级", ratio("Donovan Mitchell", "auto"), 4, 20);
-checkRatio("签名卡 球星 / 未分级", ratio("Andrew Nembhard", "auto"), 1.5, 8);
-checkRatio("普卡 超巨 / 未分级", ratio("Cooper Flagg", "base"), 2, 9);
+const checkFloor = (label: string, value: number, min: number, note: string): void => {
+    const ok = value >= min;
+    if (!ok) failed += 1;
+    console.log(`  ${ok ? "    " : "[!] "}${label.padEnd(26)} ×${value.toFixed(2).padStart(7)}   下限 ×${min}${ok ? "" : `   ${note}`}`);
+};
+
+checkFloor("签名卡 弗拉格 / 未分级", ratio("Cooper Flagg", "auto"), 15, "看看是不是没量到、回落到了粗档位");
+checkFloor("签名卡 哈珀 / 未分级", ratio("Dylan Harper", "auto"), 8, "看看是不是没量到、回落到了粗档位");
+checkFloor("普卡 弗拉格 / 未分级", ratio("Cooper Flagg", "base"), 3, "看看是不是没量到、回落到了粗档位");
+
+/** 梯队内部的名次：实测倍率必须与市场公认的次序一致 */
+const LADDER = ["Cooper Flagg", "Dylan Harper", "Kon Knueppel", "Ace Bailey"];
+const ladderAuto = LADDER.map((name) => ratio(name, "auto"));
+const inOrder = ladderAuto.every((value, index) => index === 0 || value < ladderAuto[index - 1]);
+if (!inOrder) fail(`实测签约倍率次序颠倒：${LADDER.map((n, i) => `${n} ×${ladderAuto[i].toFixed(2)}`).join(" > ")}`);
+if (inOrder) console.log(`        签约倍率次序 ${ladderAuto.map((v) => v.toFixed(1)).join(" > ")}`);
+
+/* 没量到的人（这里是克里斯保罗：在球星档、成交样本里签字卡不足）仍走粗档位 */
+checkRatio("签名卡 球星（档位兜底）", ratio("Chris Paul", "auto"), 1.5, 8);
 
 /*
- * 比值只证明「分档差多少」，证明不了「这张卡到底值多少」。所以补一行绝对价锚点，
+ * 比值只证明「人物差多少」，证明不了「这张卡到底值多少」。所以补一行绝对价锚点，
  * 口径固定成「Topps Chrome Update 系列、epic 档、10 编、普通编号」的签名卡，
  * 让人能自己拿卡淘成交价对一下 —— 看得到数字才能判断模型是不是还偏 15 倍。
  * 这里不判定失败：系列系数与盒型构成都会影响绝对值。
@@ -250,6 +271,75 @@ console.log(`    超巨（非新秀）       ${money(anchor("Cooper Flagg"))}`);
 console.log(`    超巨（新秀）         ${money(anchor("Cooper Flagg", true))}`);
 console.log("  对照：卡淘上库珀弗拉格一张 Topps Definitive 10 编新秀签字成交 ￥24,250，");
 console.log("  但 Definitive 不在在册系列里，没有对应系列系数，量级对得上即可。");
+
+/*
+ * 哈珀 /50 —— 这一行是给一次具体的估值争议留下的闸门。
+ *
+ * 有人开 Jumbo 盒开出迪伦哈珀 50 编，卡淘上 ￥36,149 那条是**卡签**（原封夹里的
+ * 签字卡），而网站当时报的 ￥138.56 是**普卡金折**，两张不同的卡；但两边都低：
+ * 普卡金折那一格模型当时给 ￥138、实测中位 ￥355，卡签 /50 模型给 ￥1,063、
+ * 实测 ￥6,527。这条把「普卡 /50 落在三位数、卡签 /50 落在四位数」钉住，
+ * 再退回那副低估会直接报错。区间取实测中位的上下 2~3 倍。
+ *
+ * 这里不能再用上面那支探针：它把 tier 写死成 epic（比比值时分子分母同 tier 会
+ * 约掉，无所谓），而真卡的 tier 是 `assemble.ts` 按官方配率算出来的（base /50
+ * 落在 legendary，是 epic 的两三倍）—— 快定绝对值时必须用真值。
+ */
+const JUMBO = "basketball.topps.tcu26-basketball.jumbo-box";
+
+/** 从登记盒型里取一张真卡：`tier` / `odds` 都是产品实际用的那套 */
+const realCard = (
+    boxKey: string,
+    group: GroupKind,
+    numbered: number,
+    player: string,
+    rookie: boolean,
+): PulledCard | null => {
+    const box = REGISTERED_BOXES.find((item) => item.key === boxKey);
+    const variant: VariantDef | undefined = box?.variants.find(
+        (item) => item.group === group && item.numbered === numbered,
+    );
+    if (!variant) return null;
+    return {
+        id: "anchor",
+        variantKey: variant.key,
+        fullName: variant.fullName,
+        subsetKey: variant.subset,
+        subsetName: variant.subsetName,
+        variantName: variant.variantName,
+        group: variant.group,
+        tier: variant.tier,
+        player,
+        team: "—",
+        no: "—",
+        rookie,
+        numbered: variant.numbered,
+        /** 取中间的编号：避开「第一编 / 最后一编」的加成，锚点才等于中位成交价 */
+        serial: variant.numbered === null ? 1 : Math.ceil(variant.numbered / 2),
+        oddsLabel: "—",
+        odds: variant.odds,
+        pack: 1,
+        slot: 1,
+    };
+};
+
+const checkBand = (label: string, value: number, min: number, max: number): void => {
+    const ok = value >= min && value <= max;
+    if (!ok) failed += 1;
+    console.log(`  ${ok ? "    " : "[!] "}${label.padEnd(26)} ${money(value).padStart(11)}   应落在 ${money(min)}~${money(max)}`);
+};
+
+const anchorRow = (label: string, card: PulledCard | null, min: number, max: number): void => {
+    if (!card) {
+        fail(`${label}：登记盒型里找不到这个卡种，锚点会永远通过`);
+        return;
+    }
+    checkBand(`${label}（${card.tier}）`, cardValueRmb(card, "tcu26-basketball"), min, max);
+};
+
+console.log("\n  哈珀 /50 绝对价锚点（Topps Chrome Update Jumbo、2025 届新秀、金折 /50）：");
+anchorRow("普卡金折 /50", realCard(JUMBO, "base", 50, "Dylan Harper", true), 150, 900);
+anchorRow("卡签 /50", realCard(JUMBO, "auto", 50, "Dylan Harper", true), 3000, 12000);
 
 /* 实测存证表里写的档位必须与分档表一致，否则那张表会慢慢变成假证据 */
 for (const row of TIER_EVIDENCE) {

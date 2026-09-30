@@ -46,7 +46,7 @@ const autos = modern.filter((sale) => sale.kind === "auto");
 const pct = (fit: FitResult, dim: Dim, level: string): number => 10 ** (fit.coef.get(`${dim}\u0001${level}`) ?? 0);
 
 console.log("### 样本");
-console.log(`  入选 ${sales.length} 条（出价 ≥2，剔除整盒整包）`);
+console.log(`  入选 ${sales.length} 条（出价 ≥2，剔除整盒整包 / 多张打包 / 评级卡）`);
 const dates = sales.map((sale) => sale.soldAt).filter(Boolean).sort();
 console.log(`  成交时间 ${dates[0]} ~ ${dates[dates.length - 1]}`);
 console.log(`  可对到选秀顺位的 ${sales.filter((sale) => sale.pick !== null).length} 条`);
@@ -100,14 +100,14 @@ printDim("球员系数（已抵消系列 / 卡类 / 印量 / 新秀）", fitD, "
 /* --------------------------------------------------- 五、球员（签字卡口径）*/
 
 console.log("\n---\n");
-console.log("### 五、球员系数 —— 只看签字卡（档位表该对的口径）");
+console.log("### 五、球员系数 —— 只看签字卡（球员实测表该对的口径）");
 const fitE = polish(autos, ["series", "player", "print"]);
 console.log(`  签字卡样本 ${fitE.rows} 条，中位绝对残差 ${fitE.resid.toFixed(3)} 个数量级`);
 const autoPlayers = [...fitE.n.entries()]
     .filter(([key, count]) => key.startsWith("player\u0001") && count >= 8 && !key.includes("("))
     .map(([key]) => key.slice("player\u0001".length))
     .sort((a, b) => pct(fitE, "player", b) - pct(fitE, "player", a));
-console.log(`  按倍率排序（● = 已在档位表里）共 ${autoPlayers.length} 人：`);
+console.log(`  按倍率排序（● = 也在粗档位表里，那张表现在只当兜底）共 ${autoPlayers.length} 人：`);
 for (const player of autoPlayers) {
     const mark = graded.has(skeleton(player)) ? "●" : " ";
     console.log(`   ${mark}${player.padEnd(24)} ${String(fitE.n.get(`player\u0001${player}`)).padStart(4)} 条  ×${pct(fitE, "player", player).toFixed(3)}`);

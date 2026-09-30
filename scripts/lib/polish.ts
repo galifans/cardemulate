@@ -91,7 +91,7 @@ export function loadCorpus(file: string = DEFAULT_CORPUS): Corpus | null {
         try {
             const row = JSON.parse(line);
             const parsed = parseSale(row.title, nameList);
-            if (parsed.pack || row.bids < MIN_BIDS || row.price < 2) continue;
+            if (parsed.pack || parsed.lot || parsed.graded || row.bids < MIN_BIDS || row.price < 2) continue;
             sales.push({
                 ...parsed,
                 price: row.price,

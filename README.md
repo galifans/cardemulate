@@ -54,9 +54,10 @@ node scripts/import-pack-odds.mjs sources/<...>/pack-odds.txt src/data/sets/<...
 npm run roster:check     # 名册对回归档的官方 Checklist，有出入退出码 1
 npm run boxes:snapshot   # 记录当前所有盒型的完整拆盒行为
 npm run boxes:check      # 比对差异，有差异退出码 1
-npm run prices:check     # 盒价登记完整性 + 球员分级拼写 + 回本率区间
+npm run prices:check     # 盒价登记完整性 + 球员倍率下限 / 次序 + 绝对价锚点 + 回本率区间
 npm run prices:audit     # 模型隐含的维度倍数 vs 卡淘成交样本的实测倍数
 npm run prices:fit       # 从成交样本量各维度系数 + 留出集误差
+npm run prices:players   # 从成交样本重生实测球员倍率表（覆盖生成文件）
 npm run sales:scrape     # 重采卡淘已售出成交样本（耗时较长）
 npm run draft:import     # 从归档原文生成选秀顺位表
 npm run prices:probe     # 重新穿刺查价站点可用性（调研用，约 30 秒）
@@ -74,6 +75,9 @@ npm run prices:probe     # 重新穿刺查价站点可用性（调研用，约 3
 > 动了维度系数（基准价 / 限量 / 人物 / 顺位 / 年份）则另外跑 `npm run prices:audit`，
 > 它对着成交样本校，能发现「改错了但内部仍然自洽」那一类问题。
 > 成交样本不入仓（`.snapshot/card-sales.jsonl`），新 clone 上先跑 `npm run sales:scrape`。
+> **改了 `scripts/lib/parse-sales.ts` 的标题解析（尤其排除类正则）则要整条链重跑**：
+> 所有系数都是从那份语料里解出来的，`player-factors.generated.ts` 还是它的派生文件
+> —— 过滤器的副作用和它的命中一样重要，一个裸词就能把高价单卡当成整盒剔掉。
 
 > **价格不走联网查价**：候选行情站本机基本进不来，且逐张实时查价会让同一盒两次打开
 > 算出不同金额。价格登记在 `src/data/prices/` 里、计算是纯函数，
@@ -141,9 +145,10 @@ src/
   data/teams.ts       球队展示元数据（队标 slug + 缩写兜底 + 主色，卡面图标用）
   data/prices/        价格层（纯函数，不联网）
     boxes.ts           盒型购入价登记表（含来源与登记日期）
-    card-values.ts     卡价规则：档位基准 × 稀有度 × 人物 × 系列系数
+    card-values.ts     卡价规则：卡类基准 × 限量系数 × 人物倍率 × 系列系数
+    players.ts         球员倍率兜底表（三档梯队 + 实测存证，量不到的人才走这里）
+    player-factors.generated.ts  实测球员倍率表（41 人，由 prices:players 生成，不要手改）
     products.ts        系列档次系数（标定值，由盒价回本率反推）
-    players.ts         球员分级表（超巨 / 全明星，卡片估值用）
   engine/             拆包引擎（与具体卡盒解耦）
     types.ts            BoxDefinition / SubsetDef / VariantDef / PulledCard
     rng.ts             fnv1a + mulberry32，种子可复现
