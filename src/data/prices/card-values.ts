@@ -18,15 +18,7 @@
  */
 
 import type { GroupKind, PulledCard, Tier } from "@/engine/types";
-import {
-    ALL_STAR_FACTOR,
-    ALL_STARS,
-    FIRST_SERIAL_FACTOR,
-    LAST_SERIAL_FACTOR,
-    ROOKIE_FACTOR,
-    SUPERSTAR_FACTOR,
-    SUPERSTARS,
-} from "./players";
+import { FIRST_SERIAL_FACTOR, LAST_SERIAL_FACTOR, ROOKIE_FACTOR, playerTier } from "./players";
 import { productValueFactor } from "./products";
 import type { CardValueBreakdown } from "./types";
 
@@ -74,18 +66,40 @@ function scarcityFactor(numbered: number | null): number {
     return 1.1;
 }
 
-/** 人物系数：顶级 / 全明星 / 新秀 三种加成叠乘 */
+/** 吃满人物倍率的大类：签名卡 / 实物卡 / 超短印 */
+const PREMIUM_GROUPS: ReadonlySet<GroupKind> = new Set<GroupKind>(["auto", "relic", "ssp"]);
+
+/** 普卡类（base / parallel / insert）只吃这个比例的人物倍率 */
+const CARD_GROUP_SPREAD = 0.15;
+
+/**
+ * 人物系数。
+ *
+ * 档位倍率不是整份乘上去的，而是先按卡的大类打折：签名卡/实物卡/超短印吃满，
+ * 普卡/平行卡/插入卡只吃 CARD_GROUP_SPREAD 那一小份。
+ *
+ * 为什么必须打折：真实市场里同一位球员在不同档次卡上的溢价差一个数量级 ——
+ * 库里签名卡中位 ￥8,711 而普卡中位 ￥35（相差 250 倍），普通球员签名卡 ￥140
+ * 而普卡 ￥11（相差 13 倍）。也就是说「人物」这个变量本身就被卡的档次放大了。
+ * 上一版用一个倍率同时算两类卡，结果是签名卡那一头错得离谱。
+ */
 function playerFactor(card: PulledCard): number {
-    let factor = 1;
-    if (SUPERSTARS.includes(card.player)) factor *= SUPERSTAR_FACTOR;
-    else if (ALL_STARS.includes(card.player)) factor *= ALL_STAR_FACTOR;
+    const tier = playerTier(card.player);
+    const spread = PREMIUM_GROUPS.has(card.group) ? 1 : CARD_GROUP_SPREAD;
+    let factor = 1 + (tier - 1) * spread;
     if (card.rookie) factor *= ROOKIE_FACTOR;
     return factor;
 }
 
 /**
- * 有据可查的实测价（RMB）。key 用 `variantKey|球员名`，
- * 只登记能说清来源的少数重点卡；查不到就走模型。
+ * 有据可查的实测价（RMB）。key 用 `系列|卡种|球员名`，只登记能说清来源的重点卡。
+ *
+ * 为什么 key 里要带系列：卡种 key 是 `${subset.key}:${slug}`，不含系列名，
+ * 不同系列都有 `base:superfractor` 这种组合，少一层系列就把两个系列的价串起来了。
+ *
+ * 这张表目前是空的：卡淘的成交记录只有一串塞满关键词的标题，没有结构化的
+ * 卡种/平行字段，把 ￥24,250 这条对上「哪一张在册卡」只能靠猜，宁可不登记。
+ * 现在扛事的是 players.ts 的分档表（它按签名卡市场重新标定过）。
  */
 const EXPLICIT: Record<string, number> = {};
 
@@ -94,7 +108,7 @@ const cents = (value: number): number => Math.round(value * 100) / 100;
 
 /** 一张卡的价值明细；productKey 决定系列档次系数 */
 export function cardValueBreakdown(card: PulledCard, productKey: string): CardValueBreakdown {
-    const explicit = EXPLICIT[`${card.variantKey}|${card.player}`] ?? null;
+    const explicit = EXPLICIT[`${productKey}|${card.variantKey}|${card.player}`] ?? null;
     if (explicit !== null) {
         return { value: cents(Math.max(FLOOR_VALUE, explicit)), base: explicit, scarcity: 1, player: 1, explicit };
     }

@@ -1,7 +1,8 @@
 /**
- * 价格表核对：盒价是否登记齐全、球员分级有没有拼错、以及最重要的 —— 回本率是否合理。
+ * 价格表核对：盒价是否登记齐全、球员分级有没有拼错、人物档位的比值是否还贴着
+ * 卡淘实测区间，以及最重要的 —— 回本率是否合理。
  *
- * 前两项是硬校验（不通过就退出码 1）；回本率只做区间提醒，因为它是模型参数调出来的
+ * 前三项是硬校验（不通过就退出码 1）；回本率只做区间提醒，因为它是模型参数调出来的
  * 结果，不是一个「官方数字」，看见区间外的行就去 card-values.ts 调基准价。
  *
  * 用法：npm run prices:check            全部盒型
@@ -9,8 +10,16 @@
  */
 import { REGISTERED_BOXES } from "../src/data/sets";
 import { ripBox } from "../src/engine/rip";
-import { ALL_STARS, SUPERSTARS } from "../src/data/prices/players";
+import type { GroupKind, PulledCard } from "../src/engine/types";
+import {
+    ALL_STARS,
+    ELITES,
+    PLAYER_TIERS_AS_OF,
+    SUPERSTARS,
+    TIER_EVIDENCE,
+} from "../src/data/prices/players";
 import { BOX_PRICES, boxPriceEntry, sumValueRmb, PRICE_SOURCES, USD_CNY } from "../src/data/prices";
+import { cardValueRmb } from "../src/data/prices/card-values";
 
 /** 每个盒型模拟多少盒：够把回本率稳到小数点后两位 */
 const SAMPLES = 40;
@@ -108,13 +117,16 @@ for (const name of roster) {
 }
 
 const gradedKeys = new Set<string>();
-for (const name of [...SUPERSTARS, ...ALL_STARS]) {
+for (const name of [...SUPERSTARS, ...ELITES, ...ALL_STARS]) {
     const key = nameKey(name);
     if (gradedKeys.has(key)) fail(`分级表里「${name}」重复出现`);
     gradedKeys.add(key);
     if (!rosterKeys.has(key)) fail(`分级表里的「${name}」不在任何名册里（拼写与变音符号要完全一致）`);
 }
-console.log(`  名册人物 ${rosterKeys.size} 人，分级 ${gradedKeys.size} 人`);
+console.log(
+    `  名册人物 ${rosterKeys.size} 人，分级 ${gradedKeys.size} 人` +
+        `（超巨 ${SUPERSTARS.length} / 巨星 ${ELITES.length} / 球星 ${ALL_STARS.length}）`,
+);
 
 /* 名册里有没有明显该分级却没分级的（只提示） */
 const ungraded = Array.from(rosterKeys)
@@ -170,6 +182,86 @@ if (middle < MEDIAN_MIN || middle > MEDIAN_MAX) {
     fail(`回本率中位数 ${(middle * 100).toFixed(1)}% 超出 ${MEDIAN_MIN * 100}-${MEDIAN_MAX * 100}% 区间，请调 card-values.ts 的基准价`);
 }
 if (warned > 0) console.log(`  有 ${warned} 个盒型回本率在中位数区间外，属正常波动，如果要收窄请调 products.ts 的系列系数`);
+
+/* ---------------------------------------------------------------- */
+/* 4. 人物档位比值                                                    */
+/* ---------------------------------------------------------------- */
+console.log(`\n### 人物档位比值（分档实测日期 ${PLAYER_TIERS_AS_OF}）`);
+
+/*
+ * 单张卡的绝对价对不上可以有很多原因（系列系数、盒型构成、名册组成），
+ * 但「档位之间的比值」只由分档表与加权方式决定。所以这里不比绝对价、只比比值，
+ * 区间取卡淘实测那一列。
+ *
+ * 这一条存在的意义是防回归：上一版把签名卡的档位倍率压在 6 倍、弗拉格还在全明星档
+ * （×1.5），而实测的超巨 / 未分级在签名卡上是 47~65 倍 —— 库珀弗拉格一张 10 编
+ * 新秀签字真实成交 ￥24,250，旧模型对同口径的卡只给 ￥701，差距 35 倍。
+ */
+const probe = (player: string, group: GroupKind, rookie = false): PulledCard => ({
+    id: "probe",
+    variantKey: "probe",
+    fullName: "probe",
+    subsetKey: "probe",
+    subsetName: "probe",
+    variantName: "probe",
+    group,
+    tier: "epic",
+    player,
+    team: "—",
+    no: "—",
+    rookie,
+    numbered: 10,
+    serial: 3,
+    oddsLabel: "—",
+    odds: 1,
+    pack: 1,
+    slot: 1,
+});
+
+/** 随便找个在建的系列；比值与系列无关，分子分母会约掉 */
+const PROBE_PRODUCT = "tcu26-basketball";
+const PLAIN = "—未分级球员—";
+const ratio = (player: string, group: GroupKind): number =>
+    cardValueRmb(probe(player, group), PROBE_PRODUCT) / cardValueRmb(probe(PLAIN, group), PROBE_PRODUCT);
+
+const checkRatio = (label: string, value: number, min: number, max: number): void => {
+    const ok = value >= min && value <= max;
+    if (!ok) failed += 1;
+    console.log(`  ${ok ? "    " : "[!] "}${label.padEnd(22)} ×${value.toFixed(2).padStart(7)}   实测区间 ×${min}~×${max}`);
+};
+
+checkRatio("签名卡 超巨 / 未分级", ratio("Cooper Flagg", "auto"), 15, 60);
+checkRatio("签名卡 巨星 / 未分级", ratio("Donovan Mitchell", "auto"), 4, 20);
+checkRatio("签名卡 球星 / 未分级", ratio("Andrew Nembhard", "auto"), 1.5, 8);
+checkRatio("普卡 超巨 / 未分级", ratio("Cooper Flagg", "base"), 2, 9);
+
+/*
+ * 比值只证明「分档差多少」，证明不了「这张卡到底值多少」。所以补一行绝对价锚点，
+ * 口径固定成「Topps Chrome Update 系列、epic 档、10 编、普通编号」的签名卡，
+ * 让人能自己拿卡淘成交价对一下 —— 看得到数字才能判断模型是不是还偏 15 倍。
+ * 这里不判定失败：系列系数与盒型构成都会影响绝对值。
+ */
+const money = (value: number): string => `￥${value.toFixed(0).replace(/\B(?=(\d{3})+(?!\d))/g, ",")}`;
+const anchor = (player: string, rookie = false): number =>
+    cardValueRmb(probe(player, "auto", rookie), "tcu26-basketball");
+console.log("\n  绝对价锚点（Topps Chrome Update、epic 档、10 编、普通编号的签名卡）：");
+console.log(`    未分级球员          ${money(anchor(PLAIN))}`);
+console.log(`    超巨（非新秀）       ${money(anchor("Cooper Flagg"))}`);
+console.log(`    超巨（新秀）         ${money(anchor("Cooper Flagg", true))}`);
+console.log("  对照：卡淘上库珀弗拉格一张 Topps Definitive 10 编新秀签字成交 ￥24,250，");
+console.log("  但 Definitive 不在在册系列里，没有对应系列系数，量级对得上即可。");
+
+/* 实测存证表里写的档位必须与分档表一致，否则那张表会慢慢变成假证据 */
+for (const row of TIER_EVIDENCE) {
+    const actual = SUPERSTARS.includes(row.player)
+        ? "超巨"
+        : ELITES.includes(row.player)
+          ? "巨星"
+          : ALL_STARS.includes(row.player)
+            ? "球星"
+            : "未分级";
+    if (actual !== row.tier) fail(`实测存证「${row.player}」标的是${row.tier}档，分档表实际是${actual}档`);
+}
 
 console.log(failed === 0 ? "\n价格表核对通过。" : `\n价格表核对失败 ${failed} 项。`);
 process.exit(failed === 0 ? 0 : 1);
