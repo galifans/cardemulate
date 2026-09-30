@@ -19,12 +19,17 @@
 | 构建命令 | `npm run build` → 输出 `dist` |
 | 本地预览 | `npm run dev`（仅前端，端口 5174）/ `npm run dev:cf`（全栈 + 本地 D1） |
 | 官方资料归档 | `sources/<品类>/<发行商>/<系列产品>/`（登记册见 `sources/README.md`） |
+| 价格来源登记 | `sources/prices/README.md`（实测可达矩阵 + 定价方法与复核命令） |
 | 名册核对 | `npm run roster:check`：把 `roster.ts` 逐行对回归档的官方 Checklist |
 | 盒型行为快照 | `snapshots/boxes.json`；`npm run boxes:snapshot` 写 / `npm run boxes:check` 比 |
+| 价格表核对 | `npm run prices:check`：盒价覆盖率 + 分级表拼写 + 回本率区间三段校验 |
+| 数据库迁移 | `migrations/NNN-*.sql`（约定见 `migrations/README.md`，改完要同步 `schema.sql`） |
+| 历史金额回填 | `npm run db:backfill`（本地）/ `npm run db:backfill -- --remote`（线上） |
 | 数据库 | Cloudflare D1，库名 `cardemulate`，绑定变量名 `DB`，
 `database_id = 51265817-c1ed-4e09-98fd-a3d1709fb0c3`（区域 WNAM） |
 | 云端账号 | Cloudflare `2092878237@qq.com`，Account ID `88a2dc4c1e2c8652fd444ea1a65dec76` |
-| 当前状态 | 已上线：Pages + 线上 D1 全链路验证通过，自定义域名 `cardemulate.wikiandroid.com` 已 active；待内容扩展 |
+| 当前状态 | 已上线：Pages + 线上 D1 全链路验证通过，自定义域名 `cardemulate.wikiandroid.com` 已 active；已上线拆盒金额（盒价 + 卡面估值 + 统计收益）；待内容扩展。**注意：线上 D1 还没跑 `migrations/004-break-values.sql`，不跑的话新开的盒写不进金额列** |
+| 价格口径 | 盒价 = 发行商零售参考价；卡价 = 规则推导价；两者都不是成交价，`PRICE_AS_OF` 标出登记日期 |
 ## 2. 站点定位
 
 按发行商公开的 **Pack Odds 表**逐包还原真实卡盒的配率结构，让用户「按盒拆卡」，
@@ -39,11 +44,13 @@
 ```
 src/catalog/     目录层（唯一真相，运行时渲染不查库）
 src/data/sets/   盒型数据（按 品类/发行商/系列 分目录）
+src/data/prices/ 价格层（盒价表 + 卡价规则 + 系列系数，纯函数、不联网）
 src/engine/      拆包引擎（与具体卡盒完全解耦）
 src/api/         后端接口封装（含降级）
 src/stores/      用户会话 + 云端拆盒记录 + 服务端统计
 functions/api/   Pages Functions（鉴权 / 统计 / 目录同步）
 schema.sql       D1 建表脚本（维度表 + 事实表分离）
+migrations/      增量迁移（线上只跑增量，`schema.sql` 是新库的全量）
 ```
 
 **盒型 key 命名规则**（同时就是数据库的 `box_key`）：
@@ -1258,6 +1265,83 @@ schema.sql       D1 建表脚本（维度表 + 事实表分离）
   核到 5916 格、不一致 0 格；`npm run print:check -- tbb26` 报 4 个盒型、94 个可核对子集、
   539 个档位，28 档偏离中位数 15% 以上（集中在渠道专属平行与残差折算出来的少数格）
 
+### 2026-10-01（拆盒补上金额：盒价登记一次，卡价按规则推导）
+
+需求原文是「选一款盒子，在多个平台上查当天均价（RMB），每张卡也去公开平台查最新售价，
+算出这次花了多少钱、开了多少钱」，并明确要求**先评估可行性**。评估结论：不可行，
+所以改成了另一条路，改造点如下。
+
+- **可行性实测（21 个目标，Chrome UA，12 秒超时，脚本 `scripts/probe-price-sites.mjs`）**：
+  - 能读的只有 3 类：`www.cardhobby.com.cn`（卡淘，服务端渲染、直接出 ￥ 价格）、
+    汇率 `open.er-api.com` / `api.frankfurter.app` / 中国银行牌价页、
+    `checklistinsider.com`（只有配率没有价）
+  - 403：eBay、130point、PriceCharting、Card Ladder、PSACard、COMC、
+    DA Card World、Steel City、SportsCardsPro、TCDB、StockX、topps.com
+  - 反爬壳（返回挑战页而不是数据）：Blowout、Beckett、淘宝、得物、闲鱼、转转、京东、7788
+  - 网络不通：Yahoo JP、jp.mercari、ruten、shopee.tw、carousell
+  - **卡淘也救不了这个需求**：它的列表页能读，但搜索是 Vue SPA，按盒名/球员名检索
+    拿不到结果，而且只有「起拍 / 一口价」没有「成交价」
+  - 结论：**「每张卡实时查价」这件事没有可落地的数据源**，不是工程量问题
+- **改成哪条路（用户拍板）**：价格**登记进仓库一次**，之后本地按规则算，
+  不再联网查价；计算是纯函数，所以同一盒任何时候算出来都一样
+- **两层价格**：
+  - 盒价：22 个盒型全部登记（`src/data/prices/boxes.ts`），来源 Topps 零售渠道，
+    22 条 `confidence` 全部是 `reference`（不是成交价，是零售参考价）
+  - 卡价：`src/data/prices/card-values.ts` 一张基准矩阵（普卡/平行/插入/自动/实物/SSP 各 6 档）
+    × 稀有度系数 × 球员档位系数（超巨 ×4 / 全明星 ×2 / 新秀 ×1.4）
+    × 首尾编号加成（×1.5 / ×1.3），下限 ¥0.01
+  - 新增 `src/data/prices/products.ts`：**系列系数**（`PRODUCT_VALUE_FACTORS`）。
+    一张矩阵要同时服务 8 个系列，靠这个系数拉开档次；这组数是**标定值**，
+    由盒价回本率反推，文件里写明「未登记的系列一律按 1 倍」
+- **4 个盒价按回本率修过**：`tccj26` 2880→2600、`tcosmic26` 2160→1600、
+  `tthree26` 650→2200、`tbb26-value-box` 180→240。
+  不修的话只能给这几个系列塞极端系数，那等于把盒价写反了
+- **新增核对脚本 `npm run prices:check`**（`scripts/check-prices.ts`，三段）：
+  ① 线上盒型是否都登记了盒价；② 球员分级表的拼写是否都在名册里；
+  ③ 每盒型模拟 40 盒，回本率中位数必须在 25%–100% 之间、单盒型在 15%–130% 之间
+  - 第②段补上**归一化**才跑得通：名册里的名字是从官方 Checklist 抄的，
+    同一球员各系列写法不一（`Alperun Sengun`、`Egor Dëmin`、`Bennedict mathurin`），
+    比对前统一去掉大小写 / 变音符号 / 标点 / 多余空格
+  - 归一化当场揪出两个真错：`"Myles Turner "`（尾随空格）、
+    `Amen Thompson` 同时被标成全明星和超巨（重复）；都已修
+  - 最终结果：盒价 22/22、名册 624 人分级 96 人、回本率中位数 50.0%
+    （最低 `tbb26-hobby` 30.9%，最高 `tbb26-value-box` 80.2%），结论「价格表核对通过」
+- **价格来源登记册 `sources/prices/README.md`**：上面那张实测矩阵、卡淘的抽取方式、
+  两层定价法、置信度三档的含义、以及复核命令都写在这里；
+  用户要求「记录可以成功获取的站点信息，避免后续频繁换站点算价」，这就是那份记录
+- **`breaks` 表升到 schema v4**：加 `cost_rmb` / `value_rmb`（`REAL NOT NULL DEFAULT 0`）。
+  存**结果**而不是价格表引用 —— 价格表以后一定会改，历史记录不该跟着变；
+  价格表上线前的记录两者为 0，前端显示成「—」。
+  迁移件 `migrations/004-break-values.sql`，同目录新增 `migrations/README.md` 写清约定
+  （ALTER 没有 `IF NOT EXISTS`、只跑一次、改完要同步 `schema.sql`）
+- **老记录回填（`npm run db:backfill`，`scripts/backfill-break-values.ts`）**：
+  这条能成立的关键是**开盒的随机数只由「盒型 + 种子文本」决定**，而这两样每次都原样存进了
+  `breaks`，所以每条老记录都能重放一遍，拿到当时开出的卡，再按当前价格表算钱。
+  回填结果 = 「当时的卡按现在的价格算值多少」，是一条能解释的数字，不是补一个平均数进去
+  - 盒价取 `box_key` 查表，卡价取重放后的卡逐张算再求和
+  - 查不到的盒型（下架 / 改名）跳过并打印，不猜价
+  - 只写变化的行，跑第二遍报「需要更新 0 条」，幂等
+  - 本地实测：18 条记录全部回填，合计购入 ¥22140 / 合计售出 ¥6361.15
+- **前端四处改动**：
+  1. 卡面文字区下方新增一行「估值 ¥x.xx」（`CardFace.vue` 新增 `value` 属性）。
+     它跟卡面本体无关，所以价格怎么算由调用方决定，组件只负责显示；
+     这一行共用底部 `margin-top:auto` 的留白，卡面高度仍然完全一致
+  2. 「本盒概况」下方新增金额行：购入 / 售出 / 盈亏（盈绿亏红）
+  3. 删掉「种子 xxxxxx 复现这一盒」和「本次拆盒已计入统计」两块
+     （用户原话：种子在统计里能看到，提示则完全多余）
+  4. 统计页「拆盒记录」新增「购入 / 售出」一列；
+     「查看统计」弹窗顶部新增累计购入 / 累计售出 / 盈亏
+- **窄屏布局踩坑**：金额行一开始写成固定三列，在 600px 视口下概览卡只有 267px 宽，
+  三格各 70px 装不下「¥1080.00」，被截成省略号。
+  改成 `repeat(auto-fit, minmax(84px, 1fr))` 后自己会掉成两格一行；
+  实测 1280 / 600 / 390 / 320 四档都不截断、无横向溢出、卡面等高
+- ✓ 验证：`npm run typecheck`、`npm run build` 通过；
+  `npm run boxes:check` 报「盒型行为与快照一致（22 个盒型）」；
+  `npm run prices:check` 通过；`npm run db:backfill` 本地跑两遍（第二遍 0 条更新）；
+  本地 `npx wrangler pages dev dist --port 8788` 实拆 6 盒（tbb26-hobby ×4、
+  thoops26-hobby ×2）逐一核对：概况金额、卡面估值、拆盒记录列、弹窗累计全部正确
+  （例：4 盒 tbb26-hobby 累计购入 ¥4320.00 = 4 × 1080，累计售出 ¥1290.25 与四条记录逐条相加一致）
+
 ### 关键取舍记录
 
 - **不用 Pinia**：只有一个全局 store，手写 reactive 单例省一个依赖。
@@ -1300,8 +1384,9 @@ schema.sql       D1 建表脚本（维度表 + 事实表分离）
   再说一遍的句子一律不要；徽章已经写着「待上线」就不必再加一句「敬请期待」。
 - **种子框始终代表「下一盒」，不代表「刚开完的那盒」**：
   拆完立刻换新种子，否则「再拆一盒」会原样重开上一盒（肉眼看不出，因为结果一致）。
-  要做到这一点又保留可复现性，**必须同时有「本盒概况」里的种子 + 「复现这一盒」**——
-  去掉后者，用户就再也回不到刚开完的那一盒了。
+  这一条当初的代价是页面上必须保留「复现这一盒」，2026-10-01 用户判定它鸡肋
+  （种子在统计页的拆盒记录里就有）已删除，但**「拆完换新种子」的行为保留**：
+  它保证的是「再拆一盒」的结果真的不一样。
 - **卡片的「整体可点」用覆盖层实现，不把卡片本身做成 `<a>`**：
   一旦卡片里还要放按钮（如盒型卡的「配置说明」），把卡片做成 `<a>` 就只能把按钮
   嵌进去，属于嵌套交互元素，HTML 不合法、键盘焦点顺序也会乱。
@@ -1435,6 +1520,24 @@ schema.sql       D1 建表脚本（维度表 + 事实表分离）
   `1:3,2991 Fat`——与官方表印坏的那一格一模一样。这既是好消息（说明它确实在转述同一张
   官方表，不是自己编的），也是提醒：转述件与原件不是两个独立证据，不能拿它来裁决原件的错。
 
+### 金额相关的取舍（2026-10-01 补充）
+
+- **价格登记进仓库，不在运行时查价**：实测 21 个站点后确认「每张卡实时查价」
+  没有可用的数据源（见时间线那条）。运行时查价还会带来三个额外问题：
+  同一盒两次打开算出不同金额、页面被第三方挂住、外部站改版后静默变成 0。
+  现在价格是纯函数，代价是价格会滞后，靠 `PRICE_AS_OF` 这个显式日期说清是哪天的价。
+- **`breaks` 存金额结果，不存价格表引用**：价格表一定会被改（现在是 22 条参考价 +
+  一组单点标定的系数），如果记录只存引用，改一次价格表所有历史记录的数字都会跟着变。
+  存下来的是「当时那几张卡按登记价算出的钱」，改价只影响以后开的盒。
+- **老记录靠重放补，不靠估算**：`ripBox` 的随机数种子只由 `${box.key}|${seed}`
+  拼接而成，与时间、路径、依赖版本都无关，所以老记录能逐盒重放。
+  这正是一直坚持「种子格式永不改」这条快照约束的回报。
+- **盒价与卡价性质不同，不能混着说**：盒价取自发行商零售渠道，22 条全是 `reference`，
+  没有一条是成交价；卡价是规则算出来的。所以「回本率」是**模型输出**，不是市场事实，
+  系数文件与 `sources/prices/README.md` 都写明了这点，避免以后被当成行情用。
+- **金额显示成「购入 / 售出」而不是「成本 / 价值」**：用户是按「花了多少 / 开了多少」
+  提的需求，售出是玩家实际会做的事，价值是概念。文案跟着用户的口径走。
+
 ## 5. 待办（TODO）
 
 ### P0 上线前必须完成
@@ -1470,12 +1573,27 @@ schema.sql       D1 建表脚本（维度表 + 事实表分离）
 - [x] 昵称：允许用户自设展示名（个人中心 + 全站唯一，已取代邮箱前缀）
 - [ ] 线上 D1 执行一次 `schema.sql` 升级到 v3（补唯一索引；不补也安全，
       唯一性由单条 `NOT EXISTS` UPDATE 保证，但线上应与本地口径一致）
+- [ ] 线上 D1 执行一次 `migrations/004-break-values.sql`（`breaks` 表加两个金额列，
+      不跑的话新开的盒写不进去）；跑完可选执行一次老记录回填（见下一条）
+- [ ] 线上回填 `breaks` 的金额：`npm run db:backfill -- --remote`
+      （本地已跑过，18 条；线上跑之前先将 `breaks` 导出一份留底，虽然脚本幂等且只写金额）
+
+### P1 定价表维护
+- [ ] 盒价复核：22 条都是发行商零售参考价，价格变动时需要人工更新
+      （`src/data/prices/boxes.ts`，同时把 `PRICE_AS_OF` 改成新日期）
+- [ ] 系列系数复核：`PRODUCT_VALUE_FACTORS` 是标定值，改盒价后要重跑
+      `npm run prices:check` 看回本率是否还在 25%–100% 区间
+- [ ] 球员分级表补录：`src/data/prices/players.ts` 只标了 96 人（超巨 24 + 全明星 72），
+      名册 624 人里余下 528 人一律按 1 倍，属于有意保守，后续可按赛季表现调整
+- [ ] 卡淘（`cardhobby.com.cn`）作为**人工复核**渠道写进了来源登记册：
+      搜索是 SPA 抓不到，但人工浏览能看到真实成交价，可用于定期校准基准矩阵
 
 ### P2 功能增强
 - [ ] 目录同步脚本 `scripts/sync-catalog.mjs`（用 `buildCatalogPayload()` 生成并推送）
 - [ ] 把 `scripts/smoke-api.mjs` 改造成正式回归脚本（目前是临时冒烟脚本）
 - [ ] 排行版 / 全站统计的前端筛选联动（接口已支持 `?category=&maker=&box=`）
 - [ ] 拆盒历史分享（种子可复现，适合做成分享链接）
+- [ ] 统计页「按盒子」表格直接显示累计购入 / 售出（目前只在「查看统计」弹窗里）
 - [ ] 拆盒动画与音效（目前是逐张揭开）
 
 ## 6. 已知问题
@@ -1491,10 +1609,15 @@ schema.sql       D1 建表脚本（维度表 + 事实表分离）
   不影响构建（Vite 6 用 Rollup 打包，esbuild 仅用于依赖预构建）。
 - **本机没装 wrangler**（不在 `node_modules` 也没全局装），
   所以 `npm run db:local` 与 `npm run dev:cf` 这两个脚本在本机会报
-  `'wrangler' is not recognized`。要联调本地全栈，直接用 npx 缓存里的 wrangler，
-  例如 `npx --yes wrangler@latest pages dev dist --port 8788 --compatibility-date=2026-01-01`
+  `'wrangler' is not recognized`（这两个脚本直接调 `wrangler`，
+  而 `db:backfill` 内部走的是 npx，所以它在本机能跑）。要联调本地全栈，
+  直接用 npx 缓存里的 wrangler，例如
+  `npx wrangler pages dev dist --port 8788`
   （**不要加 `--d1=DB`**，让它读 `wrangler.toml` 的绑定，否则会另建空库）。
   脚本本身没问题，线上/CI 环境有 wrangler 就能跑。
+- **`SUM()` 出来的浮点尾数必须在接口层收口**：`cost_rmb` / `value_rmb` 是 `REAL`，
+  多条相加会出现 `¥6361.150000000001`，`functions/api/[[path]].js` 的 `money()`
+  统一四舍五入到两位，前端不再各自处理。
 
 ## 7. 环境备忘（本机）
 
@@ -1516,5 +1639,12 @@ schema.sql       D1 建表脚本（维度表 + 事实表分离）
 - **盒型改动后的固定三连**：`npm run typecheck` → `npm run build` → `npm run boxes:check`
   （第三条只在改了 `src/data/sets` 下任何东西时才必须跑；动了 `roster.ts` 还要跑
   `npm run roster:check`）
+- **价格改动后的固定两连**：`npm run typecheck` → `npm run prices:check`
+  （改了 `src/data/prices/*` 里任何文件都要跑；改了盒价或系列系数后重点看回本率那一段）
+- **本机全栈实测可用的命令**：`npx wrangler pages dev dist --port 8788`
+  （wrangler 4.144.0，第一次会提示 `Ok to proceed? (y)`，**不要加 `--d1=DB`**）。
+  本地 D1 的迁移与回填同样是 npx 形式：
+  `npx wrangler d1 execute DB --local --file=migrations/004-break-values.sql`、
+  `npm run db:backfill`（内部就是用 npx 调的 wrangler）
 - **`git push` 在 PowerShell 里即使成功也返回退出码 1**（git 把进度写到 stderr，
   PowerShell 当成 `NativeCommandError`）。**看输出里有没有 `main -> main`，不看退出码。**

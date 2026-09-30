@@ -152,6 +152,26 @@
 - `defineBox()` 在开发环境校验失败会直接抛错（配率、编号、子集引用、卡号重复都会被拦），
   **不要**为了让数据通过而放宽 `validateBox()` 的规则，应修数据。
 
+### 5.1 价格模型约束（拆盒金额）
+
+- **价格登记在仓库里，运行时禁止联网查价**。2026-10-01 实测 21 个候选行情站
+  （见 `sources/prices/README.md`）确认「逐张实时查价」没有可用数据源，
+  且会让同一盒两次打开算出不同金额。**不要**再尝试引入第三方价格接口。
+- 卡价必须是**纯函数**：只依赖卡自身属性与系列 key，不依赖时间、随机数、网络或全局状态。
+  这样才能让「复现这一盒」与历史记录回填算出同一个数。
+- 盒价与卡价的来源都要写进数据文件：盒价逐条带 `confidence` + `asOf`；
+  改动价格表必须同步改 `PRICE_AS_OF`，**不要**改模型去迁就某一格数字。
+- 卡价规则分层是：档位基准 × 稀有度系数 × 人物系数 × 系列系数，下限 ¥0.01。
+  系列系数（`PRODUCT_VALUE_FACTORS`）是**标定值**，改盒价后必须重跑
+  `npm run prices:check` 看回本率是否仍在区间内。
+- 球员分级表（`src/data/prices/players.ts`）里的名字必须与名册拼写一致；
+  比对前统一做归一化（去大小写 / 变音符号 / 标点 / 多余空格）。
+  `npm run prices:check` 会拦重复项与名册里查不到的名字。
+- **`breaks` 存金额结果（`cost_rmb` / `value_rmb`），不存价格表引用**：
+  记录是历史事实，价格表改了不该让老记录跟着变。
+- 金额在前端渲染时统一走 `src/data/prices` 导出的 `rmb()` / `rmbOrDash()`，
+  不要在视图里手写 `toFixed(2)` 或拼 `¥`。
+
 ## 6. 账号与注册约束
 
 - 注册方式**只有一种**：邮箱 + 密码。注册表单**不要**采集昵称、手机号、生日等
@@ -226,6 +246,10 @@
 - Cloudflare D1，绑定变量名**必须**是 `DB`，不可改名。
 - 表结构变更必须同时更新 `schema.sql`（全为 `CREATE TABLE IF NOT EXISTS` /
   `CREATE INDEX IF NOT EXISTS`，可重复执行）与 `meta.schema_version`。
+- **已有库的变更走 `migrations/NNN-*.sql`**（约定见 `migrations/README.md`）：
+  `schema.sql` 是新库的全量脚本、**不能重跑**，线上库只跑增量。
+  两处都要改，且必须在 `PROGRESS.md` 待办里写明线上还没跑哪一条。
+  D1 的 `ALTER TABLE` 没有 `IF NOT EXISTS`，迁移件只保证跑一次。
 - 所有表都带 `app_key` 列用于多站点隔离，新增表必须带上。
 - 维度表（`categories/makers/products/boxes/subsets/variants`）是 TS 目录的镜像；
   事实表（`breaks/pull_stats`）冗余 `category_key / maker_key / product_key`，
@@ -247,6 +271,10 @@
 npm run typecheck   # vue-tsc --noEmit，必须零错误
 npm run build       # 必须 Success，且 dist/_routes.json 存在
 ```
+
+- 改动 `src/data/prices/` 下任何文件后，**必须**跑 `npm run prices:check`
+  （盒价登记完整性 + 球员分级拼写 + 回本率区间，三段都要看）。
+- 改动 `breaks` 表结构后，除了迁移件，还要确认 `npm run db:backfill` 仍能跑通。
 
 - 改动概率模型或盒型数据后，必须在浏览器里实际拆几盒核对：张数恒定（`cardsPerPack × packsPerBox`）、
   配率表数字与 `box.ts` 一致、同一种子可复现同一盒。

@@ -41,6 +41,7 @@ npm run typecheck   # vue-tsc --noEmit
 npm run build       # 产出 dist/
 npm run preview     # 预览已构建产物，端口 4173
 npm run db:local    # 向本地 D1 应用 schema.sql
+npm run db:backfill # 给历史拆盒记录补上金额（可反复跑；加 -- --remote 打线上库）
 npm run smoke       # 对着本地服务跑一遍 API 冒烟测试
 ```
 
@@ -53,6 +54,8 @@ node scripts/import-pack-odds.mjs sources/<...>/pack-odds.txt src/data/sets/<...
 npm run roster:check     # 名册对回归档的官方 Checklist，有出入退出码 1
 npm run boxes:snapshot   # 记录当前所有盒型的完整拆盒行为
 npm run boxes:check      # 比对差异，有差异退出码 1
+npm run prices:check     # 盒价登记完整性 + 球员分级拼写 + 回本率区间
+npm run prices:probe     # 重新穿刺查价站点可用性（调研用，约 30 秒）
 ```
 
 > 官方原始资料（Pack Odds / Checklist / 发行说明的原始件与文本提取件）统一归档在 `sources/`，
@@ -63,6 +66,15 @@ npm run boxes:check      # 比对差异，有差异退出码 1
 > 还要跑 `npm run boxes:check`：它锁住已有盒型的拆盒结果（含 5 个固定种子的逐卡输出），
 > 重构共享逻辑时能立刻发现有没有把老盒型改坏。
 > 动了 `roster.ts` 则另外跑 `npm run roster:check`，它锁的是名册与官方名单的一致性。
+> 动了 `src/data/prices/` 下任何东西则跑 `npm run prices:check`。
+
+> **价格不走联网查价**：候选行情站本机基本进不来，且逐张实时查价会让同一盒两次打开
+> 算出不同金额。价格登记在 `src/data/prices/` 里、计算是纯函数，
+> 口径、可达性实测与复核命令见 `sources/prices/README.md`。
+
+> 数据库改动走 `migrations/NNN-*.sql`（约定见 `migrations/README.md`）：
+> `schema.sql` 是新库的全量建表脚本，已有库只跑增量迁移，
+> 两边都要改，改完记得给线上库也跑一次迁移。
 
 > 本地 D1 的两个命令必须指向**同一个库**：`db:local` 走 `wrangler.toml` 里的 `DB`
 > 绑定，`dev:cf` 也**不要**加 `--d1=DB`（那会另建一个空库，导致
@@ -78,6 +90,10 @@ npm run boxes:check      # 比对差异，有差异退出码 1
 
 2. 打开 Cloudflare 控制台 → Workers & Pages → D1 → `cardemulate` → Console，
    粘贴 `schema.sql` 的全部内容并执行。
+
+   > 库**已经存在**时不要重跑 `schema.sql`（它是全量脚本），按顺序跑 `migrations/` 下的
+   > 增量文件即可，例如
+   > `npx wrangler d1 execute cardemulate --remote --file=migrations/004-break-values.sql`。
 
 3. 新建 Pages 项目，连接本仓库：构建命令 `npm run build`，输出目录 `dist`。
 
@@ -116,6 +132,11 @@ src/
       box.ts            子集、平行、配率、盒型定义
       index.ts
   data/teams.ts       球队展示元数据（队标 slug + 缩写兜底 + 主色，卡面图标用）
+  data/prices/        价格层（纯函数，不联网）
+    boxes.ts           盒型购入价登记表（含来源与登记日期）
+    card-values.ts     卡价规则：档位基准 × 稀有度 × 人物 × 系列系数
+    products.ts        系列档次系数（标定值，由盒价回本率反推）
+    players.ts         球员分级表（超巨 / 全明星，卡片估值用）
   engine/             拆包引擎（与具体卡盒解耦）
     types.ts            BoxDefinition / SubsetDef / VariantDef / PulledCard
     rng.ts             fnv1a + mulberry32，种子可复现
@@ -127,7 +148,9 @@ src/
   views/              页面
   components/         组件（CategoryIcon 品类图标、TeamIcon 球队队标、CardFace 卡面等）
 functions/api/        Pages Functions：鉴权、统计、目录同步
-schema.sql            D1 建表脚本（v2：维度表 + 事实表分离）
+schema.sql            D1 建表脚本（全量，当前 v4：维度表 + 事实表分离 + 拆盒金额列）
+migrations/           增量迁移（已有库只跑增量；约定见 migrations/README.md）
+sources/prices/       价格来源登记册（站点可达性实测 + 定价口径 + 复核命令）
 ```
 
 ## 扩展约定

@@ -16,6 +16,9 @@ sources/<品类>/<品牌>/<系列产品>/
 
 例如 `sources/basketball/topps/tcu26-basketball/`。
 
+**价格类信息不放在这里**，它天生带时间与渠道属性，单独登记在
+`sources/prices/README.md`（含站点可达性实测、定价口径与复核命令）。
+
 每个系列产品目录下固定放两类文件：
 
 | 文件 | 内容 | 强制性 |
@@ -285,6 +288,9 @@ Topps 官网只用人工核对，不写进自动化流程。逐站实测结果�
 | `web.archive.org`、`archive.ph` | ✘ | **连不上**，所以 Wayback 这条退路在本机不存在 |
 | `www.google.com`、`duckduckgo.com`、`www.mojeek.com` | ✘ | 不可达或 403 |
 | `www.tcdb.com`、`www.sportscardspro.com`、`www.dacardworld.com`、`www.steelcitycollectibles.com`、`www.fanatics.com` | ✘ 403 | 一律 403 |
+
+**价格类站点的可达性是另一轮单独的实测，见 `sources/prices/README.md`**：
+卡价候选站 21 个目标里只有卡淘与服务端渲染的部分能用，行情站全军覆没。
 
 ### 镜像文件名的规律
 
