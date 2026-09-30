@@ -17,8 +17,16 @@
  * - `A:B`  → B / A（A 包里出 B 张）
  * 例如 `4:1` 是每包 4 张，换成 0.25；`1:7` 是 7 包一张，换成 7。
  *
+ * 个别 PDF 的**标签列是两端对齐的**（Signature Class 就是这样）：排版器会在字符之间
+ * 塞进单空格，把 `Veteran` 拉成 `Ve t e r a n`，连数值都被塞成 `1: 407`。这种文件加
+ * `--relaxed`：只用「连续两个以上空格」当格子边界，格子内部的单空格一律丢掉。
+ * 表头同样被拉开，所以宽松模式下的表头匹配也先去掉空格再找。
+ * 标签这么处理会得到 `VeteranClassBaseRedLava` 这种连成一串的东西——不是能写进代码的
+ * 名字，所以还要用 `--labels=<plain.txt>` 拿同样这份 PDF 的**普通模式**提取件当词典：
+ * 普通模式不排版、标签是干净的，两边各自去掉空格后按行对上，就能把标签换回官方写法。
+ *
  * 用法：
- *   node scripts/import-pack-odds.mjs <pack-odds.txt> <输出 .ts> "渠道1,渠道2,..."
+ *   node scripts/import-pack-odds.mjs <pack-odds.txt> <输出 .ts> "渠道1,渠道2,..." [--relaxed] [--labels=plain.txt]
  *
  * 渠道名按官方表**从左到右**列出，脚本用它算列位并由此生成列 id（小写连字符）。
  * 认不出来的行会打印出来，**必须逐条人工核对**，不能放着警告往下走。
@@ -34,6 +42,30 @@ const ROW_PATCHES = {
     "tcu26-basketball": {
         "Alter Ego": [6818, 3065, 2155, null, 15386, 15386, 15386, 10821, 10821, 10821, 3571, null],
     },
+    "tthree26-basketball": {
+        // 见 LABEL_PATCHES：这三行的第一列配率被挤进了行标签，表格里那一格是空的
+        "Rookie 3 Patch Autographs Horizontal Bronze": [23, 23],
+        "Rookie 3 Patch Autographs Horizontal Platinum": [554, 554],
+        "Rookie 3 Patch Autographs Vertical Platinum": [554, 554],
+    },
+};
+
+/**
+ * 官方表的另一种笔误：行标签太宽，第一列配率紧贴在标签后面（中间没有空格），
+ * 例如 `Rookie 3 Patch Autographs Horizontal Bronze1:23`。这类行按原样导出会多出
+ * 一个假平行，所以在导入前先把标签改回官方本来的写法。
+ *
+ * 键是产品目录名，值是「表里的错标签 → 正确标签」。
+ */
+const LABEL_PATCHES = {
+    "tthree26-basketball": {
+        "Rookie 3 Patch Autographs Horizontal Bronze1:23":
+            "Rookie 3 Patch Autographs Horizontal Bronze",
+        "Rookie 3 Patch Autographs Horizontal Platinum1:554":
+            "Rookie 3 Patch Autographs Horizontal Platinum",
+        "Rookie 3 Patch Autographs Vertical Platinum1:554":
+            "Rookie 3 Patch Autographs Vertical Platinum",
+    },
 };
 
 const PAGE_RE = /^=+ PAGE \d+ =+$/;
@@ -43,6 +75,8 @@ const PAGE_RE = /^=+ PAGE \d+ =+$/;
  */
 const DISCLAIMER_RE =
     /checklists? and odds provided by topps|actual contents and odds may vary|does not guarantee|configuration of that product|time of production|will appear in every (parallel|variation)|inclusion of a subject|^\*+$/i;
+/** 同一套声明在宽松模式下也是被拉开的，去掉全部空格后再匹配一份对应的写法 */
+const DISCLAIMER_TIGHT_RE = new RegExp(DISCLAIMER_RE.source.replace(/ /g, ""), DISCLAIMER_RE.flags);
 
 /** 一个配率令牌：`-`（空）、`1:X`、`A:B`、或者没有冒号的数字（异常，必须人工看） */
 const VALUE_RE = /^(?:-|\d+\s*:\s*[\d,.]+|\d+\.\d+)$/;
@@ -78,30 +112,97 @@ const valueTokens = (line) => {
     return found;
 };
 
+/**
+ * 宽松模式的令牌：只有连续两个以上空格才算分隔，格子内部的单空格当成噪声抹掉。
+ * 标签列被两端对齐撑开时，字与字之间是**单**空格，而列与列之间是很宽的空档，
+ * 这条界线是唯一还站得住的信息。抹掉单空格后 `1: 407` 会还原成 `1:407`。
+ */
+const relaxedTokens = (line) => {
+    const found = [];
+    for (const match of line.matchAll(/\S+(?: \S+)*/g)) {
+        const at = match.index;
+        const end = at + match[0].length;
+        found.push({ at, end, center: (at + end) / 2, text: match[0].replace(/ /g, "") });
+    }
+    return found;
+};
+
+/** 一行里所有配率令牌（宽松模式下先取得原始格子、再筛出配率） */
+const tokensOf = (line, relaxed) =>
+    relaxed ? relaxedTokens(line).filter((cell) => VALUE_RE.test(cell.text)) : valueTokens(line);
+
+/** 去掉全部空格并记下每个字符在原文里的位置，便于把「挤掉空格后」的下标映射回原下标 */
+const compact = (line) => {
+    const map = [];
+    let text = "";
+    for (let i = 0; i < line.length; i++) {
+        if (line[i] === " ") continue;
+        map.push(i);
+        text += line[i];
+    }
+    return { text, map };
+};
+
 /** 表头行：请求的渠道名都能按从左到右的顺序在里面找到；返回各列的起始位 */
-const headerOffsets = (line, columns) => {
+const headerOffsets = (line, columns, relaxed) => {
     if (!columns.length) return null;
+    if (!relaxed) {
+        let from = 0;
+        const offsets = [];
+        for (const name of columns) {
+            const at = line.indexOf(name, from);
+            if (at < 0) return null;
+            offsets.push(at);
+            from = at + name.length;
+        }
+        return offsets;
+    }
+
+    // 宽松模式：表头本身也被拉开，先整行去掉空格，再按顺序找，最后映射回原下标。
+    const { text, map } = compact(line);
+    const haystack = text.toLowerCase();
     let from = 0;
     const offsets = [];
     for (const name of columns) {
-        const at = line.indexOf(name, from);
+        const needle = name.replace(/ /g, "").toLowerCase();
+        const at = haystack.indexOf(needle, from);
         if (at < 0) return null;
-        offsets.push(at);
-        from = at + name.length;
+        offsets.push(map[at]);
+        from = at + needle.length;
     }
     return offsets;
 };
 
-const findHeader = (lines, columns) => {
+const findHeader = (lines, columns, relaxed) => {
     for (let i = 0; i < lines.length; i++) {
-        const offsets = headerOffsets(lines[i], columns);
+        const offsets = headerOffsets(lines[i], columns, relaxed);
         if (offsets) return { index: i, offsets };
     }
     return null;
 };
 
-const looksLikeHeader = (line, columns) =>
-    columns.filter((name) => line.includes(name)).length >= Math.min(2, columns.length);
+const looksLikeHeader = (line, columns, relaxed) => {
+    const haystack = relaxed ? compact(line).text : line;
+    return columns.filter((name) => haystack.includes(name.replace(/ /g, ""))).length >= Math.min(2, columns.length);
+};
+
+/**
+ * 从普通模式提取件里收集「干净标签」词典。
+ * 普通模式不做两端对齐，标签是原样的，但同一行里只剩单空格、列与列也分不开，
+ * 所以只拿它当词典用：键是标签去掉空格后的样子，值是可以写进代码的官方名。
+ */
+const labelDictionary = (plainText) => {
+    const dictionary = new Map();
+    for (const line of plainText.split(/\r?\n/)) {
+        const at = line.search(/\d[\d,]*\s*:\s*[\d,.]/);
+        if (at < 0) continue;
+        const label = line.slice(0, at).trim().replace(/[-\s]+$/, "");
+        if (!label) continue;
+        const key = label.replace(/\s+/g, "");
+        if (!dictionary.has(key)) dictionary.set(key, label);
+    }
+    return dictionary;
+};
 
 /**
  * 把数值归到某一列。
@@ -122,9 +223,10 @@ const columnOf = (offsets, token) => {
     return index;
 };
 
-const parse = (text, columns) => {
+const parse = (text, columns, options = {}) => {
+    const { relaxed = false, dictionary = null } = options;
     const lines = text.split(/\r?\n/);
-    const header = findHeader(lines, columns);
+    const header = findHeader(lines, columns, relaxed);
     if (columns.length >= 2 && !header) {
         throw new Error(
             "没能在文本里找到表头行。确认传进来的渠道名与官方表一致，且 pack-odds.txt 是用布局模式提取的。",
@@ -135,29 +237,37 @@ const parse = (text, columns) => {
     let offsets = header?.offsets ?? [0];
     const rows = [];
     const warnings = [];
+    const unknownLabels = new Set();
     let lastLabel = null;
 
     for (const line of lines) {
         if (!line.trim()) continue;
         if (PAGE_RE.test(line.trim()) || /^PAGES:/.test(line)) continue;
-        if (DISCLAIMER_RE.test(line)) continue;
+        if (relaxed ? DISCLAIMER_TIGHT_RE.test(compact(line).text) : DISCLAIMER_RE.test(line)) continue;
 
-        const nextOffsets = headerOffsets(line, columns);
+        const nextOffsets = headerOffsets(line, columns, relaxed);
         if (nextOffsets) {
             offsets = nextOffsets;
             continue;
         }
 
-        const tokens = valueTokens(line);
+        const tokens = tokensOf(line, relaxed);
         if (!tokens.length) {
-            if (!looksLikeHeader(line, columns)) warnings.push(`没有配率，已跳过：${line.trim()}`);
+            if (!looksLikeHeader(line, columns, relaxed)) warnings.push(`没有配率，已跳过：${line.trim()}`);
             continue;
         }
 
-        const label = line.slice(0, tokens[0].at).trim();
+        let label = line.slice(0, tokens[0].at).trim();
         if (!label) {
             if (lastLabel) warnings.push(`有配率但没标签，已忽略：${line.trim()}`);
             continue;
+        }
+        if (dictionary) {
+            // 宽松模式下标签是被拉开的，靠词典换回官方写法；查不到就原样保留并记下来。
+            const key = label.replace(/\s+/g, "");
+            const clean = dictionary.get(key);
+            if (clean) label = clean;
+            else if (relaxed && !unknownLabels.has(key)) unknownLabels.add(key);
         }
         lastLabel = label;
 
@@ -170,10 +280,16 @@ const parse = (text, columns) => {
         rows.push({ label, odds });
     }
 
+    if (unknownLabels.size) {
+        warnings.push(
+            `词典里没有这些标签，已按原样保留，请人工核对：${[...unknownLabels].join(" / ")}`,
+        );
+    }
+
     return { rows, warnings };
 };
 
-const render = (rows, columns, sourceName) => {
+const render = (rows, columns, sourceName, extraArgs = "", fixes = []) => {
     const ids = columns.map(slugify);
     const out = [];
 
@@ -181,10 +297,15 @@ const render = (rows, columns, sourceName) => {
     out.push(" * 发行商官方 Pack Odds 表（自动生成，请勿手工编辑）。");
     out.push(" *");
     out.push(` * 来源：${sourceName}（Topps 官方 Pack Odds PDF 的文本提取件）。`);
-    out.push(` * 重新生成：node scripts/import-pack-odds.mjs <${sourceName}> <本文件> "${columns.join(",")}"`);
+    out.push(` * 重新生成：node scripts/import-pack-odds.mjs <${sourceName}> <本文件> "${columns.join(",")}"${extraArgs}`);
     out.push(" *");
     out.push(" * odds 是「平均多少包出一张」：官方表的 `1:X` 直接取 X，`A:B` 取 B / A。");
     out.push(" * null 表示官方表里这一格是空的——即该渠道没有这个卡种。");
+    if (fixes.length) {
+        out.push(" *");
+        out.push(" * 已修正官方原表的缺陷——改在 import-pack-odds.mjs 的补丁表里，不在本文件手改：");
+        for (const fix of fixes) out.push(` *   ${fix}`);
+    }
     out.push(" */");
     out.push("");
     out.push("/** 官方表的列顺序，索引与 PackOddsRow.odds 一一对应 */");
@@ -212,12 +333,18 @@ const render = (rows, columns, sourceName) => {
 };
 
 const main = () => {
-    const [source, target, columnArg] = process.argv.slice(2);
+    const args = process.argv.slice(2);
+    const flags = args.filter((arg) => arg.startsWith("--"));
+    const [source, target, columnArg] = args.filter((arg) => !arg.startsWith("--"));
     if (!source || !target || !columnArg) {
-        console.error('用法：node scripts/import-pack-odds.mjs <pack-odds.txt> <输出 .ts> "渠道1,渠道2,..."');
+        console.error(
+            '用法：node scripts/import-pack-odds.mjs <pack-odds.txt> <输出 .ts> "渠道1,渠道2,..." [--relaxed] [--labels=plain.txt]',
+        );
         process.exit(1);
     }
 
+    const relaxed = flags.includes("--relaxed");
+    const labelsArg = flags.find((flag) => flag.startsWith("--labels="));
     const columns = columnArg
         .split(",")
         .map((name) => name.trim())
@@ -225,7 +352,26 @@ const main = () => {
     const sourcePath = resolve(source);
     const productKey = dirname(sourcePath).split(sep).pop();
 
-    const parsed = parse(readFileSync(sourcePath, "utf8"), columns);
+    const dictionary = labelsArg
+        ? labelDictionary(readFileSync(resolve(labelsArg.slice("--labels=".length)), "utf8"))
+        : null;
+    if (labelsArg && !dictionary.size) {
+        console.error("传递的词典文件里没找到任何标签，检查它是不是普通模式提取件。");
+        process.exit(1);
+    }
+
+    const parsed = parse(readFileSync(sourcePath, "utf8"), columns, { relaxed, dictionary });
+
+    const renames = LABEL_PATCHES[productKey] ?? {};
+    for (const row of parsed.rows) {
+        const fixed = renames[row.label];
+        if (fixed) row.label = fixed;
+    }
+    for (const [bad, good] of Object.entries(renames)) {
+        if (!parsed.rows.some((row) => row.label === good)) {
+            parsed.warnings.push(`脚本里登记的黏连标签「${bad}」没在表里找到，可能官方表已修订。`);
+        }
+    }
 
     const patches = ROW_PATCHES[productKey] ?? {};
     for (const row of parsed.rows) {
@@ -237,12 +383,22 @@ const main = () => {
         }
     }
 
+    const extraArgs = flags.length ? ` ${flags.join(" ")}` : "";
+    const fixes = [
+        ...Object.entries(renames).map(([bad, good]) => `黏连标签 ${bad} → ${good}`),
+        ...Object.keys(patches).map((label) => `行覆盖 ${label}`),
+    ];
     const outputPath = resolve(target);
     mkdirSync(dirname(outputPath), { recursive: true });
-    writeFileSync(outputPath, render(parsed.rows, columns, basename(sourcePath)), "utf8");
+    writeFileSync(
+        outputPath,
+        render(parsed.rows, columns, basename(source), extraArgs, fixes),
+        "utf8",
+    );
 
     console.log(`已生成 ${outputPath}`);
     console.log(`共 ${parsed.rows.length} 行配率，${columns.length} 列：${columns.join(" / ")}`);
+    if (relaxed) console.log(`宽松模式：${dictionary ? "已用词典清理标签" : "未提供词典，标签可能是被拉开的写法"}`);
     if (parsed.warnings.length) {
         console.log(`需要留意 ${parsed.warnings.length} 条：`);
         for (const warning of parsed.warnings) console.log(`  - ${warning}`);

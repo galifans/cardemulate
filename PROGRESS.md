@@ -1060,6 +1060,49 @@ schema.sql       D1 建表脚本（维度表 + 事实表分离）
   `npm run boxes:check` 通过（5 个盒型）。`snapshots/boxes.json` 是有意扩容：
   `git diff --numstat` 为 `1264 0`，只增不删，既有盒型的每一行都没动
 
+### 2026-09-30（补录第二、三个系列：Cosmic Chrome 与 Topps 3 上线，装配器抽出共享模块）
+
+- 新增 `basketball/topps/tcosmic26-basketball`（2025-26 Topps Cosmic Chrome Basketball）：
+  单盒型 Hobby（每包 4 张），18 个子集 124 个卡种
+- 新增 `basketball/topps/tthree26-basketball`（2025-26 Topps 3 Basketball）：
+  单盒型 Hobby（每包 4 张 × 1 包，官方没公布每箱盒数所以留 0），28 个子集 150 个卡种。
+  这盒的特殊之处：官方配率是按包算的，而每盒只有 1 包，所以配率加起来直接就是
+  「每盒期望」——签名类 2.963 张、非签名类 1.037 张，官方规格写的是「每盒三张签名卡 +
+  一张非签名卡」，两边各自对得上
+- **装配器抽出共享模块** `src/data/sets/basketball/topps/shared/assemble.ts`：
+  一份 `odds` 表 + 一份 `sections` 名册 + 一组 `subsets` 方案 + 一组 `boxes` 规格，
+  `assembleBoxes(config)` 生成整套盒型定义。多个渠道列（Hobby / Jumbo / FDI / …）
+  不再各写一份盒型，只换 `column`。老的两个系列（`tcu26` / `tccj26`）仍是本地 `BOX_CONFIGS` 写法，
+  语义相同，暂未合并
+- 装配器两处修补，都是 Topps 3 逼出来的：
+  1. **两人/三人卡合并成一张**。官方名册里 `DUAL_*` / `TRIPLE_*` 这类子集会给同一个卡号排两三行，
+     第一版把它们当成「同号重复」直接报错（34 个子集报错）。现在同一卡号上的不同球员合并成一条，
+     球员名与球队名各用 ` / ` 串起来（球队相同的只留一次），卡号仍然唯一。
+     同一卡号上再出现同一个球员是真的重复，照旧建两条交给自检报错
+  2. **每包残差下限可调**。默认给普卡留 0.5 的权重，而 Topps 3 的官方配率加起来已经 3.773，
+     残差被顶到 0.5 后整盒权重变成 4.273（超过每包 4 张，自检报错）。
+     新增 `minBaseWeight`（默认 0.5），Topps 3 里设成 0.2，让残差回到官方残差 0.227
+- 配率脚本新增 `LABEL_PATCHES`：官方 PDF 会把行标签与配率黏在一起
+  （`Rookie 3 Patch Autographs Horizontal Bronze1:23`），标签太宽、第一列排不下。
+  看全 9 张已生成的表，这种黏连只出现在 Topps 3 的三行，改标签 + `ROW_PATCHES` 补第一列，
+  生成的 `.ts` 标头会把这两类修正列出来
+- 名册侧的官方原表缺陷同样走脚本补丁表：`import-roster.mjs` 的 `ROSTER_PATCHES`
+  与 `check-roster.mjs` 的 `SOURCE_DEFECTS`。Cosmic Chrome 的 `BASE CARDS` 把 48 号
+  写成了 101（与 `BASE CARDS II` 的 101 撞号），代码与核对脚本按官方本来的 48 号对齐
+- `sources/README.md` 三处修订：
+  1. D 级授权转述件的范围从「只对配率」扩到「配率与平行限量数」，
+     理由是官方配率表不带编号、官方产品页本机 403，而限量数能用
+     **张数 × 编号 × 配率 ≈ 本系列总印量** 这条恒等式交叉验证；
+     Topps 3 的指南页 137 个样本取中位数得到 23,250 包，十几个互不相干的小节都算回同一个数
+  2. 第四节从 1 行扩成 17 行，把 2025-26 赛季 Topps 篮球 17 个系列产品的采集情况列全
+  3. 第三方指南页的正文不提交进仓库，只登记 URL 与抽出文本的哈希
+- 新增系列采集记录 `sources/basketball/topps/tthree26-basketball/README.md`
+  （来源表含链接与 SHA-256、恒等式验算表、盒型配置、已知问题）
+- ✓ 验证：`npm run typecheck` 通过；`npm run build` 通过；`npm run roster:check` 通过
+  （17 个系列全部对上，Topps 3 核对 1171 行 / 官方 1171 条 + 32 条多人卡卡号）；
+  `npm run boxes:check` 通过（7 个盒型）；权重自检 7 个盒型的权重合计都正好等于每包张数；
+  Topps 3 跑 3000 盒蒙特卡洛无异常；`snapshots/boxes.json` 差值 `4396 0`，仍然只增不删
+
 ### 关键取舍记录
 
 - **不用 Pinia**：只有一个全局 store，手写 reactive 单例省一个依赖。
@@ -1162,6 +1205,25 @@ schema.sql       D1 建表脚本（维度表 + 事实表分离）
   所以核对是采集流程的固定一步（`npm run roster:check`），而不是「有空再看」；
   官方原表自身的矛盾（重复卡号、漏字）登记进 `SOURCE_DEFECTS` / `ROW_PATCHES`
   并写明依据，**不允许**为了让脚本通过而放松比对规则。
+- **官方原件的缺陷只在脚本的补丁表里修，不手改生成文件**：PDF 里行标签与配率黏在一起、
+  某行缺列、官方 Checklist 把卡号写重，都属于「原件如此」。直接改 `pack-odds.generated.ts`
+  或 `roster.ts` 会让下次重跑把手工修改覆盖掉，而且没人知道哪一行是官方的、哪一行是补的。
+  所以修法统一是：改 `import-pack-odds.mjs` 的 `LABEL_PATCHES` / `ROW_PATCHES`、
+  `import-roster.mjs` 的 `ROSTER_PATCHES`、`check-roster.mjs` 的 `SOURCE_DEFECTS`，
+  并在生成文件标头里列出本次用了哪些补丁。
+- **同一个卡号上的多个球员是一张卡**：官方名册里 `DUAL_*` / `TRIPLE_*` 子集会给同一卡号
+  排两三行。按行建卡会得到「同号重复」的自检错误，但真正错的是建模方式——
+  实物就是一张卡上印两三个球员。合并的判据只能是「卡号相同」+「球员不同」，
+  球员重复时必须照旧报错，否则会把官方真的重号悄悄吞掉。
+- **官方配率很紧的盒型要能动残差下限**：`baseWeight = 每包张数 − 非普卡权重` 是默认规则，
+  但官方普卡配率本身就很低时（Topps 3 是 1:5，每包 4 张），残差小于 0.5，
+  硬留 0.5 会让整盒权重超过每包张数。这类盒型在产品里显式调 `minBaseWeight`，
+  而不是改全局默认值——默认值一改，其他所有盒型都会跟着动。
+- **平行限量数也能用恒等式验算**：`张数 × 编号 × 配率 ≈ 本系列总印量`。
+  这条式子让「指南页转述的编号」不再是孤证：同一个系列里几十个互不相干的子集
+  都算回同一个数，用错一位就会立刻暴露。它也能反向补出指南页没写的编号
+  （Topps 3 的 `Triple Relics Autographs` 官方表只有 Gold / Red / Platinum 三档配率，
+  17 张反推正是 /10、/5、1/1）。
 
 ## 5. 待办（TODO）
 
@@ -1181,6 +1243,14 @@ schema.sql       D1 建表脚本（维度表 + 事实表分离）
       （`box.ts` 的 `SPECS` 一份数据切四列，配率不再手抄）
 - [ ] 篮球：补 `tcu26-basketball` 的 Delight / Sapphire / Fanatics 盒型
       （列名已知，缺的是官方包装规格：每包张数、每盒包数）
+- [ ] 篮球：2025-26 赛季 Topps 17 个系列已上线 4 个
+      （`tcu26` / `tccj26` / `tcosmic26` / `tthree26`），
+      余 13 个的数据已归档、名册已誊抄，缺 `box.ts`：
+      其中 `tfinest26` / `thoops26` / `tsig26` / `tbb26` / `tchrome26` 有官方配率表，
+      `tcb26` / `tcus26` / `tdef26` / `tincep26` / `tmcd26` / `tmotif26` / `tnbl26` / `tpristine26`
+      只有名册，配率要走 D 级授权转述件（指南页）
+- [ ] 重构：把 `tcu26` / `tccj26` 两个老系列从本地 `BOX_CONFIGS` 合并到共享装配器，
+      消除同一件事的两套写法
 - [ ] 品类：棒球、足球、橄榄球、网球、UFC、宝可梦的种子数据与首批盒型
 - [ ] 卡面：替换统一占位图为按品类区分的背景图（仍不涉及实物卡）
 - [x] 认证页：大写锁定提示 + 按住可见密码的眼睛图标（用户明确要求）

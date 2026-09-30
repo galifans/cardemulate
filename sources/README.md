@@ -45,12 +45,21 @@ sources/<品类>/<品牌>/<系列产品>/
 | **A 官方原件** | 发行商自己发布的产品页面、Pack Odds 表、Checklist、发行说明 | 唯一可用于生成数据的来源 |
 | **B 官方镜像** | 由第三方托管、但内容与 A 逐字节相同的文件 | 当 A 无法直接下载时使用，须记录哈希以便验证 |
 | **C 参考** | 整理站、卖家页面对 A 的转述 | 只能用来**寻找** A，不能用来填数据 |
-| **D 授权转述件** | 技能站指南页里对官方配率表的转述 | **只对配率开放**，且必须走完下面四道手续，缺一条就退回 C 级 |
+| **D 授权转述件** | 技能站指南页里对官方配率表的转述 | **只对配率与平行限量数开放**，且必须走完下面四道手续，缺一条就退回 C 级 |
 
-### D 级只对配率开放
+### D 级只对配率与限量数开放
 
 **名单永远不用 D 级。** Topps 官方 Checklist 的表格版在目前见过的每个系列里都能从镜像下到，
 名单一律按 B 级处理；只有配率表存在「官方原件全网拿不到」的情况。
+
+**限量数也放在 D 级里**（2026-09-30 补记）：此前这一级只写「配率」，
+用下来发现官方配率表**不带平行编号**，编号只出现在官方产品页与指南页，
+而官方产品页在本机是 403。限量数不是名单，且能用一条算术恒等式交叉验证——
+**张数 × 编号 × 配率 ≈ 本系列总印量（包）**，同一个系列里十几个互不相干的小节会算出同一个数，
+交叉验证的强度比逐字比对还高。各系列的验算过程写在该系列的 `README.md` 里。
+
+这条是对「允许用指南页配率转述」那次授权的顺延，**如需收紧、改回只认配率**，
+代价是 8 个只有名册的系列不能给平行加编号标记（`tbb26` / `tccj26` 等有官方表的系列不受影响）。
 
 D 级成立的四个条件，采集时必须逐条留痕：
 
@@ -63,8 +72,10 @@ D 级成立的四个条件，采集时必须逐条留痕：
 4. **改名列出来**。指南页把官方通道名改写过（`Delight` → `Breaker`、
    `Value Box` → `Blaster`），映射关系必须写进系列 README，不许现场猜。
 
-走 D 级时的固定做法：指南页 HTML 归档成 `pack-odds-ci.html`，
-用脚本抽出「标签 + 配率」文本存成 `pack-odds.txt`，然后走第六步同一个导入脚本。
+走 D 级时的固定做法：指南页的 URL 与子集表的抽取文本哈希记进系列 README，
+脚本抽出的「标签 + 配率」文本存成 `pack-odds.txt`，然后走第六步同一个导入脚本。
+**第三方指南页的正文不提交进仓库**（只在 `.snapshot/` 里留本机副本），
+登记 URL 与哈希是为了将来能确认拿到的是同一份。
 受影响系列的 `box.ts` 头部必须写明配率来自 D 级授权转述件。
 
 ### 稳定入口
@@ -152,7 +163,9 @@ Topps 官网只用人工核对，不写进自动化流程。逐站实测结果�
    `scripts/check-roster.mjs` 的 `SOURCE_DEFECTS` 并写明原因。
    **不允许**跳过这一步，也不允许为了让脚本闭嘴而放松比对规则。
 9. **盒型配置落库**。每包张数、每盒包数、签名保证从发行说明文本里取，
-   写进 `<代码目录>/box.ts` 的 `BOX_CONFIGS`；官方没公布的值（如每箱盒数）留 0，
+   写进 `<代码目录>/box.ts` 里 `assembleBoxes(...)` 的 `boxes` 参数（老的两个系列
+   `tcu26` / `tccj26` 还是各自本地的 `BOX_CONFIGS` 写法，语义相同，尚未合并）；
+   官方没公布的值（如每箱盒数）留 0，
    页面上就不显示，**不要**猜一个数填进去。
 10. **跑回归**。`npm run boxes:check` 必须通过；新增盒型后如确属有意变更，
     用 `npm run boxes:snapshot` 重建基线并在 `PROGRESS.md` 里说明原因。
@@ -172,9 +185,37 @@ Topps 官网只用人工核对，不写进自动化流程。逐站实测结果�
 
 ## 四、已归档系列
 
-| 品类 | 品牌 | 系列产品 | 采集日期 | 配率 | 名单 | 名单表格版 | 发行说明 | 采集记录 |
+2026-09-30 一次性点清了 2025-26 赛季 Topps 篮球的 17 个系列产品，全部归档。
+「配率原件」列写 `B` 的是拿到官方 Pack Odds 表的（9 个），
+写 `D` 的是没拿到官方配率表、按第二节的 D 级流程用指南页转述的（8 个，
+本节这一批里尚未落地，`box.ts` 里必须写明来源级别）。
+
+| 品类 | 品牌 | 系列产品 | 目录 | 采集日期 | 配率原件 | 名单表格版 | 上线盒型 | 采集记录 |
 | --- | --- | --- | --- | --- | --- | --- | --- | --- |
-| 篮球 | Topps | 2025-26 Topps Chrome Updates Basketball | 2026-09-30 | ✔ | ✔ | ✔ | ✔ | [记录](./basketball/topps/tcu26-basketball/README.md) |
+| 篮球 | Topps | 2025-26 Topps Basketball | `tbb26-basketball` | 2026-09-30 | B | ✔ | — | 待补 |
+| 篮球 | Topps | 2025-26 Topps Chrome Basketball | `tchrome26-basketball` | 2026-09-30 | B | ✔ | — | 待补 |
+| 篮球 | Topps | 2025-26 Topps Chrome Cactus Jack Basketball | `tccj26-basketball` | 2026-09-30 | B | ✔ | Hobby | 待补 |
+| 篮球 | Topps | 2025-26 Topps Chrome Black Basketball | `tcb26-basketball` | 2026-09-30 | D | ✔ | — | 待补 |
+| 篮球 | Topps | 2025-26 Topps Chrome Update Sapphire Basketball | `tcus26-basketball` | 2026-09-30 | D | ✔ | — | 待补 |
+| 篮球 | Topps | 2025-26 Topps Chrome Updates Basketball | `tcu26-basketball` | 2026-09-30 | B | ✔ | Hobby、Jumbo、Value、Mega | [记录](./basketball/topps/tcu26-basketball/README.md) |
+| 篮球 | Topps | 2025-26 Topps Cosmic Chrome Basketball | `tcosmic26-basketball` | 2026-09-30 | B | ✔ | Hobby | 待补 |
+| 篮球 | Topps | 2025-26 Topps Definitive Collection Basketball | `tdef26-basketball` | 2026-09-30 | D | ✔ | — | 待补 |
+| 篮球 | Topps | 2025-26 Topps Finest Basketball | `tfinest26-basketball` | 2026-09-30 | B | ✔ | — | 待补 |
+| 篮球 | Topps | 2025-26 Topps Inception Basketball | `tincep26-basketball` | 2026-09-30 | D | ✔ | — | 待补 |
+| 篮球 | Topps | 2025-26 Topps Motif Basketball | `tmotif26-basketball` | 2026-09-30 | D | ✔ | — | 待补 |
+| 篮球 | Topps | 2025-26 Topps NBA Hoops Basketball | `thoops26-basketball` | 2026-09-30 | B | ✔ | — | 待补 |
+| 篮球 | Topps | 2025-26 Topps NBL Basketball | `tnbl26-basketball` | 2026-09-30 | D | ✔ | — | 待补 |
+| 篮球 | Topps | 2025-26 Topps Pristine Basketball | `tpristine26-basketball` | 2026-09-30 | D | ✔ | — | 待补 |
+| 篮球 | Topps | 2025-26 Topps Signature Class Basketball | `tsig26-basketball` | 2026-09-30 | B | ✔ | — | 待补 |
+| 篮球 | Topps | 2025-26 Topps 3 Basketball | `tthree26-basketball` | 2026-09-30 | B | ✔ | Hobby | [记录](./basketball/topps/tthree26-basketball/README.md) |
+| 篮球 | Topps | 2025 Topps Chrome McDonald's All American Basketball | `tmcd26-basketball` | 2026-09-30 | D | ✔ | — | 待补 |
+
+目录列省掉了 `sources/basketball/topps/` 这一层前缀；`src/data/sets/basketball/topps/`
+下同名目录一一对应。
+
+**没有收进来的**：`2025-26-topps-x-bob-ross-the-joy-of-basketball` 与
+`2026-27-topps-flagship-basketball` 两份指南页（前者没找到名单表格版，
+后者属于下一个赛季，都不在本次补录范围里）。
 
 ## 五、待办
 
@@ -231,5 +272,6 @@ Checklist Insider 指南页里的 `Pack odds - …` 行与官方表**不是同�
 各通道的 `-EA` 列（例：`Base Refractors Denim Tears` 的 Hobby 1:6,054 / Jumbo 1:2,415 /
 Delight 1:201 / Value Box EA 1:17,365 / Mega Box EA 1:112,000 / Fanatics 1:8,774
 与指南页逐项一致）；对不上的 8 个集中在少数几行，疑为官方出过修订版
-（归档件文件名带 `new-update`）。**结论：指南页可以用来找方向，按级别仍是 C 级，
-拿它填数之前必须先搞到官方原件对齐。**
+（归档件文件名带 `new-update`）。两种导出都存在时，**结论：指南页可以用来找方向；要拿它的配率转述填数，
+必须先走完第二节的 D 级四道手续（明确授权、官方原件确实不可得、数值交叉验证、改名列出来）。
+2026-09-30 之后的新系列一律先按第二节的流程判断级别，不再靠这份对照表逐行猜。**

@@ -39,6 +39,14 @@ const TMP_DIR = join(ROOT, ".snapshot");
  * 只登记「已回看原表确认过」的条目，键是系列相对目录。
  */
 const SOURCE_DEFECTS = {
+    "basketball/topps/tcosmic26-basketball": [
+        {
+            no: "48",
+            player: "Nikola Jović",
+            sheetNo: "101",
+            reason: "官方表把 BASE CARDS 的 48 号写成 101 号，与 BASE CARDS II 的 101 号撞号；代码里改回 48",
+        },
+    ],
     "basketball/topps/tcu26-basketball": [
         {
             no: "DPA-ABAL",

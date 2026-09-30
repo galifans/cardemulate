@@ -40,6 +40,26 @@ const toExportName = (title) => {
     return name;
 };
 
+/**
+ * 官方原件里的已知笔误。
+ *
+ * 键是系列目录名，每条补丁用「分节标题 + 现有卡号 + 人物」定位，改成 `to`。
+ * 官方表格版偶尔会把卡号写错（撞号、跳号），照抄会让两张卡共用一个号；
+ * 与其手改生成文件（下次重新生成就被冲掉），不如把修正写在这里，
+ * 并在生成文件的注释里留一行痕迹。
+ */
+const ROSTER_PATCHES = {
+    "tcosmic26-basketball": [
+        {
+            section: "BASE CARDS",
+            no: "101",
+            player: "Nikola Jović",
+            to: "48",
+            why: "官方表格版把 48 号写成 101 号，与 BASE CARDS II 的 101 号撞号",
+        },
+    ],
+};
+
 const ROOKIE_RE = /\[?\s*rookie\s*\]?/i;
 
 /** 把一个单元格里的新秀标记剥掉，返回 `[干净的人物名, 是否新秀]` */
@@ -80,7 +100,21 @@ const parse = (xlsxPath, sheetIndex) => {
     return { sections: sections.filter((section) => section.rows.length > 0) };
 };
 
-const render = (parsed, xlsxName, productName) => {
+/** 按补丁表修正原件笔误；补丁定位不到就直接报错，免得默默改错人 */
+const applyPatches = (parsed, patches) => {
+    const applied = [];
+    for (const patch of patches) {
+        const section = parsed.sections.find((item) => item.title === patch.section);
+        if (!section) throw new Error(`补丁找不到分节：${patch.section}`);
+        const row = section.rows.find((item) => item[0] === patch.no && item[1] === patch.player);
+        if (!row) throw new Error(`补丁找不到 ${patch.section} 的 ${patch.no} ${patch.player}`);
+        row[0] = patch.to;
+        applied.push(patch);
+    }
+    return applied;
+};
+
+const render = (parsed, xlsxName, productName, patches = []) => {
     const used = new Map();
     const lines = [];
 
@@ -92,6 +126,13 @@ const render = (parsed, xlsxName, productName) => {
     lines.push(" *");
     lines.push(" * 分节标题与顺序与官方表格版一致，`ROSTER_SECTIONS` 的键就是表里的原始标题；");
     lines.push(" * `box.ts` 按标题取子集，不要按下标取。");
+    if (patches.length) {
+        lines.push(" *");
+        lines.push(" * 已修正官方原件的笔误（改在 import-roster.mjs 的补丁表里，不在本文件手改）：");
+        for (const patch of patches) {
+            lines.push(` *   ${patch.section} ${patch.no} ${patch.player} → ${patch.to}：${patch.why}`);
+        }
+    }
     lines.push(" */");
     lines.push("");
     lines.push('const R = "R" as const;');
@@ -144,16 +185,22 @@ const main = () => {
         process.exit(1);
     }
 
+    const productKey = basename(dirname(resolve(source)));
+    const patches = applyPatches(parsed, ROSTER_PATCHES[productKey] ?? []);
+
     // 表头注释里的产品名不用表里的行去猜：官方表的头几行有的是产品名、
     // 有的是一句免责声明，猜错会写进注释。默认退回系列目录名。
-    const productName = nameArg || basename(dirname(resolve(source)));
+    const productName = nameArg || productKey;
     const outputPath = resolve(target);
     mkdirSync(dirname(outputPath), { recursive: true });
-    writeFileSync(outputPath, render(parsed, basename(source), productName), "utf8");
+    writeFileSync(outputPath, render(parsed, basename(source), productName, patches), "utf8");
 
     const total = parsed.sections.reduce((sum, section) => sum + section.rows.length, 0);
     console.log(`已生成 ${outputPath}`);
     console.log(`共 ${parsed.sections.length} 个分节、${total} 行`);
+    for (const patch of patches) {
+        console.log(`   已修正笔误：${patch.section} ${patch.no} ${patch.player} → ${patch.to}`);
+    }
     for (const section of parsed.sections) {
         console.log(`    ${section.title}（${section.rows.length} 行）`);
     }
