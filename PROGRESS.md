@@ -1290,10 +1290,11 @@ schema.sql       D1 建表脚本（维度表 + 事实表分离）
       （`box.ts` 的 `SPECS` 一份数据切四列，配率不再手抄）
 - [ ] 篮球：补 `tcu26-basketball` 的 Delight / Sapphire / Fanatics 盒型
       （列名已知，缺的是官方包装规格：每包张数、每盒包数）
-- [ ] 篮球：2025-26 赛季 Topps 17 个系列已上线 4 个
-      （`tcu26` / `tccj26` / `tcosmic26` / `tthree26`），
-      余 13 个的数据已归档、名册已誊抄，缺 `box.ts`：
-      其中 `tfinest26` / `thoops26` / `tsig26` / `tbb26` / `tchrome26` 有官方配率表，
+- [ ] 篮球：2025-26 赛季 Topps 17 个系列已上线 5 个
+      （`tcu26` / `tccj26` / `tcosmic26` / `tthree26` / `tfinest26`），
+      余 12 个的数据已归档、名册已誊抄，缺 `box.ts`：
+      其中 `thoops26` / `tsig26` / `tbb26` / `tchrome26` 有官方配率表，
+      且 `tsig26` 的转写参数与 Pandora 两行修正已在脚本里备好；
       `tcb26` / `tcus26` / `tdef26` / `tincep26` / `tmcd26` / `tmotif26` / `tnbl26` / `tpristine26`
       只有名册，配率要走 D 级授权转述件（指南页）
 - [ ] 重构：把 `tcu26` / `tccj26` 两个老系列从本地 `BOX_CONFIGS` 合并到共享装配器，
