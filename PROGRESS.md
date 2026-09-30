@@ -1175,6 +1175,39 @@ schema.sql       D1 建表脚本（维度表 + 事实表分离）
   Signature Class 核对 1098 行 / 官方 969 条 + 164 行重复卡号，另有 1 条已知源表缺陷）；
   `npm run boxes:check` 通过（13 个盒型）；`npm run print:check` 只报已知的源表异常
 
+### 2026-09-30（补录第六个系列：NBA Hoops 上线，导入器新增组合签名卡的组号拆分）
+
+- 新增 `basketball/topps/thoops26-basketball`（2025-26 Topps NBA Hoops Basketball）：
+  五种盒型 Hobby（8 张/包 × 20 包，每盒 1 张签名）、Hobby Jumbo（20 × 10，每盒 2 张）、
+  Value Blaster（8 × 7）、Hanger（25 × 1，每箱 64）、Fanatics Blaster（8 × 8，官方没写每箱盒数），
+  25 个子集、名册 1091 行（29 个分节）、配率 193 行 × 5 列
+- **官方表格版给组合签名卡只写到组号**：同一组里的几张卡共用一个号（`HRD-A` 底下 5 张双签、
+  `HRS-D` 四张、单签的 `HHS-G` 三张）。按卡号归并会并成一张
+  （`Hoops Rookies Duals` 25 → 11 张、`Hoops 1989 Signatures` 60 → 52 张），
+  所以 `import-roster.mjs` 新增 `GROUPED_CARDS` 组号表 + `applyGroupedCards()`：
+  按「组号 + 卡序号」拆开（本系列 45 组，`playersPerCard` 按分节是 1 / 2 / 3，除不尽报错），
+  `check-roster.mjs` 增 `DERIVED_CARD_NOS` 同步折叠回去，每节只记一条「已知源表缺陷」
+  - 第一版按「连续同号」切，同一组的两张卡中间夹着别的组就会漏切
+    （`Hoops Rookie Signatures` 仍少一张），改成按卡号整体归堆后正常
+- **普卡走残差，五个盒型都指 `Base`**：官方表每一行的配率是「每包命中一次」的概率，
+  非普卡各行加起来只有 1.01 / 3.00 / 0.93 / 4.10 / 0.80，不足每包张数（8 / 20 / 8 / 25 / 8），
+  差额落在 `Base` 一行上（6.99 / 17.00 / 7.07 / 20.90 / 7.20），与官方 `Base` 的
+  1:7、1:15、1:7、1:19、1:7 基本吻合，「每包张数 = 各档权重之和」在五个盒型里精确成立
+- 普卡平行分两套：Hobby / Jumbo 走 `Pixel Burst`、零售三盒走 `Light Burst`，
+  官方表为空的那一列就不进该盒型；`Orange Hoops` 只在 Hanger、`Fanatics` 只在 Fanatics、
+  `Green Hoops` 只在 Value Blaster 与 Fanatics
+- 新增系列采集记录 `sources/basketball/topps/thoops26-basketball/README.md`
+  （来源表含链接与 SHA-256、逐渠道包数表、五盒型配置与残差表、已知问题 6 条），
+  `sources/README.md` 第四节补上本系列的上线盒型与记录链接
+- 盒型快照基线重建（`snapshots/boxes.json` 新增 9451 行、**删除 0 行**）：本次是新增五个盒型，
+  属有意变更，没有改动任何既有盒型的输出，种子格式未变
+- ✓ 验证：`npm run typecheck`、`npm run build` 通过；`npm run roster:check` 通过
+  （thoops26 核对 1091 行 / 官方 1086 条 + 425 条重复卡号，另有 8 条已知源表缺陷）；
+  `npm run boxes:snapshot` + `npm run boxes:check` 通过（18 个盒型）；
+  `npm run print:check -- thoops26` 报 5 个盒型、45 个可核对子集、306 个档位，
+  17 档偏离中位数 15% 以上（集中在官方表自己对不上的 `Rainbow Yellow /275`、
+  `Rainbow Teal /299` 与低编号取整档位）
+
 ### 关键取舍记录
 
 - **不用 Pinia**：只有一个全局 store，手写 reactive 单例省一个依赖。
@@ -1327,6 +1360,11 @@ schema.sql       D1 建表脚本（维度表 + 事实表分离）
 - **同一系列的不同盒型是不同印量口径**：Finest 的 Hobby 盒算回约 35 万包、
   Breaker 盒算回约 1.9 万包，两者相差近二十倍。用「张数 × 编号 × 配率 ≈ 总印量」
   验算时，必须**按盒型各自算**，不能拿一个盒型推出来的数去套另一个盒型。
+- **官方卡号可能只是「组号」**：NBA Hoops 的官方表格版给双签、三签、甚至同一姓氏的单签
+  只写到组号（`HRD-A` 底下 5 张卡共用一个号，`HHS-G` 底下三张）。按卡号归并名册会把
+  一组里的几张卡并成一张，且**不会报错**（只是少几张卡），只有拿指南页的逐卡张数一比
+  才会露出来。归堆时要按卡号整体归，不能按「连续同号」切——同一组的两张卡中间
+  可能夹着别的组。
 
 ## 5. 待办（TODO）
 
@@ -1346,11 +1384,10 @@ schema.sql       D1 建表脚本（维度表 + 事实表分离）
       （`box.ts` 的 `SPECS` 一份数据切四列，配率不再手抄）
 - [ ] 篮球：补 `tcu26-basketball` 的 Delight / Sapphire / Fanatics 盒型
       （列名已知，缺的是官方包装规格：每包张数、每盒包数）
-- [ ] 篮球：2025-26 赛季 Topps 17 个系列已上线 6 个
-      （`tcu26` / `tccj26` / `tcosmic26` / `tthree26` / `tfinest26` / `tsig26`），
-      余 11 个的数据已归档、名册已誊抄，缺 `box.ts`：
-      其中 `thoops26` / `tbb26` / `tchrome26` 有官方配率表
-      （`thoops26` 的 Hanger / Fanatics 两盒型权重和超过每包张数，要先定口径），
+- [ ] 篮球：2025-26 赛季 Topps 17 个系列已上线 7 个
+      （`tcu26` / `tccj26` / `tcosmic26` / `tthree26` / `tfinest26` / `tsig26` / `thoops26`），
+      余 10 个的数据已归档、名册已誊抄，缺 `box.ts`：
+      其中 `tbb26` / `tchrome26` 有官方配率表，
       `tcb26` / `tcus26` / `tdef26` / `tincep26` / `tmcd26` / `tmotif26` / `tnbl26` / `tpristine26`
       只有名册，配率要走 D 级授权转述件（指南页）
 - [ ] 重构：把 `tcu26` / `tccj26` 两个老系列从本地 `BOX_CONFIGS` 合并到共享装配器，

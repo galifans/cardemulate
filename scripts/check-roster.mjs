@@ -75,6 +75,25 @@ const SOURCE_DEFECTS = {
     ],
 };
 
+/**
+ * 组合签名卡（双人 / 三人）的卡号在官方表里只到组号，一组里的每张卡都是同一个组号。
+ * 代码里按「组号 + 卡序号」拆开（见 `import-roster.mjs` 的组号表），核对时
+ * 把 `<组号>-<n>` 还原成 `<组号>` 再比；逐行登记进 `SOURCE_DEFECTS` 太吵，
+ * 所以按分节整体放行，命中时只提示一次。
+ */
+const DERIVED_CARD_NOS = {
+    "basketball/topps/thoops26-basketball": {
+        HOOPS_ROOKIE_SIGNATURES: /^(.+)-\d+$/,
+        HOOPS_SIGNS: /^(.+)-\d+$/,
+        HOOPS_ROOKIE_DUALS: /^(HRD-[A-Z]+)-\d+$/,
+        HOOPS_ROOKIE_TRIPLES: /^(HRT-[A-Z]+)-\d+$/,
+        HOOPS_ROOKIE_VETERAN_DUALS: /^(.+)-\d+$/,
+        HOOPS_1989_SIGNATURES: /^(.+)-\d+$/,
+        HOOPS_ROOKIE_FIRST_SIGNS: /^(.+)-\d+$/,
+        HOOPS_HYPER_SIGNATURES: /^(.+)-\d+$/,
+    },
+};
+
 /** 折叠成只含字母数字的比对键：忽略重音、标点、大小写。 */
 const fold = (s) =>
     String(s ?? "")
@@ -182,6 +201,8 @@ async function main() {
 
         const problems = [];
         const known = [];
+        const knownDerived = new Set();
+        const derivedRules = DERIVED_CARD_NOS[rel] ?? {};
         let checked = 0;
 
         for (const [name, list] of exports) {
@@ -189,7 +210,15 @@ async function main() {
                 checked++;
                 // 源表缺陷的条目：代码里的卡号是加过后缀的，核对时按官方表的原卡号走。
                 const defect = defects.find((d) => fold(d.no) === fold(no) && fold(d.player) === fold(player));
-                const sourceNo = defect?.sheetNo ?? no;
+                // 组合签名卡的卡号是「组号 + 卡序号」，官方表只写到组号
+                const derived = derivedRules[name]?.exec(no);
+                const sourceNo = defect?.sheetNo ?? (derived ? derived[1] : no);
+                if (derived && !knownDerived.has(name)) {
+                    knownDerived.add(name);
+                    known.push(
+                        `${name} 的卡号在官方表里只到组号，代码里拆成「组号 + 卡序号」（参考 ${no}）`,
+                    );
+                }
                 if (defect) {
                     known.push(
                         defect.absentFromSheet

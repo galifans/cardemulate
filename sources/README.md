@@ -238,7 +238,7 @@ Topps 官网只用人工核对，不写进自动化流程。逐站实测结果�
 | 篮球 | Topps | 2025-26 Topps Finest Basketball | `tfinest26-basketball` | 2026-09-30 | B | ✔ | Hobby、Breaker Delight | [记录](./basketball/topps/tfinest26-basketball/README.md) |
 | 篮球 | Topps | 2025-26 Topps Inception Basketball | `tincep26-basketball` | 2026-09-30 | D | ✔ | — | 待补 |
 | 篮球 | Topps | 2025-26 Topps Motif Basketball | `tmotif26-basketball` | 2026-09-30 | D | ✔ | — | 待补 |
-| 篮球 | Topps | 2025-26 Topps NBA Hoops Basketball | `thoops26-basketball` | 2026-09-30 | B | ✔ | — | 待补 |
+| 篮球 | Topps | 2025-26 Topps NBA Hoops Basketball | `thoops26-basketball` | 2026-09-30 | B | ✔ | Hobby、Hobby Jumbo、Value Blaster、Hanger、Fanatics Blaster | [记录](./basketball/topps/thoops26-basketball/README.md) |
 | 篮球 | Topps | 2025-26 Topps NBL Basketball | `tnbl26-basketball` | 2026-09-30 | D | ✔ | — | 待补 |
 | 篮球 | Topps | 2025-26 Topps Pristine Basketball | `tpristine26-basketball` | 2026-09-30 | D | ✔ | — | 待补 |
 | 篮球 | Topps | 2025-26 Topps Signature Class Basketball | `tsig26-basketball` | 2026-09-30 | B | ✔ | Hobby、Hobby Jumbo、Value Blaster、Mega | [记录](./basketball/topps/tsig26-basketball/README.md) |

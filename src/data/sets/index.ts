@@ -20,6 +20,7 @@ import { TCCJ26_BASKETBALL_BOXES } from "./basketball/topps/tccj26-basketball";
 import { TCOSMIC26_BASKETBALL_BOXES } from "./basketball/topps/tcosmic26-basketball";
 import { TFINEST26_BASKETBALL_BOXES } from "./basketball/topps/tfinest26-basketball";
 import { TSIG26_BASKETBALL_BOXES } from "./basketball/topps/tsig26-basketball";
+import { THOOPS26_BASKETBALL_BOXES } from "./basketball/topps/thoops26-basketball";
 import { TTHREE26_BASKETBALL_BOXES } from "./basketball/topps/tthree26-basketball";
 import { TCU26_BASKETBALL_BOXES } from "./basketball/topps/tcu26-basketball";
 
@@ -31,4 +32,5 @@ export const REGISTERED_BOXES: BoxDefinition[] = registerBoxes([
     ...TTHREE26_BASKETBALL_BOXES,
     ...TFINEST26_BASKETBALL_BOXES,
     ...TSIG26_BASKETBALL_BOXES,
+    ...THOOPS26_BASKETBALL_BOXES,
 ]);

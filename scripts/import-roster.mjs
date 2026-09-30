@@ -82,6 +82,31 @@ const INSERT_PATCHES = {
 
 const ROOKIE_RE = /\[?\s*rookie\s*\]?/i;
 
+/**
+ * 官方表格版里「多张卡共用一个卡号」的分节。
+ *
+ * 组合签名卡（双人 / 三人）的卡号是按组给的：官方表把同组每张卡的卡号都写成
+ * 同一个组号，于是一组 5 张双签全是 `HRD-A`——撞号之后模拟器会把它们当成
+ * 重复卡报出来。按「连续同号行 = 一张卡」的规律，把组内第 n 张卡写成
+ * `<组号>-n`；组里只有一张卡的保持原号不动。
+ *
+ * `playersPerCard` 是每张卡在表里占的行数（双人 2 行、三人 3 行，单人卡一人一行），
+ * 用它反推一组同号行里到底有几张卡；除不尽就直接报错，免得默默拆错卡。
+ * 单人名下的卡号也是组号（`HHS-G` 底下一并排着 Gradey Dick、GG Jackson II、Georges Niang
+ * 三张卡），所以单人套的 `playersPerCard` 写 1，一行算一张卡。
+ */
+const GROUPED_CARDS = {
+    "thoops26-basketball": [
+        { section: "HOOPS ROOKIE SIGNATURES", playersPerCard: 1 },
+        { section: "HOOPS SIGNS", playersPerCard: 1 },
+        { section: "HOOPS ROOKIE DUALS", playersPerCard: 2 },
+        { section: "HOOPS ROOKIE TRIPLES", playersPerCard: 3 },
+        { section: "HOOPS ROOKIE VETERAN DUALS", playersPerCard: 2 },
+        { section: "HOOPS 1989 SIGNATURES", playersPerCard: 1 },
+        { section: "HOOPS ROOKIE FIRST SIGNS", playersPerCard: 1 },
+        { section: "HOOPS HYPER SIGNATURES", playersPerCard: 1 },
+    ],
+};
 /** 把一个单元格里的新秀标记剥掉，返回 `[干净的人物名, 是否新秀]` */
 const splitRookie = (playerCell, flagCell) => {
     const fromFlag = ROOKIE_RE.test(String(flagCell ?? ""));
@@ -151,7 +176,39 @@ const applyInserts = (parsed, patches) => {
     return applied;
 };
 
-const render = (parsed, xlsxName, productName, patches = [], inserts = []) => {
+/** 把组合签名卡共用的组号拆成逐卡卡号；定位不到或行数对不上就直接报错 */
+const applyGroupedCards = (parsed, rules) => {
+    const applied = [];
+    for (const rule of rules) {
+        const section = parsed.sections.find((item) => item.title === rule.section);
+        if (!section) throw new Error(`组号规则找不到分节：${rule.section}`);
+        const changed = [];
+        // 同一个卡号的行不一定挨在一起（同一组的两张卡中间可能夹着别的组），
+        // 所以按卡号整体归堆，再按「每张卡占几行」切成一张张卡。
+        const buckets = new Map();
+        for (const row of section.rows) {
+            if (!buckets.has(row[0])) buckets.set(row[0], []);
+            buckets.get(row[0]).push(row);
+        }
+        for (const [base, bucket] of buckets) {
+            const cards = bucket.length / rule.playersPerCard;
+            if (!Number.isInteger(cards)) {
+                throw new Error(
+                    `${rule.section} 的 ${base} 共 ${bucket.length} 行，不是每张卡 ${rule.playersPerCard} 行的整数倍`,
+                );
+            }
+            if (cards <= 1) continue;
+            bucket.forEach((row, index) => {
+                row[0] = `${base}-${Math.floor(index / rule.playersPerCard) + 1}`;
+            });
+            changed.push({ no: base, cards });
+        }
+        applied.push({ section: rule.section, changed });
+    }
+    return applied;
+};
+
+const render = (parsed, xlsxName, productName, patches = [], inserts = [], grouped = []) => {
     const used = new Map();
     const lines = [];
 
@@ -177,6 +234,17 @@ const render = (parsed, xlsxName, productName, patches = [], inserts = []) => {
             lines.push(
                 ` *   ${patch.section} ${patch.row[0]} ${patch.row[1]}（插在 ${patch.before} 前）：${patch.why}`,
             );
+        }
+    }
+    if (grouped.some((rule) => rule.changed.length)) {
+        lines.push(" *");
+        lines.push(" * 已拆开官方表格版里共用一个组号的组合签名卡（改在 import-roster.mjs 的组号表里）：");
+        for (const rule of grouped) {
+            for (const item of rule.changed) {
+                lines.push(
+                    ` *   ${rule.section} ${item.no} 里的 ${item.cards} 张卡拆成 ${item.no}-1 … ${item.no}-${item.cards}`,
+                );
+            }
         }
     }
     lines.push(" */");
@@ -234,13 +302,18 @@ const main = () => {
     const productKey = basename(dirname(resolve(source)));
     const patches = applyPatches(parsed, ROSTER_PATCHES[productKey] ?? []);
     const inserts = applyInserts(parsed, INSERT_PATCHES[productKey] ?? []);
+    const grouped = applyGroupedCards(parsed, GROUPED_CARDS[productKey] ?? []);
 
     // 表头注释里的产品名不用表里的行去猜：官方表的头几行有的是产品名、
     // 有的是一句免责声明，猜错会写进注释。默认退回系列目录名。
     const productName = nameArg || productKey;
     const outputPath = resolve(target);
     mkdirSync(dirname(outputPath), { recursive: true });
-    writeFileSync(outputPath, render(parsed, basename(source), productName, patches, inserts), "utf8");
+    writeFileSync(
+        outputPath,
+        render(parsed, basename(source), productName, patches, inserts, grouped),
+        "utf8",
+    );
 
     const total = parsed.sections.reduce((sum, section) => sum + section.rows.length, 0);
     console.log(`已生成 ${outputPath}`);
@@ -250,6 +323,11 @@ const main = () => {
     }
     for (const patch of inserts) {
         console.log(`   已补入漏行：${patch.section} ${patch.row[0]} ${patch.row[1]}（插在 ${patch.before} 前）`);
+    }
+    for (const rule of grouped) {
+        for (const item of rule.changed) {
+            console.log(`   已拆开组号：${rule.section} ${item.no} → ${item.no}-1 … ${item.no}-${item.cards}`);
+        }
     }
     for (const section of parsed.sections) {
         console.log(`    ${section.title}（${section.rows.length} 行）`);
