@@ -227,7 +227,7 @@ Topps 官网只用人工核对，不写进自动化流程。逐站实测结果�
 
 | 品类 | 品牌 | 系列产品 | 目录 | 采集日期 | 配率原件 | 名单表格版 | 上线盒型 | 采集记录 |
 | --- | --- | --- | --- | --- | --- | --- | --- | --- |
-| 篮球 | Topps | 2025-26 Topps Basketball | `tbb26-basketball` | 2026-09-30 | B | ✔ | — | 待补 |
+| 篮球 | Topps | 2025-26 Topps Basketball | `tbb26-basketball` | 2026-09-30 | B | ✔ | Hobby、Hobby Jumbo、Mega、Value Blaster | [记录](./basketball/topps/tbb26-basketball/README.md) |
 | 篮球 | Topps | 2025-26 Topps Chrome Basketball | `tchrome26-basketball` | 2026-09-30 | B | ✔ | — | 待补 |
 | 篮球 | Topps | 2025-26 Topps Chrome Cactus Jack Basketball | `tccj26-basketball` | 2026-09-30 | B | ✔ | Hobby | 待补 |
 | 篮球 | Topps | 2025-26 Topps Chrome Black Basketball | `tcb26-basketball` | 2026-09-30 | D | ✔ | — | 待补 |
