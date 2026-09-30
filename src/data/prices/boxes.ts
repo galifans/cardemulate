@@ -25,7 +25,7 @@ export const PRICE_SOURCES: PriceSourceInfo[] = [
         url: "https://www.cardhobby.com.cn/",
         kind: "market",
         reachable: true,
-        note: "本机可访问，列表页直接给出 RMB 价格；检索页是前端渲染，拿不到价格",
+        note: "本机可访问。检索结果其实由 JSON 接口返回，已用它标定系列系数，口径见 sources/prices/README.md",
     },
     {
         key: "boc",
