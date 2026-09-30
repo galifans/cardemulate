@@ -14,12 +14,20 @@ import TeamIcon from "./TeamIcon.vue";
 
 const props = defineProps<{
     card: PulledCard;
+    /**
+     * 这张卡的估值（RMB）。不传就不显示价值行。
+     * 卡面不关心价格怎么算出来的，算价是 data/prices 的事。
+     */
+    value?: number;
 }>();
 
 const meta = computed(() => TIERS[props.card.tier]);
 
 /** 卡图左上角的标记：签字 / 限量编号 / 新秀 */
 const marks = computed(() => cardMarks(props.card));
+
+/** 金额固定两位小数：右对齐时小数点是齐的，扫一眼就能比大小 */
+const valueText = computed(() => (props.value === undefined ? "" : props.value.toFixed(2)));
 
 /** 具体到手的那一张：限量卡的流水号 */
 const serial = computed(() => {
@@ -64,6 +72,10 @@ const serial = computed(() => {
                 <span v-if="serial" class="ce-badge ce-mono">{{ serial }}</span>
                 <span class="ce-badge ce-mono" :title="card.oddsLabel">{{ card.oddsLabel }}</span>
             </div>
+            <p v-if="valueText" class="ce-face-value">
+                <span class="ce-face-value-label">估值</span>
+                <span class="ce-face-value-amount ce-mono">¥{{ valueText }}</span>
+            </p>
         </div>
     </article>
 </template>
@@ -282,6 +294,36 @@ const serial = computed(() => {
 
 .ce-face-meta .ce-badge:last-child {
     flex-shrink: 1;
+}
+
+/*
+ * 价值行是整个卡片信息区的最后一行：数字固定两位小数、宽体字，
+ * 同一排卡片扫下来小数点竖直对齐，大小一眼可比。
+ * 它和上面的角标行共用 `margin-top: auto` 撑出的底部留白，
+ * 所以多这一行不会把卡面高度抻长，同一排卡片下沿仍然齐。
+ */
+.ce-face-value {
+    display: flex;
+    align-items: baseline;
+    justify-content: space-between;
+    gap: 6px;
+    margin: 0;
+    padding-top: 6px;
+    border-top: 1px solid color-mix(in srgb, var(--tier) 30%, transparent);
+}
+
+.ce-face-value-label {
+    font-size: 11px;
+    color: var(--ce-text-faint);
+    letter-spacing: 0.04em;
+}
+
+.ce-face-value-amount {
+    font-size: 13.5px;
+    font-weight: 700;
+    /* 卡身底色是同色相，字色要比 --tier 亮一档才压得住 */
+    color: color-mix(in srgb, var(--tier) 42%, #ffffff);
+    white-space: nowrap;
 }
 
 @keyframes ce-pop {

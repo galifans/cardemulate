@@ -16,6 +16,7 @@ import { randomSeed } from "../engine/rng";
 import { isAutograph } from "../engine/marks";
 import { TIER_ORDER, TIERS, GROUP_NAMES } from "../engine/tiers";
 import { useAppStore } from "../stores/app";
+import { boxCostRmb, cardValueRmb, profitSummary, rmb, rmbOrDash, sumValueRmb } from "../data/prices";
 import type { Tier } from "../engine/types";
 
 const route = useRoute();
@@ -143,6 +144,33 @@ const numberedCards = computed(
 const autographs = computed(
     () => (result.value?.cards ?? []).filter((c) => isAutograph(c.group)),
 );
+
+/*
+ * 钱的两个口径必须同属一个盒型：卡价里带系列档次系数，
+ * 换盒型时同一张卡的价格本来就不一样。
+ */
+
+/** 本盒的购入价（RMB）；盒型没登记价格时为 0，界面显示成「—」 */
+const cost = computed(() => boxCostRmb(boxKey.value));
+
+/** 这一盒开出来值多少（RMB） */
+const value = computed(() =>
+    result.value && box.value ? sumValueRmb(result.value.cards, box.value.productKey) : 0,
+);
+
+/** 盈亏汇总：购入 / 售出 / 差额 / 回本率 */
+const profit = computed(() => profitSummary(cost.value, value.value));
+
+/** 每张卡的估值，按卡 id 索引；卡 id 在一盒内唯一 */
+const cardValues = computed(() => {
+    const map = new Map<string, number>();
+    if (!result.value || !box.value) return map;
+    const productKey = box.value.productKey;
+    for (const card of result.value.cards) {
+        map.set(card.id, cardValueRmb(card, productKey));
+    }
+    return map;
+});
 
 /** 配率表：按子集分组 */
 const oddsGroups = computed(() => {
@@ -330,22 +358,26 @@ const toggleSubset = (key: string): void => {
                                     <span>涉及卡种</span>
                                 </div>
                             </div>
-                            <p class="ce-faint ce-seed-note">
-                                种子 <code class="ce-mono">{{ result.seed }}</code>
-                                <button
-                                    class="ce-btn ce-btn-sm"
-                                    type="button"
-                                    @click="seedInput = result.seed"
+                            <div class="ce-money-grid">
+                                <div>
+                                    <span class="ce-money-label">购入</span>
+                                    <strong class="ce-money-amount ce-mono">{{ rmbOrDash(cost) }}</strong>
+                                </div>
+                                <div>
+                                    <span class="ce-money-label">售出</span>
+                                    <strong class="ce-money-amount ce-mono">{{ rmb(value) }}</strong>
+                                </div>
+                                <div
+                                    :class="profit.net >= 0 ? 'ce-money-up' : 'ce-money-down'"
                                 >
-                                    复现这一盒
-                                </button>
-                            </p>
-                            <p v-if="recorded" class="ce-faint ce-seed-note">
-                                已记入统计，可在<RouterLink to="/stats" class="ce-link">
-                                    我的统计
-                                </RouterLink>
-                                查看。
-                            </p>
+                                    <span class="ce-money-label">
+                                        {{ profit.net >= 0 ? "盈" : "亏" }}
+                                    </span>
+                                    <strong class="ce-money-amount ce-mono">
+                                        {{ rmb(Math.abs(profit.net)) }}
+                                    </strong>
+                                </div>
+                            </div>
                         </div>
 
                         <div class="ce-card ce-summary-card">
@@ -390,6 +422,7 @@ const toggleSubset = (key: string): void => {
                             v-for="card in sortedCards"
                             :key="card.id"
                             :card="card"
+                            :value="cardValues.get(card.id)"
                             :style="{
                                 opacity:
                                     result.cards.indexOf(card) < revealed ? 1 : 0.12,
@@ -712,17 +745,50 @@ const toggleSubset = (key: string): void => {
     color: var(--ce-brand);
 }
 
-.ce-seed-note {
-    margin: 14px 0 0;
-    font-size: 12.5px;
-    display: flex;
-    align-items: center;
+/*
+ * 金额行：与上面的概况格子拉开距离，用一条细线分隔。
+ * 「盈 / 亏」单占一格而不是拼在数字后面 —— 数字要保持右对齐、等宽，
+ * 前缀一个字会让两行金额对不齐。
+ *
+ * 窄屏（概览卡被挤到 260px 左右时）三格只剩 70px，装不下「¥1080.00」；
+ * 这里用 auto-fit 让它自动掉成两格一行，而不是把金额截成省略号。
+ */
+.ce-money-grid {
+    display: grid;
+    grid-template-columns: repeat(auto-fit, minmax(84px, 1fr));
     gap: 10px;
-    flex-wrap: wrap;
+    margin-top: 14px;
+    padding-top: 12px;
+    border-top: 1px solid var(--ce-border-soft);
 }
 
-.ce-seed-note code {
+.ce-money-grid > div {
+    display: flex;
+    flex-direction: column;
+    min-width: 0;
+}
+
+.ce-money-label {
+    font-size: 11.5px;
+    color: var(--ce-text-faint);
+}
+
+.ce-money-amount {
+    font-size: 16px;
+    font-variant-numeric: tabular-nums;
+    white-space: nowrap;
+    overflow: hidden;
+    text-overflow: ellipsis;
+}
+
+.ce-money-up .ce-money-amount,
+.ce-money-up .ce-money-label {
     color: var(--ce-brand);
+}
+
+.ce-money-down .ce-money-amount,
+.ce-money-down .ce-money-label {
+    color: var(--ce-danger);
 }
 
 .ce-tier-bars {

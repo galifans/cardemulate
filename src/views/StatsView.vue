@@ -6,6 +6,7 @@ import { useAppStore } from "../stores/app";
 import { TIER_ORDER, TIERS, GROUP_NAMES } from "../engine/tiers";
 import { isAutograph } from "../engine/marks";
 import { allBoxes, CATEGORIES, getBox } from "../catalog";
+import { profitSummary, rmb, rmbOrDash } from "../data/prices";
 import type { GroupKind, Tier } from "../engine/types";
 
 const store = useAppStore();
@@ -299,6 +300,19 @@ const drillNumbered = computed(() =>
 
 const drillAutographs = computed(() => autographTotal(drillStats.value?.bySubset ?? []));
 
+/**
+ * 弹窗里的累计金额。服务端按盒型把 breaks 的 cost_rmb / value_rmb 加起来，
+ * 这里只负责换算成盈亏和显示文案，不再二次计算。
+ */
+const drillProfit = computed(() =>
+    profitSummary(drillStats.value?.cost ?? 0, drillStats.value?.value ?? 0),
+);
+
+/** 价格表上线前的老记录两个字段都是 0，这时不摆一排「—」出来占位 */
+const drillHasMoney = computed(
+    () => (drillStats.value?.cost ?? 0) > 0 || (drillStats.value?.value ?? 0) > 0,
+);
+
 const drillTierRows = computed(() => {
     const map = new Map((drillStats.value?.byTier ?? []).map((row) => [row.tier, row.total]));
     return TIER_ORDER.map((tier) => ({
@@ -341,6 +355,11 @@ const breakRows = computed(() =>
             bestColor: meta?.color ?? "var(--ce-text-dim)",
             bestOdds: row.best?.odds ? `1:${formatNumber(row.best.odds)}` : "—",
             date: formatDate(row.createdAt),
+            cost: row.costRmb,
+            value: row.valueRmb,
+            /* 老记录的金额是 0，两端都按「无价格」处理，不要显示成赚了 0 元 */
+            priced: row.costRmb > 0 || row.valueRmb > 0,
+            up: row.valueRmb >= row.costRmb,
         };
     }),
 );
@@ -576,6 +595,7 @@ const breakRows = computed(() =>
                             <th>编号卡</th>
                             <th>最佳卡</th>
                             <th>配率</th>
+                            <th>购入 / 售出</th>
                         </tr>
                     </thead>
                     <tbody>
@@ -592,6 +612,19 @@ const breakRows = computed(() =>
                             <td :style="{ color: row.bestColor }">
                                 {{ row.bestTierName }}
                                 <span class="ce-mono ce-faint">{{ row.bestOdds }}</span>
+                            </td>
+                            <td>
+                                <span v-if="row.priced" class="ce-money-pair">
+                                    <span class="ce-faint">购入</span>
+                                    <span class="ce-mono">{{ rmb(row.cost) }}</span>
+                                </span>
+                                <span v-if="row.priced" class="ce-money-pair">
+                                    <span class="ce-faint">售出</span>
+                                    <span class="ce-mono" :class="row.up ? 'ce-money-up' : 'ce-money-down'">
+                                        {{ rmb(row.value) }}
+                                    </span>
+                                </span>
+                                <span v-else class="ce-faint">—</span>
                             </td>
                         </tr>
                     </tbody>
@@ -675,6 +708,21 @@ const breakRows = computed(() =>
                         <div>
                             <strong>{{ formatNumber(drillAutographs) }}</strong>
                             <span>签字卡</span>
+                        </div>
+                    </div>
+
+                    <div v-if="drillHasMoney" class="ce-money-grid ce-mt-16">
+                        <div>
+                            <strong class="ce-mono">{{ rmbOrDash(drillStats.cost) }}</strong>
+                            <span>累计购入</span>
+                        </div>
+                        <div>
+                            <strong class="ce-mono">{{ rmbOrDash(drillStats.value) }}</strong>
+                            <span>累计售出</span>
+                        </div>
+                        <div :class="drillProfit.net >= 0 ? 'ce-money-up' : 'ce-money-down'">
+                            <strong class="ce-mono">{{ rmb(drillProfit.net) }}</strong>
+                            <span>盈亏</span>
                         </div>
                     </div>
 
@@ -1025,5 +1073,63 @@ const breakRows = computed(() =>
     width: 1%;
     text-align: right;
     white-space: nowrap;
+}
+
+/*
+ * 金额单独占一排。最小列宽按「¥1080.00」这种最长常见值定，
+ * 窄屏下自动掉成两格一行，不会把金额截成省略号。
+ * 一列一个「标签在上、数字在下」，不用横线，避免和上方的格线打架。
+ */
+.ce-money-grid {
+    display: grid;
+    grid-template-columns: repeat(auto-fit, minmax(84px, 1fr));
+    gap: 12px;
+}
+
+.ce-money-grid > div {
+    display: flex;
+    flex-direction: column;
+    min-width: 0;
+}
+
+.ce-money-grid strong {
+    font-size: 18px;
+    font-variant-numeric: tabular-nums;
+    white-space: nowrap;
+    overflow: hidden;
+    text-overflow: ellipsis;
+}
+
+.ce-money-grid span {
+    font-size: 11.5px;
+    color: var(--ce-text-faint);
+}
+
+.ce-money-up strong {
+    color: var(--ce-brand);
+}
+
+.ce-money-down strong {
+    color: var(--ce-danger);
+}
+
+/* 拆盒记录里的「购入 / 售出」两行，标签左、数字右，数字列要对齐 */
+.ce-money-pair {
+    display: flex;
+    align-items: baseline;
+    gap: 8px;
+    white-space: nowrap;
+}
+
+.ce-money-pair > .ce-faint {
+    font-size: 11.5px;
+}
+
+.ce-money-pair .ce-money-up {
+    color: var(--ce-brand);
+}
+
+.ce-money-pair .ce-money-down {
+    color: var(--ce-danger);
 }
 </style>
