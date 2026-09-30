@@ -12,6 +12,15 @@
  * 再把每个配率归到它左边最近的那一列。因此 `pack-odds.txt` 必须用布局模式提取
  * （见 `scripts/extract-pdf-text.py`），否则列位置不存在，脚本会直接报错退出。
  *
+ * 例外：有些表把空格子写成 `-`（Chrome Update 就是这样），一行里令牌数刚好等于列数，
+ * 位置就不再是唯一线索——那一行走「令牌按顺序对号入座」的直路，不靠位置。
+ *
+ * 位置归列不能只看这份提取件：提取件把横坐标折成了字符下标，而两端对齐的页面里每一行
+ * 按自己的标签宽度排位，同一列在不同行能差十几个字符，按下标归列会偶尔差一列而且不报错。
+ * 所以每张表都要拿官方 PDF 里每个文本块的**真实横坐标**再核一遍，命令见
+ * `scripts/verify-odds-columns.py`，要求「不一致 0 格」。核出来对不上的行写进下面的
+ * `ROW_PATCHES`，**不要**改归列规则去凑。
+ *
  * 配率有两种写法，统一换算成「平均多少包出一张」：
  * - `1:X`  → X（1 包里出 1 张）
  * - `A:B`  → B / A（A 包里出 B 张）
@@ -47,6 +56,20 @@ const ROW_PATCHES = {
         "Rookie 3 Patch Autographs Horizontal Bronze": [23, 23],
         "Rookie 3 Patch Autographs Horizontal Platinum": [554, 554],
         "Rookie 3 Patch Autographs Vertical Platinum": [554, 554],
+    },
+    "tsig26-basketball": {
+        // 提取件里每一行按自己的标签宽度排位，这两行的数值整列前移了一格，只有靠原件的
+        // 真实横坐标才看得出来（1:25 与 1:71 在 Value Box 列下，1:15 与 1:44 在 Mega Box 列下）
+        "Rookie Class Chrome Base Pandora": [null, null, 25, 15],
+        "Rookie Class Chrome Base Pandora Yellow": [null, null, 71, 44],
+    },
+    "tfinest26-basketball": {
+        // 四档插入卡的 SuperFractor 只在 Hobby 盒里出（盒型规格如此），提取件却把它们摆到了
+        // 拆卡盒列；拿原件的真实横坐标核对，这四行的数值确实在 Hobby 列下。
+        "Arrivals SuperFractor": [12495, null],
+        "Muse SuperFractor": [12495, null],
+        "First SuperFractor": [12495, null],
+        "Finishers SuperFractor": [48192, null],
     },
 };
 
@@ -204,23 +227,34 @@ const labelDictionary = (plainText) => {
     return dictionary;
 };
 
+/** 数值起点离下一列列头不到这么多字符，就当它贴着列边界，交人工核对 */
+const CLOSE_MARGIN = 2;
+
 /**
- * 把数值归到某一列。
+ * 把数值归到某一列，并给出它离列边界还有几个字符。
  *
  * 官方表分两种写法，必须分别对待：
  * - 空格写成 `-` 的表（TCU26 就是这样），每一行的令牌个数刚好等于列数，按顺序摆放就是对的。
  * - 空格是真的空着的表（后面几套系列都是这样），令牌个数少于列数，只能靠水平位置判断。
  *
- * 位置判断取数值的**中心**，列边界取相邻表头的**中间位**。不能直接拿表头位置当左边界：
- * 表头文字左对齐、数值居中，窄数值的结束位会落在下一列表头的左边而被归错列。
+ * 位置判断取数值的**起始位**：列头左对齐，数值也左对齐、贴着列头再往右一点点，
+ * 所以「起始位不小于列头位」的最右一列就是它的列。同一列里数值长短不一时起点不变，
+ * 中心点却会随数值长度往右漂（Finest 的 `Arrivals SuperFractor 1:12495` 七位数值
+ * 起点在 Hobby 列，中心却越过了 Hobby 与 Breaker 的中点，被推进 Breaker 列）。
+ * 也试过「离列头最近」的口径，它会把 Signature Class 里标签短的行的数值推后一列：
+ * 那种表是两端对齐的，提取件里每一行按自己的标签宽度排位，同一列在不同行里的下标
+ * 能差十几个字符，只有「不小于列头位」这个判断还站得住。
+ *
+ * 归列本身没法自证对错：先用 `sources/README.md` 里记的核对办法拿官方原件对一遍，
+ * 对不上的行登记到 `ROW_PATCHES` 里，别改这条规则去凑。脚本自己只能报「贴着列边界」的格子。
  */
 const columnOf = (offsets, token) => {
-    const point = (token.at + token.end) / 2;
     let index = 0;
-    for (let i = 0; i + 1 < offsets.length; i++) {
-        if (point >= (offsets[i] + offsets[i + 1]) / 2) index = i + 1;
+    for (let i = 0; i < offsets.length; i++) {
+        if (token.at >= offsets[i]) index = i;
     }
-    return index;
+    const after = index + 1 < offsets.length ? offsets[index + 1] - token.at : Infinity;
+    return { index, margin: after };
 };
 
 const parse = (text, columns, options = {}) => {
@@ -237,6 +271,8 @@ const parse = (text, columns, options = {}) => {
     let offsets = header?.offsets ?? [0];
     const rows = [];
     const warnings = [];
+    /** 夹在两列中间的格子，调用方核对补丁后决定要不要报出来 */
+    const ambiguous = [];
     const unknownLabels = new Set();
     let lastLabel = null;
 
@@ -275,7 +311,18 @@ const parse = (text, columns, options = {}) => {
         if (tokens.length === columns.length) {
             tokens.forEach((token, index) => (odds[index] = toOdds(token.text)));
         } else {
-            for (const token of tokens) odds[columnOf(offsets, token)] = toOdds(token.text);
+            for (const token of tokens) {
+                const { index, margin } = columnOf(offsets, token);
+                if (margin <= CLOSE_MARGIN) {
+                    ambiguous.push({
+                        label,
+                        text: token.text,
+                        column: columns[index],
+                        margin,
+                    });
+                }
+                odds[index] = toOdds(token.text);
+            }
         }
         rows.push({ label, odds });
     }
@@ -286,7 +333,7 @@ const parse = (text, columns, options = {}) => {
         );
     }
 
-    return { rows, warnings };
+    return { rows, warnings, ambiguous };
 };
 
 const render = (rows, columns, sourceName, extraArgs = "", fixes = []) => {
@@ -381,6 +428,22 @@ const main = () => {
         if (!parsed.rows.some((row) => row.label === label)) {
             parsed.warnings.push(`脚本里登记的覆盖行「${label}」没在表里找到，可能官方表已修订。`);
         }
+    }
+
+    // 贴着列边界的格子：数值起点离**下一列**列头只有一两个字符，差一点点就换列，必须人工看
+    // 一眼。贴着自己那列的列头是正常的左对齐，不用报。已经登记了行覆盖的标签也不用再提示，
+    // 覆盖值本身就是核对过的结论。
+    const ambiguous = parsed.ambiguous.filter((item) => !patches[item.label]);
+    if (ambiguous.length) {
+        parsed.warnings.push(
+            "这些格子贴着列边界，脚本按数值起点归列，请人工核对：" +
+                ambiguous
+                    .map(
+                        (item) =>
+                            `${item.label} ${item.text}（在 ${item.column} 列边缘，差 ${item.margin}）`,
+                    )
+                    .join("；"),
+        );
     }
 
     const extraArgs = flags.length ? ` ${flags.join(" ")}` : "";

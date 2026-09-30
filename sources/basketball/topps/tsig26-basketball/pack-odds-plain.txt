@@ -1,0 +1,210 @@
+PAGES: 5
+===== PAGE 1 =====
+Checklists and odds provided by Topps reflect the intended 
+configuration of that product at the time of production, but actual 
+contents and odds may vary, and inclusion of a subject does not 
+guarantee that it will appear in every parallel or variation.
+Subset: Odds Hobby:Odds Hobby Jumbo:Odds Value Box:Odds Mega Box:
+Veteran Class Base 2:1 2:1 5:1 6:1
+Veteran Class Base Blue & Orange 1:5 1:4
+Veteran Class Base Bronze 1:9 1:8
+Veteran Class Base Coral 1:407 1:120
+Veteran Class Base Magenta 1:81 1:73 1:327 1:331
+Veteran Class Base Teal 1:64 1:41 1:426 1:466
+Veteran Class Base Lime 1:82 1:33 1:581 1:663
+Veteran Class Base Green 1:96 1:29 1:723 1:853
+Veteran Class Base Purple 1:143 1:31 1:1217 1:1712
+Veteran Class Base Orange 1:286 1:61 1:2434 1:3424
+Veteran Class Base Red 1:571 1:121 1:4868 1:6848
+Veteran Class Base Red Lava 1:571 1:121 1:4868 1:6848
+Veteran Class Base Black 1:1426 1:301 1:12170 1:17119
+Veteran Class Base Black Gold 1:1426 1:301 1:12170 1:17119
+Veteran Class Base Blue 1:2851 1:601 1:24340 1:34237
+Veteran Class Base FoilFractor 1:14661 1:3005 1:120861 1:164334
+Veteran Class Base Pink 1:191 1:41 1:1623 1:2283
+Veteran Class Base Yellow 1:314 1:89
+Rookie Class Base 1:2 2.1 1:8 1:5
+Rookie Class Base Blue & Orange 1:36 1:14
+Rookie Class Base Bronze 1:101 1:42
+Rookie Class Base Coral 1:96 1:28 1:730 1:1049
+Rookie Class Base Magenta 1:115 1:29 1:961 1:997
+Rookie Class Base Teal 1:127 1:27 1:1050 1:1434
+Rookie Class Base Lime 1:163 1:35 1:1338 1:1957
+Rookie Class Base Green 1:191 1:41 1:1623 1:2283
+Rookie Class Base Purple 1:286 1:61 1:2434 1:3424
+Rookie Class Base Orange 1:571 1:121 1:4868 1:6848
+Rookie Class Base Red 1:1141 1:241 1:9736 1:13695
+Rookie Class Base Red Lava 1:1141 1:241 1:9736 1:13695
+Rookie Class Base Black 1:2851 1:601 1:24340 1:34237
+Rookie Class Base Black Gold 1:2851 1:601 1:24340 1:34237
+Rookie Class Base Blue 1:5702 1:1202 1:48680 1:68473
+Rookie Class Base FoilFractor 1:29322 1:6010 1:233664 1:308125
+Rookie Class Base Pink 1:381 1:81 1:3246 1:4565
+Rookie Class Base Yellow 1:72 1:26 1:520 1:675
+Veteran Class Chrome Base 1:2 1:1 1:3 1:3
+Veteran Class Chrome Base Refractor 1:6 1:2 1:10 1:10
+Veteran Class Chrome Base Pandora 1:13 1:13
+Veteran Class Chrome Base Pandora Yellow 1:36 1:37
+===== PAGE 2 =====
+Veteran Class Chrome Base Magenta 1:58 1:13 1:487 1:685
+Veteran Class Chrome Base Teal 1:64 1:14 1:541 1:761
+Veteran Class Chrome Base Lime 1:82 1:18 1:696 1:979
+Veteran Class Chrome Base Green 1:96 1:21 1:812 1:1142
+Veteran Class Chrome Base Purple 1:143 1:31 1:1217 1:1712
+Veteran Class Chrome Base Orange 1:286 1:61 1:2434 1:3424
+Veteran Class Chrome Base Red 1:571 1:121 1:4868 1:6848
+Veteran Class Chrome Base Red Lava 1:571 1:121 1:4868 1:6848
+Veteran Class Chrome Base Gold 1:1426 1:301 1:12170 1:17119
+Veteran Class Chrome Base Blue 1:2851 1:601 1:24340 1:34237
+Veteran Class Chrome Base Superfractor 1:14661 1:3005 1:120861 1:164334
+Veteran Class Chrome Base Pink 1:191 1:41 1:1623 1:2283
+Rookie Class Chrome Base 1:4 1:1 1:12 1:10
+Rookie Class Chrome Base Refractor 1:12 1:3 1:19 1:20
+Rookie Class Chrome Base Pandora 1:25 1:15
+Rookie Class Chrome Base Pandora Yellow 1:71 1:44
+Rookie Class Chrome Base Magenta 1:115 1:25 1:974 1:1370
+Rookie Class Chrome Base Teal 1:127 1:27 1:1082 1:1522
+Rookie Class Chrome Base Lime 1:163 1:35 1:1391 1:1957
+Rookie Class Chrome Base Green 1:191 1:41 1:1623 1:2283
+Rookie Class Chrome Base Purple 1:286 1:61 1:2434 1:3424
+Rookie Class Chrome Base Orange 1:571 1:121 1:4868 1:6848
+Rookie Class Chrome Base Red 1:1141 1:241 1:9736 1:13695
+Rookie Class Chrome Base Red Lava 1:1141 1:241 1:9736 1:13695
+Rookie Class Chrome Base Gold 1:2851 1:601 1:24340 1:34237
+Rookie Class Chrome Base Blue 1:5702 1:1202 1:48680 1:68473
+Rookie Class Chrome Base Superfractor 1:29322 1:6010 1:233664 1:308125
+Rookie Class Chrome Base Pink 1:381 1:81 1:3246 1:4565
+After Image 1:12 1:7 1:17 1:14
+High Fidelity 1:10 1:6 1:15 1:12
+Pure 1:12 1:7 1:17 1:14
+Unfazed 1:15 1:8 1:22 1:18
+After Image Orange 1:1141 1:241 1:9791 1:13771
+High Fidelity Orange 1:951 1:201 1:8152 1:11466
+Pure Orange 1:1141 1:241 1:9791 1:13771
+Unfazed Orange 1:1426 1:301 1:12213 1:17119
+After Image Red 1:2281 1:481 1:19581 1:27389
+High Fidelity Red 1:1901 1:401 1:16303 1:22825
+Pure Red 1:2281 1:481 1:19581 1:27389
+Unfazed Red 1:2851 1:601 1:24340 1:34237
+After Image Gold 1:5702 1:1202 1:48680 1:68473
+High Fidelity Gold 1:4719 1:1002 1:40756 1:57326
+Pure Gold 1:5702 1:1202 1:48680 1:68473
+Unfazed Gold 1:7078 1:1503 1:60431 1:85000
+After Image Blue 1:11403 1:2404 1:97360 1:136945
+High Fidelity Blue 1:9330 1:2004 1:81511 1:112046
+===== PAGE 3 =====
+Pure Blue 1:11403 1:2404 1:97360 1:136945
+Unfazed Blue 1:14156 1:3005 1:120861 1:164334
+After Image Superfractor 1:51312 1:12020 1:500709 1:616250
+High Fidelity Superfractor 1:45611 1:10303 1:389440 1:493000
+Pure Superfractor 1:51312 1:12020 1:500709 1:616250
+Unfazed Superfractor 1:68416 1:14424 1:584160 1:821667
+Star Cast 1:110 1:37 1:1113 1:1233
+Algorithm 1:110 1:37 1:1113 1:1233
+Roses 1:329 1:116 1:1113 1:1233
+Fluidity 1:329 1:116 1:1113 1:1233
+Star Cast Orange 1:1141 1:241 1:9791 1:13771
+Algorithm Orange 1:1141 1:241 1:9791 1:13771
+Star Cast Red 1:2281 1:481 1:19581 1:27389
+Algorithm Red 1:2281 1:481 1:19581 1:27389
+Roses Red 1:2281 1:481 1:18644 1:26224
+Fluidity Red 1:2851 1:601 1:24340 1:34237
+Star Cast Gold 1:5702 1:1202 1:48680 1:68473
+Algorithm Gold 1:5702 1:1202 1:48680 1:68473
+Roses Gold 1:5702 1:1202 1:46733 1:64869
+Fluidity Gold 1:7078 1:1503 1:60431 1:85000
+Star Cast Blue 1:11403 1:2404 1:97360 1:136945
+Algorithm Blue 1:11403 1:2404 1:97360 1:136945
+Roses Blue 1:11403 1:2404 1:97360 1:136945
+Fluidity Blue 1:14156 1:3005 1:120861 1:164334
+Star Cast Black 1:51312 1:12020 1:500709 1:616250
+Algorithm Black 1:51312 1:12020 1:500709 1:616250
+Roses Black 1:51312 1:12020 1:500709 1:616250
+Fluidity Black 1:68416 1:14424 1:1080000 1:800000
+Monarchs of the Game 1:160 1:40
+Leviathans 1:242 1:61
+Aristocrat 1:301 1:250
+Odyssey 1:300 1:250
+Pressure Points 1:600 1:500
+Veteran Class Autographs 1:57 1:10 1:5008 1:769
+Rookie Class Autographs 1:28 1:6 1:1402 1:425
+Veteran Class Autographs Purple 1:193 1:96 1:5608 1:3391
+Rookie Class Autographs Purple 1:184 1:92 1:5311 1:3231
+Veteran Class Autographs Orange 1:384 1:191 1:11492 1:6754
+Rookie Class Autographs Orange 1:367 1:182 1:10785 1:6437
+Veteran Class Autographs Red 1:735 1:365 1:23367 1:12906
+Rookie Class Autographs Red 1:734 1:365 1:23367 1:12906
+Veteran Class Autographs Red Lava 1:823 1:408 1:26962 1:14416
+Rookie Class Autographs Red Lava 1:804 1:399 1:25036 1:14086
+Veteran Class Autographs Gold 1:1825 1:902 1:70100 1:32013
+Rookie Class Autographs Gold 1:1833 1:902 1:70100 1:32013
+Veteran Class Autographs White Gold 1:1833 1:902 1:70100 1:32013
+Rookie Class Autographs White Gold 1:1825 1:902 1:70100 1:32013
+Veteran Class Autographs Blue 1:3666 1:1803 1:233664 1:64869
+Rookie Class Autographs Blue 1:3633 1:1803 1:233664 1:63206
+===== PAGE 4 =====
+Veteran Class Autographs Black 1:17848 1:9015 1:700992 1:308125
+Rookie Class Autographs Black 1:17848 1:9015 1:1080000 1:308125
+Veteran Class Chrome Autographs 1:333 1:34 1:3471 1:2233
+Rookie Class Chrome Autographs 1:25 1:10 1:631 1:406
+Veteran Class Chrome Autographs Orange 1:460 1:228 1:14604 1:8082
+Rookie Class Chrome Autographs Orange 1:367 1:182 1:11307 1:6453
+Veteran Class Chrome Autographs Red 1:807 1:401 1:25036 1:14167
+Rookie Class Chrome Autographs Red 1:734 1:365 1:23367 1:12906
+Veteran Class Chrome Autographs Red Lava 1:751 1:372 1:23367 1:13182
+Rookie Class Chrome Autographs Red lava 1:717 1:356 1:21906 1:12577
+Veteran Class Chrome Autographs Gold 1:1793 1:891 1:58416 1:31203
+Rookie Class Chrome Autographs Gold 1:1833 1:902 1:58416 1:32013
+Veteran Class Chrome Autographs Blue 1:3570 1:1760 1:140199 1:61625
+Rookie Class Chrome Autographs Blue 1:3666 1:1803 1:140199 1:63206
+Veteran Class Chrome Autographs Superfractor 1:17848 1:8014 1:1080000 1:308125
+Rookie Class Chrome Autographs Superfractor 1:17848 1:9015 1:1080000 1:308125
+Veteran Class Crystal Clear Autographs 1:529 1:262
+Rookie Class Crystal Clear Autographs 1:179 1:89
+Legends of Their Class Crystal Clear Autographs 1:1086 1:539
+Veteran Class Crystal Clear Autographs Monarch 1:3158 1:1535
+Rookie Class Crystal Clear Autographs Monarch 1:2504 1:1223
+Legends of Their Class Crystal Clear Autographs Monarch 1:12074 1:5548
+Veteran Class Crystal Clear Autographs Milkweed 1:17104 1:7212
+Rookie Class Crystal Clear Autographs Milkweed 1:13684 1:6010
+Legends of Their Class Crystal Clear Autographs Milkweed 1:68416 1:24040
+Signature Blend 1:135 1:30 1:2765 1:1778
+Shadow Scripts 1:90 1:25 1:2014 1:1294
+Penstroke Signatures 1:60 1:19 1:1415 1:910
+Eternal Marks 1:471 1:44 1:5992 1:3852
+Signature Blend Orange 1:689 1:342 1:21906 1:12084
+Shadow Scripts Orange 1:689 1:342 1:21906 1:12084
+Penstroke Signatures Orange 1:589 1:292 1:17525 1:10358
+Eternal Marks Orange 1:921 1:457 1:28040 1:16218
+Signature Blend Red 1:1373 1:681 1:41235 1:24167
+Shadow Scripts Red 1:1320 1:656 1:41235 1:24167
+Penstroke Signatures Red 1:1177 1:582 1:35050 1:20542
+Eternal Marks Red 1:1850 1:913 1:58416 1:32435
+Signature Blend Gold 1:3421 1:1678 1:116832 1:60122
+Shadow Scripts Gold 1:3311 1:1640 1:109530 1:58691
+Penstroke Signatures Gold 1:2933 1:1443 1:87624 1:51355
+Eternal Marks Gold 1:4613 1:2254 1:175248 1:79517
+Signature Blend Blue 1:6842 1:3279 1:250355 1:117381
+Shadow Scripts Blue 1:6516 1:3136 1:233664 1:112046
+Penstroke Signatures Blue 1:5865 1:2885 1:233664 1:102709
+Eternal Marks Blue 1:8734 1:4243 1:292080 1:154063
+Signature Blend Superfractor 1:34208 1:14424 1:2016960 1:493000
+Shadow Scripts Superfractor 1:31577 1:14424 1:2016960 1:493000
+Penstroke Signatures Superfractor 1:29322 1:14424 1:1168320 1:800000
+Eternal Marks Superfractor 1:45611 1:18030 1:2016960 1:616250
+===== PAGE 5 =====
+Manuscripts 1:24 1:4 1:557 1:261
+Dual Autographs 1:2756 1:1361 1:100142 1:48334
+Triple Autographs 1:4830 1:2404 1:233664 1:85000
+Manuscripts Purple 1:125 1:63 1:3651 1:2199
+Manuscripts Orange 1:246 1:122 1:6900 1:4317
+Manuscripts Red 1:471 1:234 1:18448 1:8272
+Manuscripts Gold 1:1177 1:582 1:38944 1:20542
+Dual Autographs Gold 1:5474 1:2672 1:184472 1:94808
+Triple Autographs Gold 1:9123 1:4508 1:350496 1:154063
+Manuscripts Blue 1:2346 1:1164 1:70100 1:41084
+Manuscripts Superfractor 1:11729 1:5548 1:389440 1:205417
+Dual Autographs Superfractor 1:51312 1:24040 1:2016960 1:800000
+Triple Autographs Superfractor 1:82100 1:36060 1:2016960 1:800000
+Veteran Class Chrome Base Yellow 1:407 1:285
+Rookie Class Chrome Base Yellow 1:814 1:594

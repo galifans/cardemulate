@@ -20,6 +20,7 @@
  * ----
  * 与既有盒型同口径：`weight = 1/odds`；普通 Base 不取官方表那一行，改用残差
  * `cardsPerPack - Σ(1/odds)`——这样每包张数与其余每一档配率同时成立。
+ * 盒型里普卡只出平行版的（拆卡盒之类），用 `residualLabel` 把残差指到那一条平行上。
  */
 import type {
     AbsentEntry,
@@ -87,6 +88,11 @@ export interface BoxSpec {
     boxesPerCase: number;
     autoGuaranteed: boolean;
     boxExclusives: string[];
+    /**
+     * 走残差权重的那条行标签；缺省时用本盒里最靠前的那条平行。
+     * 拆卡盒这类「普卡只出平行版」的盒型，得把残差指到平行那一行上。
+     */
+    residualLabel?: string;
 }
 
 export interface AssembleConfig {
@@ -356,10 +362,10 @@ export const assembleBoxes = (config: AssembleConfig): BoxDefinition[] => {
             const rows = subset.variants
                 .map(([name, label, slug], order) => {
                     // 普通 Base 不取官方表那一行，交给残差，避免与平行配率重复计算
-                    const odds =
-                        subset.residual && order === 0
-                            ? 0
-                            : oddsIn(spec.column, label, subset.manual[order]);
+                    const holds = spec.residualLabel
+                        ? label === spec.residualLabel
+                        : order === 0;
+                    const odds = subset.residual && holds ? 0 : oddsIn(spec.column, label, subset.manual[order]);
                     return { name, slug, odds, numbered: subset.numbered[order] };
                 })
                 .filter((row): row is typeof row & { odds: number } => row.odds !== null);

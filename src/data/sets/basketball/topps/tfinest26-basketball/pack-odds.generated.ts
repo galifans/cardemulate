@@ -6,6 +6,12 @@
  *
  * odds 是「平均多少包出一张」：官方表的 `1:X` 直接取 X，`A:B` 取 B / A。
  * null 表示官方表里这一格是空的——即该渠道没有这个卡种。
+ *
+ * 已修正官方原表的缺陷——改在 import-pack-odds.mjs 的补丁表里，不在本文件手改：
+ *   行覆盖 Arrivals SuperFractor
+ *   行覆盖 Muse SuperFractor
+ *   行覆盖 First SuperFractor
+ *   行覆盖 Finishers SuperFractor
  */
 
 /** 官方表的列顺序，索引与 PackOddsRow.odds 一一对应 */
@@ -128,10 +134,10 @@ export const PACK_ODDS: PackOddsRow[] = [
     { label: "Muse Red", odds: [2343, null] },
     { label: "First Red", odds: [2343, null] },
     { label: "Finishers Red", odds: [7178, null] },
-    { label: "Arrivals SuperFractor", odds: [null, 12495] },
-    { label: "Muse SuperFractor", odds: [null, 12495] },
-    { label: "First SuperFractor", odds: [null, 12495] },
-    { label: "Finishers SuperFractor", odds: [null, 48192] },
+    { label: "Arrivals SuperFractor", odds: [12495, null] },
+    { label: "Muse SuperFractor", odds: [12495, null] },
+    { label: "First SuperFractor", odds: [12495, null] },
+    { label: "Finishers SuperFractor", odds: [48192, null] },
     { label: "Arrivals Geometric", odds: [null, 5] },
     { label: "Muse Geometric", odds: [null, 5] },
     { label: "First Geometric", odds: [null, 5] },

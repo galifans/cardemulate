@@ -2,10 +2,14 @@
  * 发行商官方 Pack Odds 表（自动生成，请勿手工编辑）。
  *
  * 来源：pack-odds.txt（Topps 官方 Pack Odds PDF 的文本提取件）。
- * 重新生成：node scripts/import-pack-odds.mjs <pack-odds.txt> <本文件> "Hobby,Hobby Jumbo,Value Box,Mega Box" --relaxed --labels=.snapshot/tsig-plain.txt
+ * 重新生成：node scripts/import-pack-odds.mjs <pack-odds.txt> <本文件> "Hobby,Hobby Jumbo,Value Box,Mega Box" --relaxed --labels=sources/basketball/topps/tsig26-basketball/pack-odds-plain.txt
  *
  * odds 是「平均多少包出一张」：官方表的 `1:X` 直接取 X，`A:B` 取 B / A。
  * null 表示官方表里这一格是空的——即该渠道没有这个卡种。
+ *
+ * 已修正官方原表的缺陷——改在 import-pack-odds.mjs 的补丁表里，不在本文件手改：
+ *   行覆盖 Rookie Class Chrome Base Pandora
+ *   行覆盖 Rookie Class Chrome Base Pandora Yellow
  */
 
 /** 官方表的列顺序，索引与 PackOddsRow.odds 一一对应 */
@@ -139,11 +143,11 @@ export const PACK_ODDS: PackOddsRow[] = [
     { label: "Algorithm Black", odds: [51312, 12020, 500709, 616250] },
     { label: "Roses Black", odds: [51312, 12020, 500709, 616250] },
     { label: "Fluidity Black", odds: [68416, 14424, 1080000, 800000] },
-    { label: "Monarchs of the Game", odds: [null, 160, 40, null] },
-    { label: "Leviathans", odds: [null, 242, 61, null] },
-    { label: "Aristocrat", odds: [null, null, null, 250] },
-    { label: "Odyssey", odds: [null, null, null, 250] },
-    { label: "Pressure Points", odds: [null, null, null, 500] },
+    { label: "Monarchs of the Game", odds: [160, 40, null, null] },
+    { label: "Leviathans", odds: [242, 61, null, null] },
+    { label: "Aristocrat", odds: [null, null, 301, 250] },
+    { label: "Odyssey", odds: [null, null, 300, 250] },
+    { label: "Pressure Points", odds: [null, null, 600, 500] },
     { label: "Veteran Class Autographs", odds: [57, 10, 5008, 769] },
     { label: "Rookie Class Autographs", odds: [28, 6, 1402, 425] },
     { label: "Veteran Class Autographs Purple", odds: [193, 96, 5608, 3391] },

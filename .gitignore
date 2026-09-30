@@ -2,6 +2,7 @@ node_modules/
 dist/
 .wrangler/
 .snapshot/
+__pycache__/
 .dev.vars
 *.local
 .DS_Store

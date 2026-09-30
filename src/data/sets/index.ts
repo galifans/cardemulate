@@ -18,6 +18,7 @@ import type { BoxDefinition } from "@/engine/types";
 
 import { TCCJ26_BASKETBALL_BOXES } from "./basketball/topps/tccj26-basketball";
 import { TCOSMIC26_BASKETBALL_BOXES } from "./basketball/topps/tcosmic26-basketball";
+import { TFINEST26_BASKETBALL_BOXES } from "./basketball/topps/tfinest26-basketball";
 import { TTHREE26_BASKETBALL_BOXES } from "./basketball/topps/tthree26-basketball";
 import { TCU26_BASKETBALL_BOXES } from "./basketball/topps/tcu26-basketball";
 
@@ -27,4 +28,5 @@ export const REGISTERED_BOXES: BoxDefinition[] = registerBoxes([
     ...TCCJ26_BASKETBALL_BOXES,
     ...TCOSMIC26_BASKETBALL_BOXES,
     ...TTHREE26_BASKETBALL_BOXES,
+    ...TFINEST26_BASKETBALL_BOXES,
 ]);

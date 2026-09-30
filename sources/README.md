@@ -143,8 +143,26 @@ Topps 官网只用人工核对，不写进自动化流程。逐站实测结果�
    | 小数 | `2.1` | 原样 |
 
    空格的处理分两种表：写成 `-` 的表每行令牌数刚好等于列数，按顺序摆放；
-   空格真的空着的表令牌数少于列数，按数值的水平中心归列。
-   一份 PDF 里可能有好几张表（分页会重排行位），所以列位要跟着当前表头走。
+   空格真的空着的表令牌数少于列数，只能按数值在版面里的水平位置归列——表头与数值都是
+   左对齐的，所以「起点不小于列头位」的最右一列就是它的列。一份 PDF 里可能有好几张表
+   （分页会重排行位），所以列位要跟着当前表头走。
+
+   位置归列**必须**拿官方 PDF 里每个文本块的真实横坐标核对，只看提取件的字符下标会漏错：
+   两端对齐的页面（Signature Class 就是）里每一行按自己的标签宽度排位，同一列在不同行能
+   差十几个字符，按下标归列会偶尔差一列而且不报错。核对命令：
+
+   ```powershell
+   python scripts/verify-odds-columns.py `<系列目录>`/pack-odds.pdf `<代码目录>`/pack-odds.generated.ts
+   ```
+
+   它把每页的数字按真实横坐标聚成列数那么多堆，逐格与生成文件比对，必须报「不一致 0 格」。
+   `SKIP` 的页面是本页聚不出列位：一张纸印好几张表（Hoops 一页四张）、列数太多（Chrome
+   Update 十二列）、标签被两端对齐撑开的页面都会这样。这类页面改用第二条保证——看导入
+   脚本自己报的「贴着列边界」的行：没有一格贴着列边界，位置判断就是稳的，脚本会打印
+   「没有需要留意的行」。
+   对不上的行登记到 `scripts/import-pack-odds.mjs` 的 `ROW_PATCHES` 里并写明依据，
+   **不要**改归列口径去凑：「按数值中心」与「按离列头最近」两套口径都试过，
+   各自都会在别的行上错。
 7. **誊抄名册**。名单表格版一律用脚本转，不要手工抄：
    ```powershell
    node scripts/import-roster.mjs `<系列目录>`/checklist.xlsx `<代码目录>`/roster.ts [工作表序号]
@@ -200,7 +218,7 @@ Topps 官网只用人工核对，不写进自动化流程。逐站实测结果�
 | 篮球 | Topps | 2025-26 Topps Chrome Updates Basketball | `tcu26-basketball` | 2026-09-30 | B | ✔ | Hobby、Jumbo、Value、Mega | [记录](./basketball/topps/tcu26-basketball/README.md) |
 | 篮球 | Topps | 2025-26 Topps Cosmic Chrome Basketball | `tcosmic26-basketball` | 2026-09-30 | B | ✔ | Hobby | 待补 |
 | 篮球 | Topps | 2025-26 Topps Definitive Collection Basketball | `tdef26-basketball` | 2026-09-30 | D | ✔ | — | 待补 |
-| 篮球 | Topps | 2025-26 Topps Finest Basketball | `tfinest26-basketball` | 2026-09-30 | B | ✔ | — | 待补 |
+| 篮球 | Topps | 2025-26 Topps Finest Basketball | `tfinest26-basketball` | 2026-09-30 | B | ✔ | Hobby、Breaker Delight | [记录](./basketball/topps/tfinest26-basketball/README.md) |
 | 篮球 | Topps | 2025-26 Topps Inception Basketball | `tincep26-basketball` | 2026-09-30 | D | ✔ | — | 待补 |
 | 篮球 | Topps | 2025-26 Topps Motif Basketball | `tmotif26-basketball` | 2026-09-30 | D | ✔ | — | 待补 |
 | 篮球 | Topps | 2025-26 Topps NBA Hoops Basketball | `thoops26-basketball` | 2026-09-30 | B | ✔ | — | 待补 |
