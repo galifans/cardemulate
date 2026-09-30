@@ -97,6 +97,9 @@ export interface BreakPayload {
     productKey: string;
     seed: string;
     cardCount: number;
+    /** 这一次开盒的购入价与开出的卡价，单位 RMB */
+    costRmb: number;
+    valueRmb: number;
     byTier: Record<string, number>;
     bySubset: Record<string, number>;
     byVariant: Record<string, VariantTally>;
@@ -118,6 +121,8 @@ export interface BreakRow {
     best_tier: string | null;
     best_variant: string | null;
     best_odds: number | null;
+    cost_rmb: number;
+    value_rmb: number;
     created_at: string;
 }
 
@@ -130,6 +135,9 @@ export interface BreakRecord {
     productKey: string;
     seed: string;
     cardCount: number;
+    /** 0 表示这条记录早于价格表，界面显示成「—」 */
+    costRmb: number;
+    valueRmb: number;
     byTier: Record<string, number>;
     bySubset: Record<string, number>;
     best: {
@@ -147,10 +155,25 @@ export interface DimensionRow {
     cards: number;
 }
 
+/** 按盒型聚合的一行：比别的维度多一组金额，盒型是唯一按钱统计的维度 */
+export interface BoxRow extends DimensionRow {
+    box_key: string;
+    category_key: string;
+    maker_key: string;
+    product_key: string;
+    /** 累计购入（RMB） */
+    cost: number;
+    /** 累计售出（RMB） */
+    value: number;
+}
+
 export interface UserStats {
     boxes: number;
     cards: number;
-    byBox: (DimensionRow & { box_key: string; category_key: string; maker_key: string; product_key: string })[];
+    /** 全部记录的累计购入与累计售出（RMB） */
+    cost: number;
+    value: number;
+    byBox: BoxRow[];
     byCategory: (DimensionRow & { category_key: string })[];
     byMaker: (DimensionRow & { maker_key: string })[];
     byTier: { tier: string; total: number }[];

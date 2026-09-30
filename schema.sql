@@ -1,5 +1,5 @@
 -- =====================================================================
---  CardEmulate · Cloudflare D1 表结构  (schema_version = 3)
+--  CardEmulate · Cloudflare D1 表结构  (schema_version = 4)
 -- =====================================================================
 --
 --  设计目标：将来会有多个站点（app）、多个品类（category）、多个发行商
@@ -28,6 +28,10 @@
 --
 --  注意：本文件是全新的 v2 结构。若此前已用 v1 建过库且库内无数据，
 --        直接 DROP TABLE 后重跑本文件即可（D1 对 ALTER 的支持有限）。
+--
+--  v3 -> v4 增量：breaks 增加 cost_rmb / value_rmb 两列（开盒的购入与售出口径）。
+--  本文件里的 CREATE TABLE 已经带上这两列，**新建库直接跑本文件即可**；
+--  已存在的库需要单独补一次列，见 migrations/004-break-values.sql。
 -- =====================================================================
 
 -- ---------------------------------------------------------------------
@@ -193,6 +197,9 @@ CREATE TABLE IF NOT EXISTS sessions (
 
 -- ---------------------------------------------------------------------
 -- 事实 1：一次拆盒
+-- cost_rmb / value_rmb 是这一次开盒的「花了多少 / 开出来值多少」，单位 RMB。
+-- 两个都存结果而不是存价格表引用：价格表以后一定会改，历史记录不该跟着变。
+-- 只开盒还没算价的老记录两者为 0，前端显示成「—」。
 -- ---------------------------------------------------------------------
 CREATE TABLE IF NOT EXISTS breaks (
     id           INTEGER PRIMARY KEY AUTOINCREMENT,
@@ -210,6 +217,8 @@ CREATE TABLE IF NOT EXISTS breaks (
     best_player  TEXT,
     best_tier    TEXT,
     best_odds    REAL,
+    cost_rmb     REAL NOT NULL DEFAULT 0,
+    value_rmb    REAL NOT NULL DEFAULT 0,
     created_at   TEXT NOT NULL
 );
 
@@ -282,5 +291,5 @@ UPDATE users
 
 CREATE UNIQUE INDEX IF NOT EXISTS idx_users_display_name ON users(lower(display_name));
 
-INSERT INTO meta (key, value) VALUES ('schema_version', '3')
+INSERT INTO meta (key, value) VALUES ('schema_version', '4')
     ON CONFLICT (key) DO UPDATE SET value = excluded.value, updated_at = datetime('now');

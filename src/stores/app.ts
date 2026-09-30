@@ -18,6 +18,7 @@ import {
 } from "../api/client";
 import type { BoxDefinition } from "../engine/types";
 import type { RipResult } from "../engine/rip";
+import { boxCostRmb, sumValueRmb } from "../data/prices";
 
 /** 一次拉取多少条拆盒记录；服务端单页上限 100 */
 const BREAKS_PAGE_SIZE = 20;
@@ -253,12 +254,15 @@ const recordBreak = async (box: BoxDefinition, result: RipResult): Promise<boole
             productKey: box.productKey,
             seed: result.seed,
             cardCount: result.cards.length,
+            costRmb: boxCostRmb(box.key),
+            valueRmb: sumValueRmb(result.cards, box.productKey),
             byTier: { ...result.byTier },
             bySubset: { ...result.bySubset },
             byVariant,
             best,
         });
-        state.info = "本次拆盒已记入统计。";
+        // 这里刻意不写 state.info：拆盒本身的结果已经占了整屏，
+        // 再补一句「已记入统计」既多余又会被当成新的一条结果。
         await syncAfterAuth();
         return true;
     } catch (error) {

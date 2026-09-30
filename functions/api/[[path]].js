@@ -221,6 +221,15 @@ const isSafeKey = (value) =>
 /** 维度 key，允许为空（老客户端可能不上报） */
 const softKey = (value) => (isSafeKey(value) ? value : "");
 
+/**
+ * 金额保留两位。SQLite 的 SUM(REAL) 会带出 0.0000001 量级的尾巴，
+ * 直接在客户端显示会出现「¥123.45000000000001」，统一在出口处收一次。
+ */
+const money = (value) => {
+    const n = Number(value);
+    return Number.isFinite(n) ? Math.round(n * 100) / 100 : 0;
+};
+
 const readJson = async (request) => {
     try {
         const body = await request.json();
@@ -541,6 +550,15 @@ const sanitizeBreak = (body, appKey) => {
     const cardCount = Number.isInteger(body.cardCount) ? body.cardCount : null;
     if (cardCount === null || cardCount < 0 || cardCount > 2000) return null;
 
+    // 金额只由客户端上报，服务端不做任何价格推导：价格表会改，
+    // 历史记录一旦跟着改，「我的统计」里的累计盈亏每次刷新都会不一样。
+    // 上限 1e7 只是防脏数据，不是业务规则。
+    const amount = (value) => {
+        const n = Number(value);
+        if (!Number.isFinite(n) || n < 0) return 0;
+        return Math.min(Math.round(n * 100) / 100, 1e7);
+    };
+
     const cleanMap = (raw, limit) => {
         const out = {};
         if (!raw || typeof raw !== "object") return out;
@@ -603,6 +621,8 @@ const sanitizeBreak = (body, appKey) => {
         bySubset,
         byVariant,
         best,
+        costRmb: amount(body.costRmb),
+        valueRmb: amount(body.valueRmb),
     };
 };
 
@@ -622,8 +642,9 @@ const handleRecordBreak = async (request, env) => {
             .prepare(
                 `INSERT INTO breaks (app_key, user_id, box_key, category_key, maker_key, product_key,
                                      seed, card_count, by_tier, by_subset,
-                                     best_variant, best_player, best_tier, best_odds, created_at)
-                 VALUES (?1, ?2, ?3, ?4, ?5, ?6, ?7, ?8, ?9, ?10, ?11, ?12, ?13, ?14, ?15)`,
+                                     best_variant, best_player, best_tier, best_odds,
+                                     cost_rmb, value_rmb, created_at)
+                 VALUES (?1, ?2, ?3, ?4, ?5, ?6, ?7, ?8, ?9, ?10, ?11, ?12, ?13, ?14, ?15, ?16, ?17)`,
             )
             .bind(
                 appKey,
@@ -640,6 +661,8 @@ const handleRecordBreak = async (request, env) => {
                 record.best?.player ?? null,
                 record.best?.tier ?? null,
                 record.best?.odds ?? null,
+                record.costRmb,
+                record.valueRmb,
                 now,
             ),
     ];
@@ -761,7 +784,8 @@ const handleListBreaks = async (request, env) => {
         db
             .prepare(
                 `SELECT id, box_key, category_key, maker_key, product_key, seed, card_count,
-                        by_tier, by_subset, best_variant, best_player, best_tier, best_odds, created_at
+                        by_tier, by_subset, best_variant, best_player, best_tier, best_odds,
+                        cost_rmb, value_rmb, created_at
                  FROM breaks ${scope}
                  ORDER BY id DESC LIMIT ?${where.next} OFFSET ?${where.next + 1}`,
             )
@@ -784,6 +808,8 @@ const handleListBreaks = async (request, env) => {
             productKey: row.product_key,
             seed: row.seed,
             cardCount: row.card_count,
+            costRmb: row.cost_rmb ?? 0,
+            valueRmb: row.value_rmb ?? 0,
             byTier: parseJsonObject(row.by_tier),
             bySubset: parseJsonObject(row.by_subset),
             best: row.best_variant
@@ -844,7 +870,8 @@ const handleStats = async (request, env) => {
     const [summary, byBox, byCategory, byMaker, byTier, bySubset, recent] = await Promise.all([
         db
             .prepare(
-                `SELECT COUNT(*) AS boxes, COALESCE(SUM(card_count), 0) AS cards
+                `SELECT COUNT(*) AS boxes, COALESCE(SUM(card_count), 0) AS cards,
+                        COALESCE(SUM(cost_rmb), 0) AS cost, COALESCE(SUM(value_rmb), 0) AS value
                  FROM breaks WHERE ${byUser}${breakFilter.sql}`,
             )
             .bind(appKey, user.id, ...breakFilter.binds)
@@ -852,7 +879,8 @@ const handleStats = async (request, env) => {
         db
             .prepare(
                 `SELECT box_key, category_key, maker_key, product_key,
-                        COUNT(*) AS boxes, COALESCE(SUM(card_count), 0) AS cards
+                        COUNT(*) AS boxes, COALESCE(SUM(card_count), 0) AS cards,
+                        COALESCE(SUM(cost_rmb), 0) AS cost, COALESCE(SUM(value_rmb), 0) AS value
                  FROM breaks WHERE ${byUser}${breakFilter.sql}
                  GROUP BY box_key ORDER BY boxes DESC`,
             )
@@ -893,7 +921,8 @@ const handleStats = async (request, env) => {
         db
             .prepare(
                 `SELECT box_key, category_key, maker_key, seed,
-                        best_player, best_tier, best_variant, best_odds, created_at
+                        best_player, best_tier, best_variant, best_odds,
+                        cost_rmb, value_rmb, created_at
                  FROM breaks WHERE ${byUser}${breakFilter.sql}
                  ORDER BY id DESC LIMIT 20`,
             )
@@ -908,12 +937,22 @@ const handleStats = async (request, env) => {
         stats: {
             boxes: summary?.boxes ?? 0,
             cards: summary?.cards ?? 0,
-            byBox: byBox?.results ?? [],
+            cost: money(summary?.cost),
+            value: money(summary?.value),
+            byBox: (byBox?.results ?? []).map((row) => ({
+                ...row,
+                cost: money(row.cost),
+                value: money(row.value),
+            })),
             byCategory: byCategory?.results ?? [],
             byMaker: byMaker?.results ?? [],
             byTier: byTier?.results ?? [],
             bySubset: bySubset?.results ?? [],
-            recent: recent?.results ?? [],
+            recent: (recent?.results ?? []).map((row) => ({
+                ...row,
+                cost_rmb: money(row.cost_rmb),
+                value_rmb: money(row.value_rmb),
+            })),
         },
     });
 };
