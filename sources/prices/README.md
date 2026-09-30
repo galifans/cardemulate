@@ -7,17 +7,22 @@
 
 ## 一、结论先说
 
-**本机能够访问的公开价格来源只有两个半：**
+**本机能用的公开价格来源一共四类，其中只有一个是「卡价」：**
 
 | 能拿到 | 站点 | 用途 |
 | --- | --- | --- |
 | 中文卡牌交易平台的挂牌价与成交价 | 卡淘 `www.cardhobby.com.cn` | 唯一的 RMB 卡价参照，成交价用来标定模型 |
+| 发行商官方发售价（原价） | Checklist Insider 系列指南页 | 盒型购入价的出处，22 个盒型里 20 个靠它 |
 | 汇率 | 中国银行外汇牌价 / ExchangeRate-API | 美元报价折算成 RMB |
-| 只作对照 | Checklist Insider | 有配率没有价格，用来核对系列是否同一个 |
+| 只作对照 | 发行商与零售商官网 | 在售商品的价格能读到，下架商品整页不含价格 |
 
-**北美与欧洲的主流行情站，一个都进不来。** 这意味着「拆盒时实时去多平台取当天均价」
-在本项目里做不到；卡淘的成交价虽然拿得到，但对不到具体某一张卡上（原因见第二节），
-所以也只能退到下一节的做法。
+**逐张卡的真实价拿不到。** 卡淘的成交价虽然取得到，但对不到具体某一张卡上
+（原因见第二节），所以它只用来**标定**模型；北美与欧洲的行情站要么挡在反爬墙后面，
+要么要付费密钥 —— 完整的接口穿刺结果也记在第二节。
+
+**盒价口径是发行商官方发售价**，俗称「原价卡盒」：官方公布的美元发售价折算成 RMB，
+美元原值留在 `msrpUsd` 里备查；官方没公布过发售价的盒型退回公开零售报价，
+用 `basis` 把两种口径标开，不再含糊地写成「参考价」。
 
 ## 二、实测记录（2026-10-01）
 
@@ -79,7 +84,7 @@ GET https://www.cardhobby.com.cn/NewCommodity/SearchCommodity
 ### 拒绝访问（403）
 
 eBay（搜索页与首页）、130point、PriceCharting、Card Ladder、PSA 拍卖成交、
-COMC、DA Card World、Steel City Collectibles、SportsCardsPro、TCDB、StockX、Topps 官网。
+COMC、DA Card World 的搜索结果、Steel City Collectibles、SportsCardsPro、TCDB、StockX。
 
 ### 返回 200 但内容是反爬壳
 
@@ -96,29 +101,88 @@ COMC、DA Card World、Steel City Collectibles、SportsCardsPro、TCDB、StockX�
 `auctions.yahoo.co.jp`、`jp.mercari.com`、`ruten.com.tw`、`shopee.tw`、`carousell.com.hk`
 全部连接超时；Google、DuckDuckGo、Mojeek、Bing、`web.archive.org`、`archive.ph` 同样不可用。
 
+### 接口形态的穿刺（2026-10-01 补测）
+
+上一节测的是**页面**。页面被挡不等于数据取不到，所以又单独把常见接口路径打了一遍 ——
+结论是「有接口的都要密钥，不要密钥的都不是运动卡」。
+
+| 结果 | 目标 | 说明 |
+| --- | --- | --- |
+| 400，响应体为 `Must provide an access token` | PriceCharting、SportsCardsPro | **接口真实存在**，付费拿到令牌就是唯一能持续取运动卡成交价的路径 |
+| 401 | TCGplayer、JustTCG、CardTrader | 接口存在，需要凭据 |
+| 410，跳到 `apiv2.cardmarket.com` | Cardmarket | 旧接口已迁移 |
+| 429，`maximum admitted 100 per Day` | PSA 公开接口 | 存在，免密钥但每天 100 次 |
+| 405（GET 不被允许） | eBay 换取 OAuth 令牌的端点 | 存在，要走客户端凭据 |
+| 418 | eBay Finding 老接口 | 已退役 |
+| 403 | Card Ladder、130point、COMC、DA Card World、StockX、eBay 搜索、Topps 官网的 `/products.json` 与 `/graphql` | 反爬墙 |
+| 200 但 HTML 里没有价格字段 | midwestcards、sportscardmarket、fanaticscollect、goldin、alt.xyz | 都是前端渲染，接口路径藏在前端代码里挖不出来 |
+| 200，免密钥可直接用 | `api.scryfall.com` | 万智牌，垂直不对（`api.pokemontcg.io` 也通，同样不对口） |
+
+**一个反直觉的结论：Cloudflare 的 JS 挑战在真实浏览器里会自己过掉。**
+Topps 官网和 DA Card World 用 `fetch` 一律落到「Just a moment...」，
+但用浏览器打开时约 15 秒后挑战自动通过、页面正常加载。
+所以上一级 `sources/README.md` 里「命令行与真实浏览器都落到拦截页」这句是错的，已改。
+真正过不去的只有**要人工勾选**的挑战（Blowout Cards 的 Imperva/hCaptcha）。
+
+**但官网过了墙也没用：下架商品整页不含价格。**
+22 个盒型在 Topps 官方商店全部是售罄状态，实测商品页
+（如 `2025-26-topps-finest-basketball-hobby-box`）有标题、有规格、有「Sold out」，
+但整页 0 个价格元素、0 个 `application/ld+json`、内嵌数据里 0 个价格字段；
+检索页能返回 1,306 条商品，同样一条价格都没有。
+**发行商官方价只在发卖期存在，过期就不会留在自己的站上**，
+所以官方价必须靠第三方指南页的归档（见第三节）。
+
 ## 三、所以价格怎么定
 
 既然逐张联网查价不成立（在册卡种四千多个），价格走**登记 + 推导**两条腿：
 
 | 价格 | 口径 | 存在哪 |
 | --- | --- | --- |
-| 盒型购入价 | 按公开零售报价折算成 RMB，逐条登记 | `src/data/prices/boxes.ts` |
+| 盒型购入价 | 发行商官方发售价折算成 RMB（`basis: msrp`），逐条登记 | `src/data/prices/boxes.ts` |
 | 卡价 | 档位基准价 × 限量系数 × 人物系数 × 系列系数 | `src/data/prices/card-values.ts` |
 
 卡价模型是纯函数：只依赖卡本身的属性，不依赖时间、随机数或网络。
 这样「复现这一盒」和「回填历史记录」都能算出同一个数。
 
-### 盒价的可信度分级
+### 盒价从哪来
 
-每个条目都带 `confidence`，取值见 `src/data/prices/types.ts`：
+每个条目带两个字段说清自己是哪种价：
 
-- `verified` —— 本机实测抓到的价格
-- `reference` —— 公开零售报价换算，**未在本机复核**
-- `estimate` —— 同类盒型的合理估算
+- `basis: "msrp"` —— 发行商官方发售价，`msrpUsd` 里带美元原值，`cost = msrpUsd × USD_CNY`
+- `basis: "retail"` —— 公开零售报价折算，只在官方没公布过发售价时使用
 
-**当前 22 个盒型全部是 `reference`**：唯一能实测的卡淘覆盖不到盒型成交，
-而北美零售渠道本机进不来（见第二节）。所以这批数字是**可改的基准**，
-拿到更可靠的价格时直接改数字并同步 `asOf`，不要改模型去迁就某一格。
+可信度 `confidence` 取值见 `src/data/prices/types.ts`：
+
+- `verified` —— 在本机可访问的来源上逐字读到的价格
+- `reference` —— 公开报价换算，出处能看到但没有官方口径可依
+- `estimate` —— 同类盒型的合理估算，没有任何公开报价支撑
+
+官方价取自 **Checklist Insider 的系列指南页**，它的盒型段落会写
+「Topps presales appeared on <日期>, at $X per box. That increased to $Y on release day.」
+这类句子 —— 这是本机唯一能逐字读到官方发售价的地方。
+口径取**发售日价**，只有预售价可查时才用预售价，每条的 `note` 里标了出来。
+
+| 盒型 | 官方价 | 口径 | 折 RMB |
+| --- | --- | --- | --- |
+| `tcu26` Hobby / Jumbo | $549.99 / $1,099.99 | 发售日 | ¥3960 / ¥7920 |
+| `tcu26` Value Blaster / Mega | $44.99 / $84.99 | 零售 / 预售 | ¥324 / ¥612 |
+| `tccj26` Hobby | $499.99 | 发售日 | ¥3600 |
+| `tcosmic26` Hobby | $579.99 | 预售 | ¥4176 |
+| `tthree26` Hobby | $999.99 | 会员预售 | ¥7200 |
+| `tfinest26` Hobby | $499.99 | 发售日 | ¥3600 |
+| `tsig26` Hobby / Jumbo | $549.99 / $899.99 | 发售日 / 预售 | ¥3960 / ¥6480 |
+| `tsig26` Value Blaster / Mega | $34.99 / $64.99 | 零售 | ¥252 / ¥468 |
+| `tbb26` Hobby / Jumbo | $119.99 / $229.99 | 发售日 / 预售 | ¥864 / ¥1656 |
+| `tbb26` Mega / Value Blaster | $49.99 / $24.99 | 预售 | ¥360 / ¥180 |
+| `thoops26` Hobby / Jumbo | $279.99 / $519.99 | 发售日 / 预售 | ¥2016 / ¥3744 |
+| `thoops26` Value Blaster / Fanatics | $34.99 / $39.99 | 预售 / 渠道专供 | ¥252 / ¥288 |
+| `tfinest26` Breaker Delight | — | 官方未公布 | ¥3240（retail） |
+| `thoops26` Hanger | — | 官方未公布 | ¥85（retail，估算） |
+
+22 条里 20 条是 `msrp`、2 条是 `retail`。**这两个数字是可改的基准**，
+拿到更可靠的价时直接改数字并同步 `asOf`，不要改模型去迁就某一格。
+`npm run prices:check` 会核对 `cost` 是否真的等于 `msrpUsd × USD_CNY`，
+避免出现「改了美元原价忘了改 RMB 价」这种不对称修改。
 
 ### 系列档次系数：形状靠成交价，水位靠盒价
 
@@ -185,6 +249,23 @@ COMC、DA Card World、Steel City Collectibles、SportsCardsPro、TCDB、StockX�
 | `tbb26-value-box`（Topps 旗舰 Value Box） | ¥180 | ¥240 | 与同系列 Blaster 的价差应按包装规格，不是按倍率 |
 
 改完全体回本率中位数 50.0%，区间 30.9%~80.2%，落在判定区间里。
+
+### 盒价换成官方发售价之后（2026-10-01）
+
+上面那张「¥2880 → ¥2600」的修正表**已经被官方发售价取代**，留在这里只为记录
+当时的判断依据。换成官方价后，22 个盒型里 18 个的登记价上升
+（官方发售价普遍高于零售渠道的让步价），回本率中位数从 50.4% 落到 **28.7%**，
+区间 14.8%~77.1%。
+
+**没有把水位重新钉回 50%。** 卡价那一侧挂在卡淘成交价上，把系数整体乘 1.75
+就能把中位数拉回 50%，但那等于宣布「一张卡的模型价比它在卡淘上的真实成交中位数
+贵 75%」—— 和「卡价要接近真实价」直接冲突。所以这次只换盒价口径、不动模型：
+**盒价照官方原价，卡价照成交标定**，两边各守各的锚，中间差多少就如实显示多少。
+
+顺带得到一个更符合常识的结论：按官方原价开盒，越贵的盒型亏得越多
+（`tcosmic26` 14.8%、`tcu26` Jumbo 16.4%、`tcu26` Hobby 22.4%），
+反倒是 Value Blaster / Mega / Hanger 这类小规格盒型接近甚至超过 50%。
+这比原来「所有系列都挤在 50% 上下」更像真的 —— 那本来就是拟合盒价的产物。
 
 ### 这次标定没有解决的
 

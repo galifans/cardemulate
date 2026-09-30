@@ -11,11 +11,18 @@
 
 /**
  * 价格可信度 —— 本机能核实到什么程度，决定了这个数字能不能当准数用。
- *   verified  本机实测抓到的价格（来源站点可直接访问）
- *   reference 公开零售报价 / 建议价换算，未在本机复核
+ *   verified  在本机可访问的来源上逐字读到的价格（含发行商官方发售价）
+ *   reference 公开报价换算，出处能看到但没有官方口径可依
  *   estimate  同类盒型的合理估算，没有任何公开报价支撑
  */
 export type PriceConfidence = "verified" | "reference" | "estimate";
+
+/**
+ * 购入价口径 —— 这个数字是按什么价登记的，比「多少钱」更需要先说清。
+ *   msrp   发行商官方发售价（俗称「原价卡盒」），美元原值留在 msrpUsd 里
+ *   retail 公开零售报价折算，只在发行商没公布过发售价时使用
+ */
+export type BoxPriceBasis = "msrp" | "retail";
 
 /** 一个盒型的购入价登记 */
 export interface BoxPriceEntry {
@@ -23,6 +30,10 @@ export interface BoxPriceEntry {
     boxKey: string;
     /** 购入价（RMB，含税到手价口径） */
     cost: number;
+    /** 这个 cost 是按官方发售价还是公开零售报价登记的 */
+    basis: BoxPriceBasis;
+    /** 官方发售价的美元原值；口径为 retail 的条目没有这一项 */
+    msrpUsd?: number;
     /** 价格来源站点 key，见 sources/prices/README.md 的站点表 */
     source: string;
     /** 该价格的记录日期 (YYYY-MM-DD) */

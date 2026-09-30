@@ -87,15 +87,22 @@ D 级成立的四个条件，采集时必须逐条留痕：
 
 | 入口 | 地址 | 级别 | 本机可达性 |
 | --- | --- | --- | --- |
-| Topps 官方配率页 | `https://www.topps.com/pages/odds` | A | ✘ 命令行与真实浏览器都落到 Cloudflare 拦截页 |
-| Topps 官方产品页 | `https://www.topps.com/products/<产品 slug>` | A | ✘ 同上；换 `topps.com`、`/media/...` 也一样，没有可用子域名 |
+| Topps 官方配率页 | `https://www.topps.com/pages/odds` | A | △ 浏览器里能过 Cloudflare 挑战，`fetch` 不行 |
+| Topps 官方产品页 | `https://www.topps.com/products/<产品 slug>` | A | △ 同上。**但商品售罄后整页不再显示价格**，`/products.json`、`/graphql`、`/rest/V1/*` 一律 403/404，取价格别指望这里 |
 | Checklist Insider 镜像 | `https://xcdn.checklistinsider.com/public/<年>/<月>/<文件名>` | B | ✔ 唯一能下到官方 PDF / 表格的入口 |
-| Checklist Insider 指南页 | `https://www.checklistinsider.com/<产品 slug>`、`?s=<关键词>` | C | ✔ 站点搜索是**找产品**最省事的入口 |
+| Checklist Insider 指南页 | `https://www.checklistinsider.com/<产品 slug>`、`?s=<关键词>` | C | ✔ 站点搜索是**找产品**最省事的入口；**也是官方发售价的唯一出处**（每个盒型一段预售价 / 发售日价） |
 | Cardboard Connection 附件 | `https://www.cardboardconnection.com/wp-content/uploads/<年>/<月>/<文件名>` | B | ✔ 托管 Topps 官方 Education Sheet 与 Final Checklist 原件 |
-| Cardboard Connection 文章 | `https://www.cardboardconnection.com/<产品 slug>-set-review-and-checklist` | C | △ 时好时坏，只有 CC 写过的产品才有页面 |
+| Cardboard Connection 文章 | `https://www.cardboardconnection.com/<产品 slug>-set-review-and-checklist` | C | △ 时好时坏，只有 CC 写过的产品才有页面；正文基本不含价格（发布日历同样 0 个金额） |
 
 实践结论：**配率与名单优先走 B 级镜像下载，再用哈希或页数比对确认与 A 级一致**；
 Topps 官网只用人工核对，不写进自动化流程。逐站实测结果见第六节。
+
+补一条实测更正（2026-10-01）：**这里原先写「命令行与真实浏览器都落到 Cloudflare
+拦截页」，只对一半。** Cloudflare 的 JS 挑战在真实浏览器里会自己通过（Topps 官网、
+DA Card World 都是等十几秒就进去了），挡住 `fetch` 不等于挡住人。
+真正过不去的只有需要人工勾选的挑战（Blowout Cards 的 Imperva/hCaptcha）。
+但过了墙也拿不到盒价 —— 下架商品页不含任何价格字段，原因见
+`sources/prices/README.md` 第二节。
 
 ## 三、采集流程
 

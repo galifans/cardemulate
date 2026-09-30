@@ -10,7 +10,7 @@
 import { REGISTERED_BOXES } from "../src/data/sets";
 import { ripBox } from "../src/engine/rip";
 import { ALL_STARS, SUPERSTARS } from "../src/data/prices/players";
-import { boxPriceEntry, sumValueRmb, PRICE_SOURCES } from "../src/data/prices";
+import { BOX_PRICES, boxPriceEntry, sumValueRmb, PRICE_SOURCES, USD_CNY } from "../src/data/prices";
 
 /** 每个盒型模拟多少盒：够把回本率稳到小数点后两位 */
 const SAMPLES = 40;
@@ -52,7 +52,27 @@ for (const box of live) {
 for (const source of PRICE_SOURCES) {
     if (!source.url.startsWith("http")) fail(`来源 ${source.key} 的 url 不合法`);
 }
+
+/*
+ * 官方发售价口径的行必须自洽：登记价就是从 msrpUsd 按 USD_CNY 折出来的。
+ * 这一条是为了防止出现「改了美元原价忘了改 RMB 价」这种不对称修改 ——
+ * 人看不出 3960 与 549.99×7.2 的关系，脚本看得出来。
+ */
+for (const row of BOX_PRICES) {
+    if (row.basis !== "msrp") continue;
+    if (row.msrpUsd === undefined) {
+        fail(`${row.boxKey} 标了官方发售价口径但没有 msrpUsd`);
+        continue;
+    }
+    const expected = Math.round(row.msrpUsd * USD_CNY);
+    if (row.cost !== expected) {
+        fail(`${row.boxKey} 登记价 ¥${row.cost} 与官方发售价 $${row.msrpUsd} × ${USD_CNY} = ¥${expected} 对不上`);
+    }
+}
+
+const msrpCount = BOX_PRICES.filter((row) => row.basis === "msrp").length;
 console.log(`  线上盒型 ${live.length} 个，已登记 ${live.filter((box) => boxPriceEntry(box.key)).length} 个`);
+console.log(`  其中官方发售价口径 ${msrpCount} 个，公开零售报价口径 ${BOX_PRICES.length - msrpCount} 个`);
 
 /* ---------------------------------------------------------------- */
 /* 2. 球员分级拼写                                                    */

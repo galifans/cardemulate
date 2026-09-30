@@ -12,7 +12,7 @@ import type { BoxPriceEntry, PriceSourceInfo } from "./types";
 export { BOX_PRICES, PRICE_AS_OF, PRICE_SOURCES, USD_CNY };
 export { cardValueBreakdown, cardValueRmb, FLOOR_VALUE, sumValueRmb } from "./card-values";
 export { PRODUCT_VALUE_FACTORS, productValueFactor } from "./products";
-export type { BoxPriceEntry, CardValueBreakdown, PriceConfidence, PriceSourceInfo } from "./types";
+export type { BoxPriceBasis, BoxPriceEntry, CardValueBreakdown, PriceConfidence, PriceSourceInfo } from "./types";
 
 /** boxKey -> 购入价条目 */
 const BY_BOX = new Map<string, BoxPriceEntry>(BOX_PRICES.map((row) => [row.boxKey, row]));
