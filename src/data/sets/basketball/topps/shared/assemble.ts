@@ -380,7 +380,8 @@ export const assembleBoxes = (config: AssembleConfig): BoxDefinition[] => {
                     name: subset.name,
                     code: subset.code ?? "",
                     count: subset.subjects.length,
-                    where: elsewhere.map(nameOf).join(" / "),
+                    // 官方表把同一盒型的区域版拆成好几列，展示名相同，这里去重
+                    where: [...new Set(elsewhere.map(nameOf))].join(" / "),
                     kind: subset.kind,
                 });
                 continue;

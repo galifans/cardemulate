@@ -26,6 +26,10 @@
  * - `A:B`  → B / A（A 包里出 B 张）
  * 例如 `4:1` 是每包 4 张，换成 0.25；`1:7` 是 7 包一张，换成 7。
  *
+ * 个别格子是官方表自己坏掉的：比率被**存成了时间值**，PDF 里印成 `01:11:00`（本意 `1:11`），
+ * 或者干脆印成天数序列值 `4.4444444444444446E-2`（＝0.0444 天＝1 小时 4 分＝`1:04`）。
+ * 两种都按「时:分」还原成配率；一张表里只会有零星几格，但漏认就会让整行左移一列。
+ *
  * 个别 PDF 的**标签列是两端对齐的**（Signature Class 就是这样）：排版器会在字符之间
  * 塞进单空格，把 `Veteran` 拉成 `Ve t e r a n`，连数值都被塞成 `1: 407`。这种文件加
  * `--relaxed`：只用「连续两个以上空格」当格子边界，格子内部的单空格一律丢掉。
@@ -37,7 +41,10 @@
  * 普通模式不排版、标签是干净的，两边各自去掉空格后按行对上，就能把标签换回官方写法。
  *
  * 用法：
- *   node scripts/import-pack-odds.mjs <pack-odds.txt> <输出 .ts> "渠道1,渠道2,..." [--relaxed] [--labels=plain.txt]
+ *   node scripts/import-pack-odds.mjs <pack-odds.txt> <输出 .ts> "渠道1,渠道2,..." [--relaxed] [--labels=plain.txt] [--from=说明]
+ *
+ * `--from=<说明>` 会在生成文件的注释里多写一行「预处理」，给那些要先过
+ * `scripts/prepare-pack-odds.mjs`（多行表头、折行标签、超宽标签）的表用。
  *
  * 渠道名按官方表**从左到右**列出，脚本用它算列位并由此生成列 id（小写连字符）。
  * 认不出来的行会打印出来，**必须逐条人工核对**，不能放着警告往下走。
@@ -46,8 +53,13 @@ import { readFileSync, writeFileSync, mkdirSync } from "node:fs";
 import { basename, dirname, resolve, sep } from "node:path";
 
 /**
- * 官方表自身的缺陷：个别行在 PDF 里少印了几列。这种地方宁可写死在脚本里，
- * 也不要让导入器「猜」——猜错了配率就悄悄错了。键是产品目录名，值是整行覆盖。
+ * 官方表自身的缺陷：个别行在 PDF 里少印了几列，或者某一格的数字被印重复了一位
+ * （`1:6,632` 印成 `1:6,6632`、`1:15,282` 印成 `1:15.282`）。这种地方宁可写死在
+ * 脚本里，也不要让导入器「猜」——猜错了配率就悄悄错了。键是产品目录名，值是整行覆盖。
+ *
+ * 被印重复的数字没有唯一读法（重复的那一位在哪、要不要一起丢都可能），所以每一格都
+ * 拿同族同渠道的比例定过来再写进这里：同一子集里按编号递进的平行行之间比例很稳，
+ * 一个子集里多行比值一致就能反推坏格。
  */
 const ROW_PATCHES = {
     "tcu26-basketball": {
@@ -72,6 +84,19 @@ const ROW_PATCHES = {
         "Muse SuperFractor": [12495, null],
         "First SuperFractor": [12495, null],
         "Finishers SuperFractor": [48192, null],
+    },
+    "tbb26-basketball": {
+        // 五格的数字被印重复了一位。还原值都由同族同渠道的比例定：
+        // Power Players 蓝 /150 的 Fat 与 /250 那两列的 Fat 比值一致（1:5,016）；
+        // Notch 未编号 Holo Foil 的 Fat 是绿平行 Fat 的 0.343 倍（1:1,304）；
+        // Notch 金 /50 的 Value Blaster 是 Mega 的 1.082 倍（1:15,282）；
+        // 1980-81 Rookie Autograph 金彩虹的取景列比值与非新秀那行逐列相同（1:19,956）；
+        // All Kings 普卡的 Display 是 Holo Foil 平行行的 1.6 倍（1:6,632）。
+        "POWER PLAYERS BLUE HOLO FOIL": [null, null, 9881, 9881, 9881, 9409, 9409, 9409, 5016, 5016, 9881, 9881, 3185, 3185, 8823, 9393, 4147],
+        "TOPPS NOTCH SIGNATURES HOLO FOIL": [null, null, 1975, 1975, 1975, 2503, 2503, 2503, 1304, 1304, 3072, 3072, 849, 849, 6250, 2565, 1122],
+        "TOPPS NOTCH SIGNATURES GOLD HOLO FOIL": [null, null, 15282, 15282, 15282, 14125, 14125, 14125, 7359, 7359, 17335, 17335, 4787, 4787, 13343, 13265, 6329],
+        "1980-81 TOPPS BASKETBALL ROOKIE AUTOGRAPH GOLD RAINBOW": [8649, 2145, 19956, 19956, 19956, 18870, 18870, 18870, 9709, 9709, 24814, 24814, 6853, 6853, 17363, 18989, 9059],
+        "ALL KINGS": [2864, 727, 6640, 6640, 6640, 6325, 6325, 6325, 3369, 3369, 6632, 6632, 2138, 2138, 5923, 6301, 2786],
     },
 };
 
@@ -103,8 +128,14 @@ const DISCLAIMER_RE =
 /** 同一套声明在宽松模式下也是被拉开的，去掉全部空格后再匹配一份对应的写法 */
 const DISCLAIMER_TIGHT_RE = new RegExp(DISCLAIMER_RE.source.replace(/ /g, ""), DISCLAIMER_RE.flags);
 
-/** 一个配率令牌：`-`（空）、`1:X`、`A:B`、或者没有冒号的数字（异常，必须人工看） */
-const VALUE_RE = /^(?:-|\d+\s*:\s*[\d,.]+|\d+\.\d+)$/;
+/**
+ * 一个配率令牌：`-`（空）、`1:X`、`A:B`、或者没有冒号的数字（异常，必须人工看）。
+ *
+ * 后面两条是官方表自己的毛病（见 `toOdds`）：表格把「比率」存成了时间值，导出到 PDF
+ * 里就成了 `01:11:00`；同一格的另一种导出是天数序列值 `4.4444444444444446E-2`。
+ * 这两种形状都得先算「是配率」，否则会被当成标签文字粘回左邻的标签上，整行左移一列。
+ */
+const VALUE_RE = /^(?:-|\d+\s*:\s*[\d,.]+|\d+\.\d+|\d{1,2}:\d{2}:\d{2}|\d+(?:\.\d+)?[eE]-\d+)$/;
 
 const slugify = (name) =>
     name
@@ -112,9 +143,26 @@ const slugify = (name) =>
         .replace(/[^a-z0-9]+/g, "-")
         .replace(/^-+|-+$/g, "");
 
+/** 时间形状的坏格子：`01:11:00` 意思是 `1:11`（表格把比率存成了时间值） */
+const TIME_RE = /^(\d{1,2}):(\d{2}):(\d{2})$/;
+/** 天数序列值的坏格子：`4.4444444444444446E-2` 是 0.0444 天，也就是同上的 1 小时 4 分 */
+const SERIAL_RE = /^(\d+(?:\.\d+)?)[eE]-(\d+)$/;
+
+/** 时间（小时:分）还原成配率：`1:11` 是 11 包出一张 */
+const timeToOdds = (hours, minutes) => (hours ? minutes / hours : null);
+
 /** 把 `1:X` / `A:B` / 裸数字换算成「平均多少包出一张」 */
 const toOdds = (token) => {
     if (token === "-") return null;
+    // 表格里个别配率被存成了时间值，PDF 里印出来就是一串 `时:分:秒`。
+    // 换算回 `时:分` 才是原本的比率：`01:11:00` → `1:11` → 11 包一张。
+    const time = TIME_RE.exec(token);
+    if (time) return timeToOdds(Number(time[1]), Number(time[2]));
+    const serial = SERIAL_RE.exec(token);
+    if (serial) {
+        const seconds = Math.round(Number(`${serial[1]}e-${serial[2]}`) * 86400);
+        return timeToOdds(Math.floor(seconds / 3600), Math.floor((seconds % 3600) / 60));
+    }
     const parts = token.split(":").map((part) => part.trim());
     if (parts.length === 2) {
         const left = Number(parts[0].replace(/,/g, ""));
@@ -354,7 +402,7 @@ const parse = (text, columns, options = {}) => {
     return { rows, warnings, ambiguous };
 };
 
-const render = (rows, columns, sourceName, extraArgs = "", fixes = []) => {
+const render = (rows, columns, sourceName, extraArgs = "", fixes = [], origin = null) => {
     const ids = columns.map(slugify);
     const out = [];
 
@@ -362,6 +410,7 @@ const render = (rows, columns, sourceName, extraArgs = "", fixes = []) => {
     out.push(" * 发行商官方 Pack Odds 表（自动生成，请勿手工编辑）。");
     out.push(" *");
     out.push(` * 来源：${sourceName}（Topps 官方 Pack Odds PDF 的文本提取件）。`);
+    if (origin) out.push(` * 预处理：${origin}`);
     out.push(` * 重新生成：node scripts/import-pack-odds.mjs <${sourceName}> <本文件> "${columns.join(",")}"${extraArgs}`);
     out.push(" *");
     out.push(" * odds 是「平均多少包出一张」：官方表的 `1:X` 直接取 X，`A:B` 取 B / A。");
@@ -403,19 +452,22 @@ const main = () => {
     const [source, target, columnArg] = args.filter((arg) => !arg.startsWith("--"));
     if (!source || !target || !columnArg) {
         console.error(
-            '用法：node scripts/import-pack-odds.mjs <pack-odds.txt> <输出 .ts> "渠道1,渠道2,..." [--relaxed] [--labels=plain.txt]',
+            '用法：node scripts/import-pack-odds.mjs <pack-odds.txt> <输出 .ts> "渠道1,渠道2,..." [--relaxed] [--labels=plain.txt] [--from=说明]',
         );
         process.exit(1);
     }
 
     const relaxed = flags.includes("--relaxed");
     const labelsArg = flags.find((flag) => flag.startsWith("--labels="));
+    const fromArg = flags.find((flag) => flag.startsWith("--from="));
     const columns = columnArg
         .split(",")
         .map((name) => name.trim())
         .filter(Boolean);
     const sourcePath = resolve(source);
-    const productKey = dirname(sourcePath).split(sep).pop();
+    // 补丁表按产品目录名索引，取输出文件的目录名：提取件有时是 `.snapshot/` 里的中间件，
+    // 按它的目录名找不到产品，而输出文件总是落在产品目录下。
+    const productKey = dirname(resolve(target)).split(sep).pop();
 
     const dictionary = labelsArg
         ? labelDictionary(readFileSync(resolve(labelsArg.slice("--labels=".length)), "utf8"))
@@ -473,7 +525,14 @@ const main = () => {
     mkdirSync(dirname(outputPath), { recursive: true });
     writeFileSync(
         outputPath,
-        render(parsed.rows, columns, basename(source), extraArgs, fixes),
+        render(
+            parsed.rows,
+            columns,
+            basename(source),
+            extraArgs,
+            fixes,
+            fromArg ? fromArg.slice("--from=".length) : null,
+        ),
         "utf8",
     );
 
